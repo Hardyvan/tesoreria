@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "311039555974",
+    "project_id": "insoft-tesoreria",
+    "storage_bucket": "insoft-tesoreria.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:311039555974:android:dd4bef45d7c1b4d96e1407",
+        "android_client_info": {
+          "package_name": "com.example.tesoreria_ivan"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "311039555974-53daf4l3br4vfsk3vrsvkjthqiqt71e4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.tesoreria_ivan",
+            "certificate_hash": "791909af4385dce0a407551fbb440c8aa91a9b8c"
+          }
+        },
+        {
+          "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBR4Y5ThpoqppLIDTcTQPZQ9RkTsQtjHaM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
