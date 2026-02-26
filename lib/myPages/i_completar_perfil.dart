@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../myPagesTema/a_tema_app.dart';
-import '../myPagesTema/b_componentes_globales.dart';
+import 'package:dsi/myPagesTema/a_tema.dart';
+import 'package:dsi/myPagesTema/c_ui_kit.dart';
 import '../myPagesBack/a_controlador_auth.dart';
 import '../myMenu/b_rutas_app.dart';
+import 'dart:async';
 
 class PantallaCompletarPerfil extends StatefulWidget {
   const PantallaCompletarPerfil({super.key});
@@ -20,7 +21,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
   final direccionCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
   
-  String sexoSeleccionado = 'Masculino';
+  String? sexoSeleccionado;
   bool _cargando = false;
 
   @override
@@ -30,9 +31,9 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     final user = auth.usuarioActual;
 
     return Scaffold(
-      backgroundColor: ColoresApp.fondo,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Completar Perfil"),
+        title: const Text('Completar Perfil'),
         automaticallyImplyLeading: false, // No permitir volver atrás sin completar
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -49,7 +50,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                   const Icon(Icons.security_update_good, size: 60, color: ColoresApp.primario),
+                   Icon(Icons.security_update_good, size: 60, color: Theme.of(context).primaryColor),
                    const SizedBox(height: 16),
                    Text(
                     "¡Casi listo, ${user?.nombre ?? 'Usuario'}!",
@@ -60,7 +61,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "Para continuar, necesitamos algunos datos adicionales para tu ficha de alumno.",
+                    'Para continuar, necesitamos algunos datos adicionales para tu ficha de alumno.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey),
                   ),
@@ -69,15 +70,17 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                   // Llenar Datos Faltantes
                   CampoTextoPersonalizado(
                     controller: celularCtrl,
-                    label: "Celular",
+                    label: 'Celular',
                     prefixIcon: Icons.phone,
                     keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
                   CampoTextoPersonalizado(
                     controller: direccionCtrl,
-                    label: "Dirección (Opcional)",
+                    label: 'Dirección (Opcional)',
                     prefixIcon: Icons.home,
+                    textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
                   
@@ -87,9 +90,10 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                         flex: 2, // Menos espacio para la edad
                         child: CampoTextoPersonalizado(
                           controller: edadCtrl,
-                          label: "Edad", // Etiqueta más corta
+                          label: 'Edad', // Etiqueta más corta
                           prefixIcon: Icons.cake,
                           keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -97,18 +101,32 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                         flex: 3, // Más espacio para el texto "Masculino/Femenino"
                         child: DropdownButtonFormField<String>(
                           initialValue: sexoSeleccionado,
-                          isExpanded: true, // Evita overflow interno en el dropdown
+                          isExpanded: true,
                           decoration: InputDecoration(
-                            labelText: "Sexo",
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            prefixIcon: const Icon(Icons.wc),
+                            labelText: 'Sexo (Opcional)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                            ),
+                            prefixIcon: Icon(Icons.wc, color: Theme.of(context).primaryColor),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
                           ),
+                          hint: const Text('Selec.'),
                           items: const [
                             DropdownMenuItem(value: 'Masculino', child: Text('Masculino', overflow: TextOverflow.ellipsis)),
                             DropdownMenuItem(value: 'Femenino', child: Text('Femenino', overflow: TextOverflow.ellipsis)),
                           ],
-                          onChanged: (val) => setState(() => sexoSeleccionado = val!),
+                          onChanged: (val) => setState(() => sexoSeleccionado = val),
                         ),
                       ),
                     ],
@@ -116,14 +134,12 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
 
                   const SizedBox(height: 24),
 
-                  if (_cargando)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    BotonGradiente(
-                      text: "Guardar Datos",
-                      icon: Icons.save,
-                      onPressed: _guardarDatos,
-                    ),
+                  BotonGradiente(
+                    text: 'Guardar Datos',
+                    icon: Icons.save,
+                    isLoading: _cargando,
+                    onPressed: _guardarDatos,
+                  ),
                   
                   const SizedBox(height: 10),
                   TextButton(
@@ -131,7 +147,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                         auth.cerrarSesion();
                         Navigator.pop(context);
                     }, 
-                    child: const Text("Cancelar y Salir", style: TextStyle(color: ColoresApp.error))
+                    child: const Text('Cancelar y Salir', style: TextStyle(color: ColoresApp.error))
                   )
                 ],
               ),
@@ -148,7 +164,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     // VALIDACIÓN: Celular es lo único obligatorio
     if (celularCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("El celular es obligatorio para continuar"))
+        const SnackBar(content: Text('El celular es obligatorio para continuar'))
       );
       return;
     }
@@ -160,7 +176,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
       celular: celularCtrl.text.trim(),
       direccion: direccionCtrl.text.trim(), // Opcional
       edad: int.tryParse(edadCtrl.text) ?? 0, // Opcional
-      sexo: sexoSeleccionado,
+      sexo: sexoSeleccionado ?? 'No especificado',
     );
 
     if (!mounted) return;
@@ -168,10 +184,10 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
 
     if (exito) {
       // Éxito -> Ir al Menu
-      Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal);
+      unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error al guardar perfil. Intente nuevamente."), backgroundColor: ColoresApp.error),
+        const SnackBar(content: Text('Error al guardar perfil. Intente nuevamente.'), backgroundColor: ColoresApp.error),
       );
     }
   }

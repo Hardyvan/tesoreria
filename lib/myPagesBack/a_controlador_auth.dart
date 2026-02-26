@@ -2,11 +2,11 @@ import 'dart:io'; // Para manejar archivos
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart'; 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; 
 import 'package:firebase_storage/firebase_storage.dart'; // Storage
 import 'modelo_usuario.dart';
-import '../myPagesServer/b_base_datos_remota.dart'; 
-import '../myPagesServer/c_base_datos_local.dart'; 
+import '../myPagesServer/b_base_datos_remota.dart';
+import '../myPagesServer/c_base_datos_local.dart';
 
 class ControladorAuth extends ChangeNotifier {
   Usuario? _usuarioActual;
@@ -15,13 +15,18 @@ class ControladorAuth extends ChangeNotifier {
   // Variables para "Recordar Usuario"
   bool _recordarUsuario = false;
   String _emailGuardado = '';
+  String _passwordGuardado = '';
+
+  // Instancia de almacenamiento seguro (AES encryption)
+  final _storage = const FlutterSecureStorage();
 
   Usuario? get usuarioActual => _usuarioActual;
   bool get cargando => _cargando;
-  bool get esAdmin => _usuarioActual?.rol == 'Admin';
+  bool get esAdmin => _usuarioActual?.rol == 'Admin' || _usuarioActual?.rol == 'SuperAdmin';
   // Getters para UI
   bool get recordarUsuario => _recordarUsuario;
   String get emailGuardado => _emailGuardado;
+  String get passwordGuardado => _passwordGuardado;
 
   // ---------------------------------------------------------------------------
   // NUEVO: SUBIR IMAGEN A STORAGE
@@ -33,7 +38,7 @@ class ControladorAuth extends ChangeNotifier {
       // 1. Nombre único (fotos_perfil/uid_timestamp.jpg)
       // Usamos el UID del usuario o 'anonimo' si es nuevo
       String uid = FirebaseAuth.instance.currentUser?.uid ?? 'nuevo_${DateTime.now().millisecondsSinceEpoch}';
-      String nombreArchivo = "fotos_perfil/${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      String nombreArchivo = 'fotos_perfil/${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       
       // 2. Referencia
       final ref = FirebaseStorage.instance.ref().child(nombreArchivo);
@@ -46,7 +51,7 @@ class ControladorAuth extends ChangeNotifier {
       return url;
       
     } catch (e) {
-      debugPrint("Error subiendo imagen: $e");
+      debugPrint('Error subiendo imagen: $e');
       return null;
     } finally {
       _cargando = false;
@@ -66,16 +71,12 @@ class ControladorAuth extends ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       
       if (user != null) {
-        debugPrint("Sesión encontrada: ${user.email}");
+        debugPrint('Sesión encontrada: ${user.email}');
         
         // B. Revalidar contra MySQL (Para traer rol y datos frescos)
-        final error = await _validarUsuarioEnMySQL(
-          user.email!, 
-          user.displayName ?? 'Usuario', 
-          user.photoURL ?? ''
-        );
+        final error = await _sincronizarUsuario(user);
         
-        if (error == null || error == "UsuarioIncompleto") {
+        if (error == null || error == 'UsuarioIncompleto') {
            // Éxito o Parcialmente Éxito (dejar pasar a completar perfil)
            return true; 
         }
@@ -85,7 +86,7 @@ class ControladorAuth extends ChangeNotifier {
       await cargarPreferencias();
 
     } catch (e) {
-      debugPrint("Error verificando sesión: $e");
+      debugPrint('Error verificando sesión: $e');
     } finally {
       _cargando = false;
       notifyListeners();
@@ -94,38 +95,41 @@ class ControladorAuth extends ChangeNotifier {
   }
   
   // ---------------------------------------------------------------------------
-  // PREFERENCIAS (SharedPreferences)
+  // PREFERENCIAS (Flutter Secure Storage - Encriptado)
   // ---------------------------------------------------------------------------
   Future<void> cargarPreferencias() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _recordarUsuario = prefs.getBool('recordar_usuario') ?? false;
-      _emailGuardado = prefs.getString('email_guardado') ?? '';
+      String? recordarFlag = await _storage.read(key: 'recordar_usuario');
+      _recordarUsuario = recordarFlag == 'true';
+      _emailGuardado = await _storage.read(key: 'email_guardado') ?? '';
+      _passwordGuardado = await _storage.read(key: 'password_guardado') ?? '';
       notifyListeners();
     } catch (e) {
-      debugPrint("Error cargando prefs: $e");
+      debugPrint('Error cargando prefs seguras: $e');
     }
   }
 
-  Future<void> guardarPreferencias(String email, bool recordar) async {
+  Future<void> guardarPreferencias(String email, String password, bool recordar) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       if (recordar) {
-        await prefs.setBool('recordar_usuario', true);
-        await prefs.setString('email_guardado', email);
+        await _storage.write(key: 'recordar_usuario', value: 'true');
+        await _storage.write(key: 'email_guardado', value: email);
+        await _storage.write(key: 'password_guardado', value: password);
       } else {
-        await prefs.remove('recordar_usuario');
-        await prefs.remove('email_guardado');
+        await _storage.delete(key: 'recordar_usuario');
+        await _storage.delete(key: 'email_guardado');
+        await _storage.delete(key: 'password_guardado');
       }
       _recordarUsuario = recordar;
       _emailGuardado = email;
+      _passwordGuardado = recordar ? password : '';
     } catch (e) {
-      debugPrint("Error guardando prefs: $e");
+      debugPrint('Error guardando prefs seguras: $e');
     }
   }
 
   // ---------------------------------------------------------------------------
-  // 1. INICIO DE SESIÓN INTEGRADO (Manual: Admin, Test o Firebase)
+  // 1. INICIO DE SESIÃ“N INTEGRADO (Manual: Admin, Test o Firebase)
   // ---------------------------------------------------------------------------
   Future<String?> iniciarSesion(String usuario, String password) async {
     _cargando = true;
@@ -134,7 +138,7 @@ class ControladorAuth extends ChangeNotifier {
     try {
       // A. CREDENCIALES HARDCODED (Legacy/Admin)
       final userLower = usuario.trim().toLowerCase();
-      if ((userLower == 'admin' || usuario == '999999999') && password == 'admin123') {
+      if ((userLower == 'ivanadmin' || usuario == '999999999') && password == 'logan1992') {
         _usuarioActual = Usuario(id: 1, nombre: 'Administrador', celular: '999999999', email: 'admin@insoft.pe', fotoUrl: '', rol: 'Admin');
         return null;
       } else if (usuario == '123456789') {
@@ -142,9 +146,9 @@ class ControladorAuth extends ChangeNotifier {
         return null; 
       }
       
-      // B. AUTENTICACIÓN FIREBASE (Real para Alumnos)
+      // B. AUTENTICACIÃ“N FIREBASE (Real para Alumnos)
       // Nota: Input 'usuario' se asume que es el email. 
-      // Si el usuario ingresa celular, no funcionará con Firebase Auth directo (requiere mapeo),
+      // Si el usuario ingresa celular, no funcionarÃ¡ con Firebase Auth directo (requiere mapeo),
       // pero por ahora asumimos que ingresa su CORREO.
       
       try {
@@ -157,27 +161,23 @@ class ControladorAuth extends ChangeNotifier {
            // 1. Validar si el correo fue verificado (Solo para Email/Pass)
            // Los de Google suelen venir verificados por defecto, pero esto asegura calidad.
            if (!userCredential.user!.emailVerified) {
-             return "Debes validar tu correo antes de ingresar. Revisa tu bandeja.";
+             return 'Debes validar tu correo antes de ingresar. Revisa tu bandeja.';
            }
 
-           return await _validarUsuarioEnMySQL(
-             userCredential.user!.email!, 
-             userCredential.user!.displayName ?? 'Usuario', 
-             userCredential.user!.photoURL ?? ''
-           );
+           return await _sincronizarUsuario(userCredential.user!);
         }
       } on FirebaseAuthException catch (e) {
         if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-email') {
-           return "Usuario o contraseña incorrectos.";
+           return 'Usuario o contraseÃ±a incorrectos.';
         }
-        return "Error de acceso: ${e.message}";
+        return 'Error de acceso: ${e.message}';
       }
 
-      return "Credenciales incorrectas.";
+      return 'Credenciales incorrectas.';
 
     } catch (e) {
       debugPrint('Error en login manual: $e');
-      return "Error interno: $e";
+      return 'Error interno: $e';
     } finally {
       _cargando = false;
       notifyListeners();
@@ -185,7 +185,7 @@ class ControladorAuth extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. INICIO DE SESIÓN CON GOOGLE
+  // 2. INICIO DE SESIÃ“N CON GOOGLE
   // ---------------------------------------------------------------------------
   Future<String?> ingresarConGoogle() async {
     _cargando = true;
@@ -198,7 +198,7 @@ class ControladorAuth extends ChangeNotifier {
       if (googleUser == null) {
         _cargando = false;
         notifyListeners();
-        return "Inicio de sesión cancelado por el usuario.";
+        return 'Inicio de sesiÃ³n cancelado por el usuario.';
       }
 
       // B. OBTENER CREDENCIALES
@@ -208,60 +208,80 @@ class ControladorAuth extends ChangeNotifier {
         idToken: googleAuth.idToken,
       );
 
-      // C. INICIAR SESIÓN EN FIREBASE
+      // C. INICIAR SESIÃ“N EN FIREBASE
       final UserCredential userCredential = 
           await FirebaseAuth.instance.signInWithCredential(credential);
       final User? user = userCredential.user;
 
       if (user != null) {
-        final String email = user.email ?? "";
-        final String nombre = user.displayName ?? "Sin nombre";
-        final String fotoUrl = user.photoURL ?? "";
-
-        // D. CONECTAR CON MYSQL (Lógica de Negocio)
+        // D. CONECTAR CON MYSQL (LÃ³gica de Negocio)
         // Validar usuario en MySQL y propagar error si falla
-        return await _validarUsuarioEnMySQL(email, nombre, fotoUrl);
+        return await _sincronizarUsuario(user);
       }
       
-      return "No se pudo obtener la información del usuario de Google.";
+      return 'No se pudo obtener la informaciÃ³n del usuario de Google.';
 
     } on FirebaseAuthException catch (e) {
-      debugPrint("Error Firebase Auth: ${e.code} - ${e.message}");
-      return "Error de Firebase: ${e.message}";
+      debugPrint('Error Firebase Auth: ${e.code} - ${e.message}');
+      return 'Error de Firebase: ${e.message}';
     } catch (e) {
-      debugPrint("Error Google Auth: $e");
-      return "Error inesperado al iniciar con Google: $e";
+      debugPrint('Error Google Auth: $e');
+      return 'Error inesperado al iniciar con Google: $e';
     } finally {
       _cargando = false;
       notifyListeners();
     }
   }
 
-  // 126: _validarUsuarioEnMySQL
-  Future<String?> _validarUsuarioEnMySQL(String email, String nombre, String foto) async {
+  // SincronizaciÃ³n UID/Email
+  Future<String?> _sincronizarUsuario(User firebaseUser) async {
     final db = BaseDatosRemota();
     try {
       final conn = await db.obtenerConexion();
+      final String email = firebaseUser.email ?? '';
+      final String uid = firebaseUser.uid;
+      final String nombre = firebaseUser.displayName ?? 'Usuario';
+      final String foto = firebaseUser.photoURL ?? '';
 
-      // 1. BUSCAR SI EL USUARIO YA EXISTE
+      // 1. BUSCAR POR UID
       var results = await conn.query(
-        'SELECT id, nombre, celular, email, foto_url, rol, direccion, edad, sexo, estado FROM salon_usuarios WHERE email = ?', 
-        [email]
+        'SELECT id, uid, nombre, celular, email, foto_url, rol, direccion, edad, sexo, estado FROM DSI_salon_usuarios WHERE uid = ?', 
+        [uid]
       );
 
+      // 2. SI NO EXISTE POR UID, BUSCAR POR EMAIL (Legacy Link)
+      if (results.isEmpty && email.isNotEmpty) {
+        results = await conn.query(
+          'SELECT id, uid, nombre, celular, email, foto_url, rol, direccion, edad, sexo, estado FROM DSI_salon_usuarios WHERE email = ?', 
+          [email]
+        );
+        
+        // Si lo encontramos por email pero no tenÃ­a UID, ACTUALIZAMOS SU UID
+        if (results.isNotEmpty) {
+          final idLegacy = results.first['id'];
+          await conn.query('UPDATE DSI_salon_usuarios SET uid = ? WHERE id = ?', [uid, idLegacy]);
+          // (Opcional) Actualizar foto si viene de Google y no tenÃ­a
+          if (foto.isNotEmpty) {
+             await conn.query('UPDATE DSI_salon_usuarios SET foto_url = ? WHERE id = ? AND (foto_url IS NULL OR foto_url = "")', [foto, idLegacy]);
+          }
+        }
+      }
+
       if (results.isNotEmpty) {
-        // A. EXISTE
+        // A. EXISTE (Ya sea por UID o por Email vinculado)
         final fila = results.first;
         final direccion = _convertirAString(fila['direccion']);
         final celular = _convertirAString(fila['celular']);
         final estado = _convertirAString(fila['estado'] ?? 'activo');
+        final uidDb = _convertirAString(fila['uid']);
 
         if (estado == 'inactivo') {
-          return "Tu cuenta ha sido bloqueada. Contacta al administrador.";
+          return 'Tu cuenta ha sido bloqueada. Contacta al administrador.';
         }
 
         _usuarioActual = Usuario(
           id: fila['id'],
+          uid: uidDb.isEmpty ? uid : uidDb, // Asegurar tener el UID en memoria
           nombre: _convertirAString(fila['nombre']),
           celular: celular,
           email: _convertirAString(fila['email']),
@@ -273,28 +293,35 @@ class ControladorAuth extends ChangeNotifier {
           estado: estado,
         );
         
-        // Si falta CELULAR, pedimos completar perfil. DIRECCIÓN YA ES OPCIONAL.
+        // Si falta CELULAR, pedimos completar perfil. DIRECCIÃ“N YA ES OPCIONAL.
         if (celular.isEmpty) {
-           return "UsuarioIncompleto"; 
+           return 'UsuarioIncompleto'; 
         }
         
-        return null; // Éxito total
+        return null; // Ã‰xito total
       
       } else {
-        // B. NO EXISTE (Usuario Nuevo)
+        // B. NO EXISTE (Usuario Nuevo TOTAL)
+        // Insertamos con UID
+        final resultInsert = await conn.query(
+          'INSERT INTO DSI_salon_usuarios (uid, nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+          [uid, nombre, email, '', '', 0, '', foto, 'Alumno']
+        );
+
         _usuarioActual = Usuario(
-          id: 0, 
+          id: resultInsert.insertId!, 
+          uid: uid,
           nombre: nombre,
           celular: '',
           email: email,
           fotoUrl: foto,
           rol: 'Alumno',
         );
-        return "UsuarioNuevo"; 
+        return 'UsuarioNuevo'; 
       }
     } catch (e) {
-      // ... Error handling ...
-      return "Error DB: $e";
+      debugPrint('Error SQL Fase 1: $e');
+      return 'Error DB: $e';
     }
   }
 
@@ -319,10 +346,10 @@ class ControladorAuth extends ChangeNotifier {
         password: password,
       );
 
-      if (credential.user == null) return "Error creando usuario en Firebase.";
+      if (credential.user == null) return 'Error creando usuario en Firebase.';
 
-      // 2. CONFIGURAR IDIOMA Y ENVIAR EMAIL DE VERIFICACIÓN
-      await FirebaseAuth.instance.setLanguageCode('es'); // Forzar Español
+      // 2. CONFIGURAR IDIOMA Y ENVIAR EMAIL DE VERIFICACIÃ“N
+      await FirebaseAuth.instance.setLanguageCode('es'); // Forzar EspaÃ±ol
       await credential.user!.sendEmailVerification();
 
       // 3. Guardar en MySQL
@@ -330,17 +357,17 @@ class ControladorAuth extends ChangeNotifier {
       final conn = await db.obtenerConexion();
       
       await conn.query(
-        'INSERT INTO salon_usuarios (nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+        'INSERT INTO DSI_salon_usuarios (nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
         [nombre, email, celular, direccion, edad, sexo, '', 'Alumno']
       );
 
-      // (Nota: No seteamos _usuarioActual si queremos forzar el login después de verificar)
+      // (Nota: No seteamos _usuarioActual si queremos forzar el login despuÃ©s de verificar)
       
-      return "VERIFICACION_ENVIADA"; 
+      return 'VERIFICACION_ENVIADA'; 
 
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        // INTENTO DE RECUPERACIÓN (Para usuarios borrados de SQL pero vivos en Firebase)
+        // INTENTO DE RECUPERACIÃ“N (Para usuarios borrados de SQL pero vivos en Firebase)
         try {
           final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
             email: email, 
@@ -350,22 +377,22 @@ class ControladorAuth extends ChangeNotifier {
           if (userCredential.user != null) {
             final db = BaseDatosRemota();
             final conn = await db.obtenerConexion();
-            var results = await conn.query('SELECT id FROM salon_usuarios WHERE email = ?', [email]);
+            var results = await conn.query('SELECT id FROM DSI_salon_usuarios WHERE email = ?', [email]);
             
             if (results.isEmpty) {
                // RE-CREAR USER ORPHAN
                final resultInsert = await conn.query(
-                'INSERT INTO salon_usuarios (nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+                'INSERT INTO DSI_salon_usuarios (nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
                 [nombre, email, celular, direccion, edad, sexo, '', 'Alumno']
               );
 
-              // Si re-creamos, verificamos validación
+              // Si re-creamos, verificamos validaciÃ³n
               if (!userCredential.user!.emailVerified) {
                   await userCredential.user!.sendEmailVerification();
-                  return "VERIFICACION_ENVIADA"; // Recuperado pero no validado
+                  return 'VERIFICACION_ENVIADA'; // Recuperado pero no validado
               }
               
-              // SI YA ESTÁ VALIDADO, LO DEJAMOS PASAR
+              // SI YA ESTÃ VALIDADO, LO DEJAMOS PASAR
               _usuarioActual = Usuario(
                 id: resultInsert.insertId!,
                 nombre: nombre,
@@ -377,18 +404,18 @@ class ControladorAuth extends ChangeNotifier {
                 edad: edad,
                 sexo: sexo
               );
-              return null; // Éxito total (Recuperado y Validado)
+              return null; // Ã‰xito total (Recuperado y Validado)
             }
           }
         } catch (loginError) {
-          // Fallo recuperación
+          // Fallo recuperaciÃ³n
         }
 
-        return "Este correo ya está registrado. Si ya lo validaste, inicia sesión.";
+        return 'Este correo ya estÃ¡ registrado. Si ya lo validaste, inicia sesiÃ³n.';
       }
-      return "Error Firebase: ${e.message}";
+      return 'Error Firebase: ${e.message}';
     } catch (e) {
-      return "Error interno: $e";
+      return 'Error interno: $e';
     } finally {
       _cargando = false;
       notifyListeners();
@@ -409,14 +436,14 @@ class ControladorAuth extends ChangeNotifier {
       if (_usuarioActual!.id == 0) {
         // CASO 1: Usuario Nuevo de Google (INSERT)
         final resultInsert = await conn.query(
-          'INSERT INTO salon_usuarios (nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+          'INSERT INTO DSI_salon_usuarios (nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
           [_usuarioActual!.nombre, _usuarioActual!.email, celular, direccion, edad, sexo, _usuarioActual!.fotoUrl, 'Alumno']
         );
          _usuarioActual = _usuarioActual!.copyWith(id: resultInsert.insertId);
       } else {
         // CASO 2: Usuario Existente pero incompleto (UPDATE)
         await conn.query(
-          'UPDATE salon_usuarios SET celular = ?, direccion = ?, edad = ?, sexo = ? WHERE id = ?',
+          'UPDATE DSI_salon_usuarios SET celular = ?, direccion = ?, edad = ?, sexo = ? WHERE id = ?',
           [celular, direccion, edad, sexo, _usuarioActual!.id]
         );
       }
@@ -433,7 +460,7 @@ class ControladorAuth extends ChangeNotifier {
       return true;
 
     } catch (e) {
-      debugPrint("Error al completar perfil: $e");
+      debugPrint('Error al completar perfil: $e');
       return false;
     }
   }
@@ -442,7 +469,7 @@ class ControladorAuth extends ChangeNotifier {
   String _convertirAString(dynamic valor) {
     if (valor == null) return '';
     if (valor is String) return valor;
-    // Si viene como Blob (Instance of Blob), forzamos su conversión
+    // Si viene como Blob (Instance of Blob), forzamos su conversiÃ³n
     return valor.toString();
   }
 
@@ -470,21 +497,21 @@ class ControladorAuth extends ChangeNotifier {
         final conn = await db.obtenerConexion();
         
         await conn.query(
-          'UPDATE salon_usuarios SET celular = ? WHERE id = ?',
+          'UPDATE DSI_salon_usuarios SET celular = ? WHERE id = ?',
           [nuevoCelular, _usuarioActual!.id]
         );
 
-        // Si tuvo éxito, marcamos como sincronizado en local
+        // Si tuvo Ã©xito, marcamos como sincronizado en local
         await BaseDatosLocal.instance.marcarSincronizado(_usuarioActual!.id);
-        debugPrint("Celular actualizado en Nube ✅");
+        debugPrint('Celular actualizado en Nube âœ…');
         
       } catch (e) {
-        debugPrint("Sin internet: Cambio guardado localmente para subir después ⏳");
+        debugPrint('Sin internet: Cambio guardado localmente para subir despuÃ©s â³');
       }
       
       return true;
     } catch (e) {
-      debugPrint("Error actualizando celular local: $e");
+      debugPrint('Error actualizando celular local: $e');
       return false;
     }
   }
@@ -510,20 +537,20 @@ class ControladorAuth extends ChangeNotifier {
         final conn = await db.obtenerConexion();
         
         await conn.query(
-          'UPDATE salon_usuarios SET foto_url = ? WHERE id = ?',
+          'UPDATE DSI_salon_usuarios SET foto_url = ? WHERE id = ?',
           [nuevaUrl, _usuarioActual!.id]
         );
 
         await BaseDatosLocal.instance.marcarSincronizado(_usuarioActual!.id);
-        debugPrint("Foto actualizada en Nube ✅");
+        debugPrint('Foto actualizada en Nube âœ…');
         
       } catch (e) {
-        debugPrint("Sin internet: Foto guardada localmente para subir después ⏳");
+        debugPrint('Sin internet: Foto guardada localmente para subir despuÃ©s â³');
       }
       
       return true;
     } catch (e) {
-      debugPrint("Error actualizando foto: $e");
+      debugPrint('Error actualizando foto: $e');
       return false;
     }
   }
@@ -533,8 +560,8 @@ class ControladorAuth extends ChangeNotifier {
   Future<void> cerrarSesion() async {
     _usuarioActual = null;
     await FirebaseAuth.instance.signOut();
-    // Usamos disconnect() en lugar de signOut() para que la próxima vez 
-    // Google VUELVA A PREGUNTAR qué cuenta usar (Account Picker).
+    // Usamos disconnect() en lugar de signOut() para que la prÃ³xima vez 
+    // Google VUELVA A PREGUNTAR quÃ© cuenta usar (Account Picker).
     try {
       await GoogleSignIn().disconnect(); 
     } catch (e) {

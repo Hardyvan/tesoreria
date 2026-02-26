@@ -21,20 +21,4 @@ class Actividad {
   }
 }
 
-class Pago {
-  final int id;
-  final int usuarioId;
-  final int actividadId;
-  final double montoPagado;
-  final DateTime fechaPago;
-  final bool confirmado;
 
-  Pago({
-    required this.id,
-    required this.usuarioId,
-    required this.actividadId,
-    required this.montoPagado,
-    required this.fechaPago,
-    required this.confirmado,
-  });
-}

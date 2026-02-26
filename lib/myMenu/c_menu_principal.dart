@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../myPagesBack/a_controlador_auth.dart';
-
-// Importamos las vistas
 import '../myPages/d_lista_deudores.dart';
-import '../myPages/c_registro_pagos.dart';
 import '../myPages/h_perfil_usuario.dart';
-import '../myPages/b_crear_actividad.dart';
+import '../myPages/g_reporte_financiero.dart';
+import '../myPages/i_auditoria_admin.dart';
+import '../myPages/e_gestion_actividades.dart';
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
@@ -34,42 +33,53 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<ControladorAuth>(context, listen: false);
-    final esAdmin = auth.esAdmin;
-
-    // DEFINICIÓN DINÁMICA DE VISTAS SEGÚN ROL
+    // DEFINICIÓN DINÁMICA DE VISTAS (IGUAL PARA TODOS)
     List<Widget> vistas = [];
     List<NavigationDestination> botonesVavegacion = [];
 
-    // 1. Dashboard / Deudores (Para todos o solo Admin?)
-    // Asumiremos que todos pueden ver el semáforo, pero solo admin edita
+    // 1. Estado (Lista de Deudores Global - Transparencia Total)
     vistas.add(const ListaDeudores());
     botonesVavegacion.add(const NavigationDestination(
-      icon: Icon(Icons.dashboard_outlined),
+      icon: Icon(Icons.people_alt_outlined),
       label: 'Estado',
     ));
 
-    // 2. Registro de Pagos (Solo Admin registra, Alumnos ven historial propio)
-    if (esAdmin) {
-      vistas.add(const RegistroPagos());
+
+
+    // 2. Reportes (Kardex Global - Transparencia Total)
+    vistas.add(const ReporteFinanciero());
+    botonesVavegacion.add(const NavigationDestination(
+      icon: Icon(Icons.assessment_outlined),
+      label: 'Reportes',
+    ));
+
+    // 3. Gestión de Actividades (SOLO ADMIN/SUPER ADMIN)
+    final auth = Provider.of<ControladorAuth>(context);
+    final esAdminOpe = auth.usuarioActual?.rol == 'Admin' || auth.usuarioActual?.rol == 'SuperAdmin';
+    if (esAdminOpe) {
+      vistas.add(const GestionActividades());
       botonesVavegacion.add(const NavigationDestination(
-        icon: Icon(Icons.payment),
-        label: 'RegistrarPago',
-      ));
-      
-      vistas.add(const CrearActividad());
-      botonesVavegacion.add(const NavigationDestination(
-        icon: Icon(Icons.add_circle_outline),
-        label: 'Crear Actividad',
+        icon: Icon(Icons.event_note_outlined),
+        label: 'Actividades',
       ));
     }
 
-    // 3. Perfil (Para todos)
+    // 4. Perfil (Para todos)
     vistas.add(const PerfilUsuario());
     botonesVavegacion.add(const NavigationDestination(
       icon: Icon(Icons.person_outline),
       label: 'Mi Perfil',
     ));
+
+    // 5. Auditoría (SOLO SUPER ADMIN)
+    if (auth.usuarioActual?.rol == 'SuperAdmin') {
+      // Importar arriba: import '../myPages/i_auditoria_admin.dart';
+      vistas.add(const AuditoriaAdmin());
+      botonesVavegacion.add(const NavigationDestination(
+        icon: Icon(Icons.security, color: Colors.red),
+        label: 'Auditoría',
+      ));
+    }
 
 
 

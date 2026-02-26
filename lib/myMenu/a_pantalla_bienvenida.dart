@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import '../myPagesTema/a_tema_app.dart';
+
+
 import '../myPagesBack/a_controlador_auth.dart';
 import 'c_menu_principal.dart';
 import '../myPages/a_inicio_sesion.dart';
 import '../myPages/i_completar_perfil.dart';
+import '../myPagesBack/a_servicio_notificaciones.dart';
 
 class PantallaBienvenida extends StatefulWidget {
   const PantallaBienvenida({super.key});
@@ -56,9 +59,13 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
       // Y TAMBIÉN verificamos la sesión (Optimización de tiempo)
       final auth = Provider.of<ControladorAuth>(context, listen: false);
       
+      // Iniciamos notificaciones en segundo plano (Fire and forget, no bloquea UI)
+      unawaited(ServicioNotificaciones().inicializar());
+      
       await Future.wait([
         _controlador.forward().orCancel,
         Future.delayed(const Duration(milliseconds: 2800)),
+
         auth.verificarSesion(), // Hacemos la verificación aquí
       ]);
 
@@ -110,7 +117,7 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
   Widget build(BuildContext context) {
     // Usamos el color de fondo definido en el tema
     return Scaffold(
-      backgroundColor: ColoresApp.fondoClaro,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -142,10 +149,10 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: ColoresApp.fondoClaro, // Fondo blanco para que resalte el logo
+          color: Theme.of(context).colorScheme.surface, // Fondo adaptativo para que resalte el logo
           boxShadow: [
             BoxShadow(
-              color: ColoresApp.primario.withValues(alpha: 0.2),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
               blurRadius: 30,
               spreadRadius: 5,
               offset: const Offset(0, 10),
@@ -154,14 +161,14 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
         ),
         child: ClipOval(
           child: Image.asset(
-            'assets/logo/gallos.png', // Tu archivo de imagen
+            'assets/logo/DSI.png', // Tu archivo de imagen
             width: 250,
             height: 250,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const Icon(
+            errorBuilder: (context, error, stackTrace) => Icon(
               Icons.savings, // Icono de tesorería/chanchito por defecto si no hay imagen
               size: 150, // Ajustado
-              color: ColoresApp.primario
+              color: Theme.of(context).primaryColor
             ),
           ),
         ),
@@ -174,22 +181,22 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
       opacity: _opacidadAnimacion,
       child: Column(
         children: [
-          const SizedBox(
+          SizedBox(
             width: 30,
             height: 30,
             child: CircularProgressIndicator(
               strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(ColoresApp.primario),
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
             ),
           ),
           const SizedBox(height: 20),
           Text(
-            "CARGANDO EXPERIENCIA...",
+            'CARGANDO EXPERIENCIA...',
             style: TextStyle(
               fontSize: 12,
               letterSpacing: 2.0,
               fontWeight: FontWeight.bold,
-              color: ColoresApp.primario.withValues(alpha: 0.7),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -203,21 +210,21 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
       child: Column(
         children: [
           const Text(
-            "Powered by",
+            'Powered by',
             style: TextStyle(fontSize: 10, color: Colors.grey),
           ),
           const SizedBox(height: 5),
-          const Text(
-            "InSOFT", // Tu marca oficial
+          Text(
+            'InSOFT', // Tu marca oficial
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
-              color: ColoresApp.primario,
+              color: Theme.of(context).primaryColor,
             ),
           ),
           const Text(
-            "Convertimos Ideas en Software que Funciona", // Tu eslogan
+            'Convertimos Ideas en Software que Funciona', // Tu eslogan
             style: TextStyle(
               fontSize: 14,
               fontStyle: FontStyle.italic,

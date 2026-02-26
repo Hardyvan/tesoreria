@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
+import 'package:dsi/myPagesTema/a_tema.dart';
+import 'package:dsi/myPagesTema/c_ui_kit.dart';
 
 // TUS IMPORTS DE INSOFT
-import '../myPagesTema/a_tema_app.dart';
-import '../myPagesTema/b_componentes_globales.dart';
+
 import '../myPagesBack/a_controlador_auth.dart';
 import '../myMenu/b_rutas_app.dart';
 
@@ -33,10 +35,10 @@ class _InicioSesionState extends State<InicioSesion> {
 
     if (errorMsg == null) {
       // Login exitoso y completo
-      Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal);
-    } else if (errorMsg == "UsuarioNuevo" || errorMsg == "UsuarioIncompleto") {
+      unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
+    } else if (errorMsg == 'UsuarioNuevo' || errorMsg == 'UsuarioIncompleto') {
       // Necesita completar perfil -> Navegar a pantalla de completar
-      Navigator.pushReplacementNamed(context, '/completar_perfil');
+      unawaited(Navigator.pushReplacementNamed(context, '/completar_perfil'));
     } else {
       // Error real
        ScaffoldMessenger.of(context).showSnackBar(
@@ -52,7 +54,7 @@ class _InicioSesionState extends State<InicioSesion> {
   void _mostrarLoginManual() {
     final auth = Provider.of<ControladorAuth>(context, listen: false); // Solo para leer iniciales
     final usuarioCtrl = TextEditingController(text: auth.emailGuardado); // Pre-llenar
-    final passCtrl = TextEditingController();
+    final passCtrl = TextEditingController(text: auth.passwordGuardado); // Pre-llenar password
     final formKey = GlobalKey<FormState>();
     
     // Estado local para el checkbox del diálogo
@@ -63,7 +65,7 @@ class _InicioSesionState extends State<InicioSesion> {
       builder: (dialogContext) => StatefulBuilder( // StatefulBuilder para actualizar checkbox
         builder: (innerContext, setStateDialog) {
           return AlertDialog(
-            title: const Text("Iniciar Sesión"),
+            title: const Text('Iniciar Sesión'),
             content: Form(
               key: formKey,
               child: Column(
@@ -71,13 +73,13 @@ class _InicioSesionState extends State<InicioSesion> {
                 children: [
                   CampoTextoPersonalizado(
                     controller: usuarioCtrl,
-                    label: "Usuario o Correo",
+                    label: 'Usuario o Correo',
                     prefixIcon: Icons.person,
                   ),
                   const SizedBox(height: 16),
                   CampoTextoPersonalizado(
                     controller: passCtrl,
-                    label: "Contraseña",
+                    label: 'Contraseña',
                     prefixIcon: Icons.lock,
                     isPassword: true,
                   ),
@@ -85,11 +87,11 @@ class _InicioSesionState extends State<InicioSesion> {
                   
                   // CHECKBOX "RECORDARME"
                   CheckboxListTile(
-                    title: const Text("Recordar usuario", style: TextStyle(fontSize: 14)),
+                    title: const Text('Recordar usuario', style: TextStyle(fontSize: 14)),
                     value: recordarLocal,
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: ColoresApp.primario,
+                    activeColor: Theme.of(context).primaryColor,
                     onChanged: (val) {
                       setStateDialog(() => recordarLocal = val!);
                     },
@@ -100,7 +102,7 @@ class _InicioSesionState extends State<InicioSesion> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text("Cancelar"),
+                child: const Text('Cancelar'),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -115,10 +117,10 @@ class _InicioSesionState extends State<InicioSesion> {
 
                     if (errorMsg == null) {
                        // GUARDAR PREFERENCIA SI ÉXITO
-                       auth.guardarPreferencias(usuarioCtrl.text, recordarLocal);
+                       unawaited(auth.guardarPreferencias(usuarioCtrl.text, passCtrl.text, recordarLocal));
                        
                        if (mounted) {
-                          Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal);
+                          unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
                        }
                     } else {
                        if (mounted) {
@@ -132,10 +134,10 @@ class _InicioSesionState extends State<InicioSesion> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ColoresApp.primario,
+                  backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text("Ingresar"),
+                child: const Text('Ingresar'),
               ),
             ],
           );
@@ -156,20 +158,21 @@ class _InicioSesionState extends State<InicioSesion> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // 1. LOGO DE LA APP
-              Icon(
-                Icons.account_balance_wallet_rounded,
-                size: 100,
-                color: ColoresApp.primario,
+              Image.asset(
+                'assets/logo/DSI.png',
+                height: 100,
+                // Si la imagen DSI.png es rectangular ancha, usa un ancho también en lugar de height: 100
+                // Para redonder bordes si fuera necesario, envolver en ClipRRect.
               ),
               const SizedBox(height: 24),
               Text(
-                "InSOFT Tesorería",
+                'DSI Tesorería',
                 style: theme.textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                "Gestiona los fondos del salón\nde forma transparente.",
+                'Gestiona los fondos del salón\nde forma transparente.',
                 style: theme.textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
@@ -203,12 +206,12 @@ class _InicioSesionState extends State<InicioSesion> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Image.network(
-                                "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png",
+                                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
                                 height: 24,
                               ),
                               const SizedBox(width: 12),
                               const Text(
-                                "Continuar con Google",
+                                'Continuar con Google',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -227,7 +230,7 @@ class _InicioSesionState extends State<InicioSesion> {
                       onPressed: () {
                         Navigator.pushNamed(context, '/registro_correo');
                       },
-                      child: const Text("¿No tienes cuenta? Regístrate aquí"),
+                      child: const Text('¿No tienes cuenta? Regístrate aquí'),
                     ),
                     
                     const SizedBox(height: 24),
@@ -236,7 +239,7 @@ class _InicioSesionState extends State<InicioSesion> {
                     TextButton(
                       onPressed: _mostrarLoginManual,
                       child: Text(
-                        "Ingresar con Correo / Admin",
+                        'Ingresar con Correo / Admin',
                         style: TextStyle(color: theme.colorScheme.secondary),
                       ),
                     ),

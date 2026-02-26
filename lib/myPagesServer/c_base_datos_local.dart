@@ -28,7 +28,7 @@ class BaseDatosLocal {
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // 1. Tabla Usuarios (Copia local de salon_usuarios)
+    // 1. Tabla Usuarios (Copia local de DSI_salon_usuarios)
     await db.execute('''
       CREATE TABLE usuarios (
         id INTEGER PRIMARY KEY, -- ID remoto de MySQL
@@ -41,7 +41,8 @@ class BaseDatosLocal {
         edad INTEGER,
         sexo TEXT,
         estado TEXT, -- Nuevo: 'activo' / 'inactivo'
-        sincronizado INTEGER DEFAULT 1 -- 1: Sí, 0: No (Pendiente de subir)
+        sincronizado INTEGER DEFAULT 1, -- 1: SÃ­, 0: No (Pendiente de subir)
+        updated_at TEXT -- Fecha de ultima modificacion para resolucion de conflictos
       )
     ''');
     debugPrint("Tabla local 'usuarios' creada.");
@@ -70,6 +71,7 @@ class BaseDatosLocal {
         'sexo': usuario.sexo,
         'estado': usuario.estado,
         'sincronizado': sincronizado ? 1 : 0,
+        'updated_at': usuario.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -94,7 +96,7 @@ class BaseDatosLocal {
     })).toList();
   }
 
-  // C. Obtener Pendientes de Sincronización
+  // C. Obtener Pendientes de SincronizaciÃ³n
   Future<List<Usuario>> obtenerNoSincronizados() async {
     final db = await instance.database;
     final result = await db.query('usuarios', where: 'sincronizado = ?', whereArgs: [0]);
@@ -110,6 +112,7 @@ class BaseDatosLocal {
       'edad': json['edad'],
       'sexo': json['sexo'],
       'estado': json['estado'],
+      'updated_at': json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
     })).toList();
   }
 

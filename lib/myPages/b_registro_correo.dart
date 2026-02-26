@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../myPagesTema/a_tema_app.dart';
-import '../myPagesTema/b_componentes_globales.dart';
+import 'package:dsi/myPagesTema/a_tema.dart';
+import 'package:dsi/myPagesTema/c_ui_kit.dart';
+
 import '../myPagesBack/a_controlador_auth.dart';
 import '../myMenu/b_rutas_app.dart';
 
@@ -23,15 +25,15 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
   final direccionCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
   
-  String sexoSeleccionado = 'Masculino';
+  String? sexoSeleccionado;
   bool _cargando = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColoresApp.fondo,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Crear Cuenta"),
+        title: const Text('Crear Cuenta'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: ColoresApp.textoOscuro,
@@ -48,10 +50,10 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                    Text(
-                    "Registro Completo",
+                    'Registro Completo',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: ColoresApp.primario,
+                      color: Theme.of(context).primaryColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -60,7 +62,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                   // 1. Datos de Cuenta
                   CampoTextoPersonalizado(
                     controller: emailCtrl,
-                    label: "Correo Electrónico",
+                    label: 'Correo Electrónico',
                     prefixIcon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) {
@@ -74,7 +76,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                   const SizedBox(height: 12),
                   CampoTextoPersonalizado(
                     controller: passCtrl,
-                    label: "Contraseña",
+                    label: 'Contraseña',
                     prefixIcon: Icons.lock,
                     isPassword: true,
                     validator: (v) {
@@ -88,14 +90,14 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                   // 2. Datos Personales
                   CampoTextoPersonalizado(
                     controller: nombreCtrl,
-                    label: "Nombre Completo",
+                    label: 'Nombre Completo',
                     prefixIcon: Icons.person,
                     validator: (v) => (v == null || v.isEmpty) ? 'El nombre es obligatorio' : null,
                   ),
                   const SizedBox(height: 12),
                   CampoTextoPersonalizado(
                     controller: celularCtrl,
-                    label: "Celular",
+                    label: 'Celular',
                     prefixIcon: Icons.phone,
                     keyboardType: TextInputType.phone,
                     validator: (v) {
@@ -107,7 +109,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                   const SizedBox(height: 12),
                   CampoTextoPersonalizado(
                     controller: direccionCtrl,
-                    label: "Dirección (Opcional)",
+                    label: 'Dirección (Opcional)',
                     prefixIcon: Icons.home,
                   ),
                   const SizedBox(height: 12),
@@ -118,28 +120,42 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                       Expanded(
                         child: CampoTextoPersonalizado(
                           controller: edadCtrl,
-                          label: "Edad (Op.)", // Texto más corto para evitar overflow
+                          label: 'Edad (Op.)', // Texto más corto para evitar overflow
                           prefixIcon: Icons.cake,
                           keyboardType: TextInputType.number,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: sexoSeleccionado,
-                          isExpanded: true, // Evita overflow en el dropdown
-                          decoration: InputDecoration(
-                            labelText: "Sexo",
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            prefixIcon: const Icon(Icons.wc),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: sexoSeleccionado,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Sexo (Op.)',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                                borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                              ),
+                              prefixIcon: Icon(Icons.wc, color: Theme.of(context).primaryColor),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                            ),
+                            hint: const Text('Selec.'),
+                            items: const [
+                              DropdownMenuItem(value: 'Masculino', child: Text('Masculino', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'Femenino', child: Text('Femenino', overflow: TextOverflow.ellipsis)),
+                            ],
+                            onChanged: (val) => setState(() => sexoSeleccionado = val),
                           ),
-                          items: const [
-                            DropdownMenuItem(value: 'Masculino', child: Text('Masc.', overflow: TextOverflow.ellipsis)),
-                            DropdownMenuItem(value: 'Femenino', child: Text('Fem.', overflow: TextOverflow.ellipsis)),
-                          ],
-                          onChanged: (val) => setState(() => sexoSeleccionado = val!),
-                        ),
                       ),
                     ],
                   ),
@@ -150,7 +166,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     const Center(child: CircularProgressIndicator())
                   else
                     BotonGradiente(
-                      text: "Registrarme",
+                      text: 'Registrarme',
                       icon: Icons.check_circle,
                       onPressed: _registrarUsuario,
                     ),
@@ -178,7 +194,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
       celular: celularCtrl.text.trim(),
       direccion: direccionCtrl.text.trim(), // Puede ir vacío
       edad: int.tryParse(edadCtrl.text) ?? 0, // Si falla o es vacío, va 0
-      sexo: sexoSeleccionado,
+      sexo: sexoSeleccionado ?? 'No especificado',
     );
 
     if (!mounted) return;
@@ -186,28 +202,28 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
 
     if (error == null) {
       // Éxito Total (Quizás recuperación inmediata) -> Ir al Home
-      Navigator.pushNamedAndRemoveUntil(context, RutasApp.menuPrincipal, (route) => false);
+      unawaited(Navigator.pushNamedAndRemoveUntil(context, RutasApp.menuPrincipal, (route) => false));
     
-    } else if (error == "VERIFICACION_ENVIADA") {
+    } else if (error == 'VERIFICACION_ENVIADA') {
       // Registro exitoso, pero requiere validación
-      showDialog(
+      unawaited(showDialog(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text("¡Registro Exitoso!"),
-          content: const Text("Te hemos enviado un correo de verificación.\n\nPor favor revisa tu bandeja y haz clic en el enlace antes de iniciar sesión."),
+          title: const Text('¡Registro Exitoso!'),
+          content: const Text('Te hemos enviado un correo de verificación.\n\nPor favor revisa tu bandeja y haz clic en el enlace antes de iniciar sesión.'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
                 // Ir al Login para que ingrese sus datos
-                Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false);
+                unawaited(Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false));
               },
-              child: const Text("Entendido, ir al Login"),
+              child: const Text('Entendido, ir al Login'),
             )
           ],
         ),
-      );
+      ));
 
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

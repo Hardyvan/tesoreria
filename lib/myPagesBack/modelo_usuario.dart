@@ -1,5 +1,6 @@
 class Usuario {
   final int id;
+  final String uid;       // Nuevo: ID de Firebase/Google
   final String nombre;
   final String celular; // Usado para login manual
   final String email;   // Usado para login Google
@@ -9,9 +10,11 @@ class Usuario {
   final int edad;         // Nuevo: Registro Híbrido
   final String sexo;      // Nuevo: Registro Híbrido
   final String estado;    // Nuevo: Bloqueo de usuarios
+  final DateTime? updatedAt; // Nuevo: Control de sincronización offline
 
   Usuario({
     required this.id,
+    this.uid = '',        // Por defecto vacío
     required this.nombre,
     required this.celular,
     required this.email,
@@ -21,15 +24,17 @@ class Usuario {
     this.edad = 0,
     this.sexo = '',
     this.estado = 'activo', // Por defecto
+    this.updatedAt,
   });
   
   Usuario copyWith({
-    int? id, String? nombre, String? celular, String? email, 
+    int? id, String? uid, String? nombre, String? celular, String? email, 
     String? fotoUrl, String? rol, String? direccion, int? edad, String? sexo,
-    String? estado
+    String? estado, DateTime? updatedAt
   }) {
     return Usuario(
       id: id ?? this.id,
+      uid: uid ?? this.uid,
       nombre: nombre ?? this.nombre,
       celular: celular ?? this.celular,
       email: email ?? this.email,
@@ -39,6 +44,7 @@ class Usuario {
       edad: edad ?? this.edad,
       sexo: sexo ?? this.sexo,
       estado: estado ?? this.estado,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -46,6 +52,7 @@ class Usuario {
   factory Usuario.desdeMapa(Map<String, dynamic> mapa) {
     return Usuario(
       id: mapa['id'] ?? 0,
+      uid: mapa['uid'] ?? '',
       nombre: mapa['nombre'] ?? '',
       celular: mapa['celular'] ?? '',
       email: mapa['email'] ?? '',
@@ -62,6 +69,7 @@ class Usuario {
   Map<String, dynamic> aMapa() {
     return {
       'id': id,
+      'uid': uid,
       'nombre': nombre,
       'celular': celular,
       'email': email,

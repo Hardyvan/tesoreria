@@ -1,4 +1,4 @@
-name: tesoreria_ivan
+name: dsi
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -39,7 +39,9 @@ dependencies:
   provider: ^6.0.0
 
   # Formato de fechas y monedas (Usado en AyudantesFormato)
-  intl: ^0.19.0
+  intl: any # Relaxing version to allow SDK requirement
+  flutter_localizations:
+    sdk: flutter
   
   # Preferencias compartidas (Para recordar usuario)
   shared_preferences: ^2.2.2
@@ -65,6 +67,27 @@ dependencies:
   # Multimedia (Fotos)
   image_picker: ^1.0.7
   firebase_storage: ^11.6.0
+  
+  # Conectividad (Offline/Online)
+  connectivity_plus: ^5.0.2
+
+  # Abrir enlaces (WhatsApp)
+  url_launcher: ^6.2.4
+
+  # Información del Dispositivo (Para Auditoría)
+  device_info_plus: ^10.1.0
+
+  # Google Fonts
+  google_fonts: ^6.1.0
+  firebase_messaging: ^14.9.4
+  flutter_local_notifications: ^20.1.0
+  http: ^1.6.0
+  timezone: ^0.10.1
+  googleapis_auth: ^2.0.0
+  flutter_secure_storage: ^10.0.0
+  excel: ^4.0.6
+  share_plus: ^10.0.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -76,6 +99,13 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.0  # Añadido para generar los iconos
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo/DSI.png"
+  min_sdk_android: 21
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -111,7 +141,8 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - .env
-    # - assets/logo/gallos.png # TODO: Restaurar cuando tengas la imagen
+    - assets/
+    - assets/logo/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
