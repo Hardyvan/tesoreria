@@ -4,11 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 
-import '../myPagesBack/a_controlador_auth.dart';
+import '../myPagesBack/a_logica_inicio_sesion.dart';
 import 'c_menu_principal.dart';
 import '../myPages/a_inicio_sesion.dart';
-import '../myPages/i_completar_perfil.dart';
-import '../myPagesBack/a_servicio_notificaciones.dart';
+import '../myPagesBack/i_servicio_notificaciones.dart';
 
 class PantallaBienvenida extends StatefulWidget {
   const PantallaBienvenida({super.key});

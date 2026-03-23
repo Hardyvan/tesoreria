@@ -5,9 +5,9 @@ import '../myPagesServer/b_base_datos_remota.dart';
 import 'modelo_pago.dart';
 import 'modelo_gasto.dart';
 import 'modelo_usuario.dart';
-import 'a_servicio_notificaciones.dart';
-import 'e_servicio_notificaciones.dart' as push;
-import 'f_servicio_auditoria.dart';
+import 'i_servicio_notificaciones.dart';
+import 'j_servicio_notificaciones_secundario.dart' as push;
+import 'k_servicio_auditoria.dart';
 import 'dart:async';
 
 class ControladorFinanzas extends ChangeNotifier {
@@ -113,6 +113,7 @@ class ControladorFinanzas extends ChangeNotifier {
           a.costo, 
           p.id as pago_id, 
           p.monto, 
+          p.monto_multa,
           p.fecha_pago
         FROM DSI_salon_actividades a
         LEFT JOIN DSI_salon_pagos p ON a.id = p.actividad_id AND p.usuario_id = ? AND p.confirmado = 1
@@ -137,9 +138,12 @@ class ControladorFinanzas extends ChangeNotifier {
 
         if (row['pago_id'] != null) {
           double monto = (row['monto'] ?? 0.0).toDouble();
+          double multa = (row['monto_multa'] ?? 0.0).toDouble();
           agrupado[idActividad]!['pagos'].add({
-            'fecha': row['fecha_pago'],
-            'monto': monto
+             'id': row['pago_id'],
+             'fecha': row['fecha_pago'],
+             'monto': monto,
+             'multa': multa
           });
           agrupado[idActividad]!['total_pagado'] += monto;
         }
@@ -196,10 +200,45 @@ class ControladorFinanzas extends ChangeNotifier {
         return false;
       }
       
-      // 2. Proceder con el registro
+      // 2. Preventiva: Asegurar columna de metodo_pago
+      try {
+        await conn.query("ALTER TABLE DSI_salon_pagos ADD COLUMN metodo_pago VARCHAR(20) DEFAULT 'Efectivo'");
+      } catch (_) {}
+
+      // 3. CALCULO AUTOMATICO DE MULTA
+      double montoMultaCalculada = 0.0;
+      try {
+        final resultActividad = await conn.query(
+          'SELECT fecha_limite, multa_por_dia FROM DSI_salon_actividades WHERE id = ?',
+          [pago.actividadId]
+        );
+        if (resultActividad.isNotEmpty) {
+          final fechaLimiteRaw = resultActividad.first['fecha_limite'];
+          final multaPorDia = (resultActividad.first['multa_por_dia'] ?? 0.0).toDouble();
+
+          if (fechaLimiteRaw != null && multaPorDia > 0) {
+            final fechaLimite = fechaLimiteRaw is DateTime
+                ? fechaLimiteRaw
+                : DateTime.tryParse(fechaLimiteRaw.toString());
+
+            if (fechaLimite != null) {
+              final hoy = DateTime.now();
+              final diasAtraso = hoy.difference(fechaLimite).inDays;
+              if (diasAtraso > 0) {
+                montoMultaCalculada = (diasAtraso * multaPorDia).toDouble();
+                debugPrint('Multa aplicada: $diasAtraso dias x S/ $multaPorDia = S/ $montoMultaCalculada');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Advertencia: no pudo calcular multa: $e'); // No es fatal
+      }
+
+      // 4. Proceder con el registro (incluyendo multa si aplica)
       await conn.query(
-        'INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, fecha_pago, confirmado) VALUES (?, ?, ?, NOW(), ?)',
-        [pago.usuarioId, pago.actividadId, pago.montoPagado, true]
+        'INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, monto_multa, fecha_pago, confirmado, metodo_pago) VALUES (?, ?, ?, ?, NOW(), ?, ?)',
+        [pago.usuarioId, pago.actividadId, pago.montoPagado, montoMultaCalculada, true, pago.metodoPago]
       );
 
       // --- NOTIFICACIÃ“N GLOBAL ---
@@ -215,7 +254,7 @@ class ControladorFinanzas extends ChangeNotifier {
           String tokenDestino = resultToken.first['fcm_token'].toString();
           
           // 2. Enviar Push usando la nueva API v1
-          await push.ServicioNotificaciones.enviarPush(
+          await push.ServicioNotificacionesSecundario.enviarPush(
             tokenDestino: tokenDestino,
             titulo: 'ðŸ’° Pago Validado', 
             cuerpo: 'Hemos registrado tu pago de S/ ${pago.montoPagado.toStringAsFixed(2)}.'

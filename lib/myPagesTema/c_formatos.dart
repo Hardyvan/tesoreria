@@ -4,7 +4,7 @@ class AyudantesFormato {
   static const String _locale = 'es_PE';
 
   static final NumberFormat _formatoSoles = NumberFormat.currency(
-      locale: _locale, symbol: 'S/ ', decimalDigits: 2);
+      customPattern: 'S/ #,##0.00', locale: _locale, symbol: 'S/ ', decimalDigits: 2);
 
   static final NumberFormat _formatoMiles = NumberFormat('#,###', _locale);
   static final NumberFormat _formatoCompacto = NumberFormat.compact(locale: _locale);

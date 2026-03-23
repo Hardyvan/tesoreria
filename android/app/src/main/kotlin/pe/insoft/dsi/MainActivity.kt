@@ -1,4 +1,4 @@
-package com.example.tesoreria_ivan
+package pe.insoft.dsi
 
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity

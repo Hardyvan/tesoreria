@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../myPagesBack/a_controlador_auth.dart';
-import '../myPages/d_lista_deudores.dart';
-import '../myPages/h_perfil_usuario.dart';
-import '../myPages/g_reporte_financiero.dart';
-import '../myPages/i_auditoria_admin.dart';
-import '../myPages/e_gestion_actividades.dart';
+import '../myPagesBack/a_logica_inicio_sesion.dart';
+import '../myPages/b_estado_financiero.dart';
+import '../myPages/f_perfil.dart';
+import '../myPages/c_reportes.dart';
+import '../myMenu/d_historial_pagos.dart';
+import '../myPages/d_reportes_avanzados.dart';
+import '../myPages/e_actividades.dart';
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
@@ -46,7 +47,14 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
 
 
-    // 2. Reportes (Kardex Global - Transparencia Total)
+    // 2. Historial de Pagos
+    vistas.add(const HistorialPagos());
+    botonesVavegacion.add(const NavigationDestination(
+      icon: Icon(Icons.history_edu),
+      label: 'Historial',
+    ));
+
+    // 3. Reportes (Kardex Global - Transparencia Total)
     vistas.add(const ReporteFinanciero());
     botonesVavegacion.add(const NavigationDestination(
       icon: Icon(Icons.assessment_outlined),
@@ -73,7 +81,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
     // 5. Auditoría (SOLO SUPER ADMIN)
     if (auth.usuarioActual?.rol == 'SuperAdmin') {
-      // Importar arriba: import '../myPages/i_auditoria_admin.dart';
+      // Importar arriba: import '../myPages/d_reportes_avanzados.dart';
       vistas.add(const AuditoriaAdmin());
       botonesVavegacion.add(const NavigationDestination(
         icon: Icon(Icons.security, color: Colors.red),
@@ -95,10 +103,44 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         index: _indiceActual,
         children: vistas,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _indiceActual,
-        onDestinationSelected: (i) => setState(() => _indiceActual = i),
-        destinations: botonesVavegacion,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color.lerp(Colors.white, Theme.of(context).colorScheme.primary, 0.8)!,
+              Theme.of(context).colorScheme.primary,
+              Theme.of(context).colorScheme.secondary,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: const [0.0, 0.4, 1.0],
+          ),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.transparent,
+              indicatorColor: Colors.white.withValues(alpha: 0.25),
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return const IconThemeData(color: Colors.white, size: 26);
+                }
+                return IconThemeData(color: Colors.white.withValues(alpha: 0.7), size: 24);
+              }),
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13);
+                }
+                return TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12);
+              }),
+            ),
+          ),
+          child: NavigationBar(
+            selectedIndex: _indiceActual,
+            onDestinationSelected: (i) => setState(() => _indiceActual = i),
+            destinations: botonesVavegacion,
+          ),
+        ),
       ),
     );
   }

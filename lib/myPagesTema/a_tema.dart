@@ -65,15 +65,15 @@ class InsoftColors extends ThemeExtension<InsoftColors> {
 // =============================================================================
 class AppTokens {
   static const double paddingEstandar = 20.0;
-  static const Color darkBg = Color(0xFF121E2A);
-  static const Color lightBg = Color(0xFFF5F7FA);
+  static const Color darkBg = Color(0xFF0F172A); // Un poco más profundo/elegante
+  static const Color lightBg = Color(0xFFF8FAFC); // Gris muy limpio
 
   static final List<BoxShadow> sombraSuave = [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 20,
-      offset: const Offset(0, 10),
-      spreadRadius: -5,
+      color: Colors.black.withValues(alpha: 0.04), // Sombra más sutil
+      blurRadius: 24,
+      offset: const Offset(0, 8),
+      spreadRadius: -4,
     ),
   ];
 }
@@ -87,16 +87,16 @@ class DimensionesApp {
 enum AppThemeColor { azul, bosque, morado }
 
 class ColoresApp {
-  static const Color error = Color(0xFFC62828);
+  static const Color error = Color(0xFFD32F2F);
   static const Color exito = Color(0xFF2E7D32);
-  static const Color textoSecundarioClaro = Color(0xFF90A4AE);
+  static const Color textoSecundarioClaro = Color(0xFF78909C);
   static const Color secundario = AppPalettes.defaultSecondary;
-  static const Color estadoPendiente = Color(0xFFFF9900);
-  
+  static const Color estadoPendiente = Color(0xFFF57C00);
+
   static const Color superficieClara = Color(0xFFFFFFFF);
-  static const Color superficieOscura = Color(0xFF1C2A38);
-  static const Color textoOscuro = Color(0xFFECEFF1);
-  
+  static const Color superficieOscura = Color(0xFF1E293B); // Slate 800 (Tailwind)
+  static const Color textoOscuro = Color(0xFFF8FAFC);
+
   static final List<BoxShadow> sombraSuave = AppTokens.sombraSuave;
   static const LinearGradient gradientePrimario = LinearGradient(
     colors: [AppPalettes.defaultPrimary, Color(0xFF1A237E)],
@@ -157,8 +157,8 @@ class AppPalettes {
   static final MaterialColor foodOrange = _createMaterialColor(const Color(0xFFFF6B00));
   static final MaterialColor carbon = _createMaterialColor(const Color(0xFF2C3E50));
 
-  static const Color defaultPrimary = Color(0xFF003366);
-  static const Color defaultSecondary = Color(0xFFFF9900);
+  static const Color defaultPrimary = Color(0xFF0056D2);
+  static const Color defaultSecondary = Color(0xFF00A2FF); // Cian para el azul
 
   // 3. LISTA DE SELECCIÓN DE COLORES
   static final List<Color> coloresDisponibles = [
@@ -174,31 +174,117 @@ class AppPalettes {
     Colors.blueGrey,
   ];
 
+  // ===========================================================================
+  // ✨ MÉTODO DEFINITIVO: DEGRADADOS MONOCROMÁTICOS PROFUNDOS (MÁXIMA ELEGANCIA)
+  // ===========================================================================
+  // ===========================================================================
+  // ✨ MÉTODO AJUSTADO: DEGRADADOS PROFUNDOS Y CÁLIDOS (RELAJAN LA VISTA)
+  // ===========================================================================
+  /*static Color obtenerColorSecundario(Color colorPrimario) {
+
+    // 1. 🔵 Azul Corporativo -> Azul Cobalto profundo (menos negro, más amigable)
+    if (colorPrimario.toARGB32() == insoftBlue.toARGB32()) return const Color(0xFF1A369D);
+
+    // 2. 🟠 Naranja -> Terracota / Ladrillo oscuro (muy acogedor y cálido)
+    if (colorPrimario.toARGB32() == foodOrange.toARGB32()) return const Color(0xFFCC4A00);
+
+    // 3. 🟣 Índigo -> Morado Ciruela (suave y elegante)
+    if (colorPrimario.toARGB32() == Colors.indigo.toARGB32()) return const Color(0xFF3D2A87);
+
+    // 4. 🌲 Teal -> Verde Esmeralda oscuro (elimina la frialdad del petróleo)
+    if (colorPrimario.toARGB32() == Colors.teal.toARGB32()) return const Color(0xFF00564F);
+
+    // 5. 🌲 Verde -> Verde Musgo / Olivo oscuro (muy natural y orgánico)
+    if (colorPrimario.toARGB32() == Colors.green.toARGB32()) return const Color(0xFF1D5A2A);
+
+    // 6. 🔴 Rojo -> Cereza oscuro / Carmín
+    if (colorPrimario.toARGB32() == Colors.red.toARGB32()) return const Color(0xFF991414);
+
+    // 7. 🟣 Púrpura -> Berenjena cálido
+    if (colorPrimario.toARGB32() == Colors.purple.toARGB32()) return const Color(0xFF5E1B8C);
+
+    // 8. 🌸 Rosa -> Vino rosado apagado
+    if (colorPrimario.toARGB32() == Colors.pink.toARGB32()) return const Color(0xFF96164E);
+
+    // 9. ⚫ Carbón -> Moka / Gris pardo oscuro (le quita el tono "frío" al negro)
+    if (colorPrimario.toARGB32() == carbon.toARGB32()) return const Color(0xFF2B2625);
+
+    // 10. 🔘 Azul Grisáceo -> Asfalto suave
+    if (colorPrimario.toARGB32() == Colors.blueGrey.toARGB32()) return const Color(0xFF363F46);
+
+    // Fallback de seguridad
+    return const Color(0xFF2C2C2C); // Gris neutro suave
+  }*/
+  // ===========================================================================
+  // ✨ MÉTODO "COZY PREMIUM": DEGRADADOS EXTREMADAMENTE CÁLIDOS Y EMPOLVADOS
+  // ===========================================================================git
+  static Color obtenerColorSecundario(Color colorPrimario) {
+
+    // 1. 🔵 Azul Corporativo -> Azul Índigo cálido (con un toque de violeta grisáceo)
+    if (colorPrimario.toARGB32() == insoftBlue.toARGB32()) return const Color(0xFF2A4296);
+
+    // 2. 🟠 Naranja -> Caramelo Tostado (Cálido, dorado y relajante)
+    if (colorPrimario.toARGB32() == foodOrange.toARGB32()) return const Color(0xFFA86332);
+
+    // 3. 🟣 Índigo -> Malva empolvado (muy relajante y acogedor)
+    if (colorPrimario.toARGB32() == Colors.indigo.toARGB32()) return const Color(0xFF4A3285);
+
+    // 4. 🌲 Teal -> Verde Océano profundo y cálido (menos azul, más hoja)
+    if (colorPrimario.toARGB32() == Colors.teal.toARGB32()) return const Color(0xFF166057);
+
+    // 5. 🌲 Verde -> Verde Oliva suave (como bosque al atardecer)
+    if (colorPrimario.toARGB32() == Colors.green.toARGB32()) return const Color(0xFF2E6339);
+
+    // 6. 🔴 Rojo -> Madera de rosal / Rojo óxido (cero agresivo)
+    if (colorPrimario.toARGB32() == Colors.red.toARGB32()) return const Color(0xFFA32929);
+
+    // 7. 🟣 Púrpura -> Ciruela polvoriento
+    if (colorPrimario.toARGB32() == Colors.purple.toARGB32()) return const Color(0xFF6A268A);
+
+    // 8. 🌸 Rosa -> Frutos rojos cálidos (Berry suave)
+    if (colorPrimario.toARGB32() == Colors.pink.toARGB32()) return const Color(0xFFA62B5B);
+
+    // 9. ⚫ Carbón -> Espresso / Marrón grisáceo (super cálido y corporativo)
+    if (colorPrimario.toARGB32() == carbon.toARGB32()) return const Color(0xFF3A3331);
+
+    // 10. 🔘 Azul Grisáceo -> Greige (mezcla de gris y beige cálido)
+    if (colorPrimario.toARGB32() == Colors.blueGrey.toARGB32()) return const Color(0xFF484E54);
+
+    // Fallback de seguridad
+    return const Color(0xFF3B3B3B); // Gris cálido base
+  }
+
   static ThemeConfig light({Color primary = defaultPrimary, AppStyle style = AppStyle.standard}) {
     // Tint backgrounds slightly with the primary color to make theme changes more impactful
-    final Color tintedBackground = Color.lerp(AppTokens.lightBg, primary, 0.05) ?? AppTokens.lightBg;
-    final Color tintedSurface = Color.lerp(ColoresApp.superficieClara, primary, 0.08) ?? ColoresApp.superficieClara;
+    final Color tintedBackground = Color.lerp(AppTokens.lightBg, primary, 0.02) ?? AppTokens.lightBg;
+    final Color tintedSurface = Color.lerp(ColoresApp.superficieClara, primary, 0.03) ?? ColoresApp.superficieClara;
+
+    // Aplicamos la lógica del secundario dinámico
+    final Color dynamicSecondary = obtenerColorSecundario(primary);
 
     return ThemeConfig(
       brightness: Brightness.light,
       primary: primary,
-      secondary: defaultSecondary,
+      secondary: dynamicSecondary,
       background: tintedBackground,
       surface: tintedSurface,
-      onBackground: const Color(0xFF1F2937),
+      onBackground: const Color(0xFF1E293B), // Slate 800 para mejor lectura
       style: style,
     );
   }
 
   static ThemeConfig dark({Color primary = const Color(0xFF64B5F6), AppStyle style = AppStyle.standard}) {
     // Tint backgrounds slightly with the primary color to make theme changes more impactful
-    final Color tintedBackground = Color.lerp(AppTokens.darkBg, primary, 0.08) ?? AppTokens.darkBg;
-    final Color tintedSurface = Color.lerp(ColoresApp.superficieOscura, primary, 0.12) ?? ColoresApp.superficieOscura;
+    final Color tintedBackground = Color.lerp(AppTokens.darkBg, primary, 0.06) ?? AppTokens.darkBg;
+    final Color tintedSurface = Color.lerp(ColoresApp.superficieOscura, primary, 0.08) ?? ColoresApp.superficieOscura;
+
+    // Aplicamos la lógica del secundario dinámico
+    final Color dynamicSecondary = obtenerColorSecundario(primary);
 
     return ThemeConfig(
       brightness: Brightness.dark,
       primary: primary,
-      secondary: defaultSecondary,
+      secondary: dynamicSecondary,
       background: tintedBackground,
       surface: tintedSurface,
       onBackground: ColoresApp.textoOscuro,
@@ -238,13 +324,13 @@ class TemaApp {
         shapeBoton = BeveledRectangleBorder(borderRadius: BorderRadius.circular(8.0));
         break;
       case AppStyle.standard:
-        borderRadiusGeneral = BorderRadius.circular(12.0);
-        shapeBoton = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0));
+        borderRadiusGeneral = BorderRadius.circular(16.0); // Subimos un poco el estándar
+        shapeBoton = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0));
         break;
     }
 
     return baseTheme.copyWith(
-      primaryColor: config.primary, // FIJA EL PRIMARY COLOR AQUÍ
+      primaryColor: config.primary,
       scaffoldBackgroundColor: config.background,
       canvasColor: config.background,
       extensions: [extensionColores],
@@ -283,7 +369,7 @@ class TemaApp {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF273444) : Colors.white,
+        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         border: OutlineInputBorder(borderRadius: borderRadiusGeneral, borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(

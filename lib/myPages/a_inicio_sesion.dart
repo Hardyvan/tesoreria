@@ -1,13 +1,14 @@
 import 'dart:async';
+import '../myPagesTema/b_ui_kit.dart';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 import 'package:dsi/myPagesTema/a_tema.dart';
-import 'package:dsi/myPagesTema/c_ui_kit.dart';
+
 
 // TUS IMPORTS DE INSOFT
 
-import '../myPagesBack/a_controlador_auth.dart';
+import '../myPagesBack/a_logica_inicio_sesion.dart';
 import '../myMenu/b_rutas_app.dart';
 
 class InicioSesion extends StatefulWidget {
@@ -18,7 +19,7 @@ class InicioSesion extends StatefulWidget {
 }
 
 class _InicioSesionState extends State<InicioSesion> {
-  bool _cargando = false;
+  final ValueNotifier<bool> _cargando = ValueNotifier<bool>(false);
 
   // ---------------------------------------------------------------------------
   // LÓGICA DE LOGIN (Delegada al Controlador)
@@ -108,7 +109,7 @@ class _InicioSesionState extends State<InicioSesion> {
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
                     Navigator.pop(dialogContext); // Cerrar diálogo
-                    setState(() => _cargando = true);
+                    _cargando.value = true;
                     
                     final auth = Provider.of<ControladorAuth>(context, listen: false);
                     final errorMsg = await auth.iniciarSesion(usuarioCtrl.text, passCtrl.text);
@@ -130,7 +131,7 @@ class _InicioSesionState extends State<InicioSesion> {
                        }
                     }
                     
-                    if (mounted) setState(() => _cargando = false);
+                    if (mounted) _cargando.value = false;
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -165,24 +166,20 @@ class _InicioSesionState extends State<InicioSesion> {
                 // Para redonder bordes si fuera necesario, envolver en ClipRRect.
               ),
               const SizedBox(height: 24),
-              Text(
-                'DSI Tesorería',
-                style: theme.textTheme.headlineMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Gestiona los fondos del salón\nde forma transparente.',
-                style: theme.textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 60),
 
-              if (_cargando)
-                const CircularProgressIndicator()
-              else
-                Column(
+
+              
+
+
+              ValueListenableBuilder<bool>(
+                valueListenable: _cargando,
+                builder: (context, isLoading, child) {
+                  if (isLoading) {
+                    return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                  }
+                  return child!;
+                },
+                child: Column(
                   children: [
                     // 2. BOTÓN DE GOOGLE PERSONALIZADO (Professional Standard)
                     TarjetaPremium(
@@ -206,8 +203,19 @@ class _InicioSesionState extends State<InicioSesion> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Image.network(
-                                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
+                                'https://developers.google.com/identity/images/g-logo.png',
                                 height: 24,
+                                width: 24,
+                                errorBuilder: (context, error, stackTrace) {
+                                  // Fallback: Si la red bloquea la descarga, muestra una 'G' local amigable.
+                                  return Container(
+                                    height: 24,
+                                    width: 24,
+                                    alignment: Alignment.center,
+                                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                    child: const Text('G', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 18)),
+                                  );
+                                },
                               ),
                               const SizedBox(width: 12),
                               const Text(
@@ -245,10 +253,425 @@ class _InicioSesionState extends State<InicioSesion> {
                     ),
                   ],
                 ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+
+class PantallaRegistro extends StatefulWidget {
+  const PantallaRegistro({super.key});
+
+  @override
+  State<PantallaRegistro> createState() => _PantallaRegistroState();
+}
+
+class _PantallaRegistroState extends State<PantallaRegistro> {
+  final _formKey = GlobalKey<FormState>();
+  
+  // Controladores
+  final nombreCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  final celularCtrl = TextEditingController();
+  final direccionCtrl = TextEditingController();
+  final edadCtrl = TextEditingController();
+  
+  String? sexoSeleccionado;
+  bool _cargando = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Crear Cuenta'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: ColoresApp.textoOscuro,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
+          child: TarjetaPremium(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                   Text(
+                    'Registro Completo',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // 1. Datos de Cuenta
+                  CampoTextoPersonalizado(
+                    controller: emailCtrl,
+                    label: 'Correo Electrónico',
+                    prefixIcon: Icons.email,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'El correo es obligatorio';
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) {
+                         return 'Formato de correo inválido';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CampoTextoPersonalizado(
+                    controller: passCtrl,
+                    label: 'Contraseña',
+                    prefixIcon: Icons.lock,
+                    isPassword: true,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'La contraseña es obligatoria';
+                      if (v.length < 6) return 'Mínimo 6 caracteres';
+                      return null;
+                    },
+                  ),
+                  const Divider(height: 30),
+
+                  // 2. Datos Personales
+                  CampoTextoPersonalizado(
+                    controller: nombreCtrl,
+                    label: 'Nombre Completo',
+                    prefixIcon: Icons.person,
+                    validator: (v) => (v == null || v.isEmpty) ? 'El nombre es obligatorio' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  CampoTextoPersonalizado(
+                    controller: celularCtrl,
+                    label: 'Celular',
+                    prefixIcon: Icons.phone,
+                    keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'El celular es obligatorio';
+                      if (!RegExp(r'^\d+$').hasMatch(v)) return 'Solo números';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CampoTextoPersonalizado(
+                    controller: direccionCtrl,
+                    label: 'Dirección (Opcional)',
+                    prefixIcon: Icons.home,
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: CampoTextoPersonalizado(
+                          controller: edadCtrl,
+                          label: 'Edad (Op.)', // Texto más corto para evitar overflow
+                          prefixIcon: Icons.cake,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: sexoSeleccionado,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Sexo (Op.)',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                                borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                              ),
+                              prefixIcon: Icon(Icons.wc, color: Theme.of(context).primaryColor),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                            ),
+                            hint: const Text('Selec.'),
+                            items: const [
+                              DropdownMenuItem(value: 'Masculino', child: Text('Masculino', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'Femenino', child: Text('Femenino', overflow: TextOverflow.ellipsis)),
+                            ],
+                            onChanged: (val) => setState(() => sexoSeleccionado = val),
+                          ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  if (_cargando)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    BotonGradiente(
+                      text: 'Registrarme',
+                      icon: Icons.check_circle,
+                      onPressed: _registrarUsuario,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _registrarUsuario() async {
+    if (!_formKey.currentState!.validate()) return;
+    // VALIDACIÓN: El formulario ya se encargó de verificar vacíos y formatos.
+
+    setState(() => _cargando = true);
+    final auth = Provider.of<ControladorAuth>(context, listen: false);
+
+    // Si edad o dirección están vacíos, mandamos valores por defecto
+    final error = await auth.registrarUsuarioCorreo(
+      email: emailCtrl.text.trim(),
+      password: passCtrl.text.trim(),
+      nombre: nombreCtrl.text.trim(),
+      celular: celularCtrl.text.trim(),
+      direccion: direccionCtrl.text.trim(), // Puede ir vacío
+      edad: int.tryParse(edadCtrl.text) ?? 0, // Si falla o es vacío, va 0
+      sexo: sexoSeleccionado ?? 'No especificado',
+    );
+
+    if (!mounted) return;
+    setState(() => _cargando = false);
+
+    if (error == null) {
+      // Éxito Total (Quizás recuperación inmediata) -> Ir al Home
+      unawaited(Navigator.pushNamedAndRemoveUntil(context, RutasApp.menuPrincipal, (route) => false));
+    
+    } else if (error == 'VERIFICACION_ENVIADA') {
+      // Registro exitoso, pero requiere validación
+      unawaited(showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('¡Registro Exitoso!'),
+          content: const Text('Te hemos enviado un correo de verificación.\n\nPor favor revisa tu bandeja y haz clic en el enlace antes de iniciar sesión.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                // Ir al Login para que ingrese sus datos
+                unawaited(Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false));
+              },
+              child: const Text('Entendido, ir al Login'),
+            )
+          ],
+        ),
+      ));
+
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: ColoresApp.error),
+      );
+    }
+  }
+}
+
+class PantallaCompletarPerfil extends StatefulWidget {
+  const PantallaCompletarPerfil({super.key});
+
+  @override
+  State<PantallaCompletarPerfil> createState() => _PantallaCompletarPerfilState();
+}
+
+class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
+  final _formKey = GlobalKey<FormState>();
+  
+  // Controladores
+  final celularCtrl = TextEditingController();
+  final direccionCtrl = TextEditingController();
+  final edadCtrl = TextEditingController();
+  
+  String? sexoSeleccionado;
+  bool _cargando = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Obtenemos los datos que ya tenemos (Nombre, Email) del Controlador
+    final auth = Provider.of<ControladorAuth>(context);
+    final user = auth.usuarioActual;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Completar Perfil'),
+        automaticallyImplyLeading: false, // No permitir volver atrás sin completar
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: ColoresApp.textoOscuro,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
+          child: TarjetaPremium(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                   Icon(Icons.security_update_good, size: 60, color: Theme.of(context).primaryColor),
+                   const SizedBox(height: 16),
+                   Text(
+                    "¡Casi listo, ${user?.nombre ?? 'Usuario'}!",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Para continuar, necesitamos algunos datos adicionales para tu ficha de alumno.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const Divider(height: 30),
+
+                  // Llenar Datos Faltantes
+                  CampoTextoPersonalizado(
+                    controller: celularCtrl,
+                    label: 'Celular',
+                    prefixIcon: Icons.phone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  CampoTextoPersonalizado(
+                    controller: direccionCtrl,
+                    label: 'Dirección (Opcional)',
+                    prefixIcon: Icons.home,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2, // Menos espacio para la edad
+                        child: CampoTextoPersonalizado(
+                          controller: edadCtrl,
+                          label: 'Edad', // Etiqueta más corta
+                          prefixIcon: Icons.cake,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3, // Más espacio para el texto "Masculino/Femenino"
+                        child: DropdownButtonFormField<String>(
+                          initialValue: sexoSeleccionado,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Sexo (Opcional)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                            ),
+                            prefixIcon: Icon(Icons.wc, color: Theme.of(context).primaryColor),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          hint: const Text('Selec.'),
+                          items: const [
+                            DropdownMenuItem(value: 'Masculino', child: Text('Masculino', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'Femenino', child: Text('Femenino', overflow: TextOverflow.ellipsis)),
+                          ],
+                          onChanged: (val) => setState(() => sexoSeleccionado = val),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  BotonGradiente(
+                    text: 'Guardar Datos',
+                    icon: Icons.save,
+                    isLoading: _cargando,
+                    onPressed: _guardarDatos,
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () {
+                        auth.cerrarSesion();
+                        Navigator.pop(context);
+                    }, 
+                    child: const Text('Cancelar y Salir', style: TextStyle(color: ColoresApp.error))
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _guardarDatos() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    // VALIDACIÓN: Celular es lo único obligatorio
+    if (celularCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El celular es obligatorio para continuar'))
+      );
+      return;
+    }
+
+    setState(() => _cargando = true);
+    final auth = Provider.of<ControladorAuth>(context, listen: false);
+
+    final exito = await auth.completarPerfil(
+      celular: celularCtrl.text.trim(),
+      direccion: direccionCtrl.text.trim(), // Opcional
+      edad: int.tryParse(edadCtrl.text) ?? 0, // Opcional
+      sexo: sexoSeleccionado ?? 'No especificado',
+    );
+
+    if (!mounted) return;
+    setState(() => _cargando = false);
+
+    if (exito) {
+      // Éxito -> Ir al Menu
+      unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al guardar perfil. Intente nuevamente.'), backgroundColor: ColoresApp.error),
+      );
+    }
   }
 }

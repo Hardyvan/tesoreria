@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_actividad.dart';
 import 'modelo_usuario.dart';
 import '../myPagesServer/b_base_datos_remota.dart';
+import 'j_servicio_notificaciones_secundario.dart' as push;
 
 class ControladorActividades extends ChangeNotifier {
   List<Actividad> _actividades = [];
@@ -12,7 +13,10 @@ class ControladorActividades extends ChangeNotifier {
   bool get cargando => _cargando;
 
   // Crear una nueva actividad (Solo Admin)
-  Future<bool> crearActividad(String titulo, double costo, Usuario usuario) async {
+  Future<bool> crearActividad(String titulo, double costo, Usuario usuario, {
+    DateTime? fechaLimite,
+    double multaPorDia = 0.0,
+  }) async {
     _cargando = true;
     notifyListeners();
     
@@ -27,7 +31,7 @@ class ControladorActividades extends ChangeNotifier {
       if (usuario.id == 1 && usuario.rol == 'Admin') {
         esAdminSeguro = true;
       } 
-      // B. VerificaciÃ³n Firebase (ProducciÃ³n)
+      // B. Verificacion Firebase (Produccion)
       else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
@@ -43,10 +47,14 @@ class ControladorActividades extends ChangeNotifier {
         return false;
       }
       
-      // 2. Insertar en BD
+      // 2. Insertar en BD con soporte de fecha_limite y multa_por_dia
+      final String fechaStr = fechaLimite != null
+          ? '${fechaLimite.year}-${fechaLimite.month.toString().padLeft(2, '0')}-${fechaLimite.day.toString().padLeft(2, '0')}'
+          : '';
+
       final result = await conn.query(
-        'INSERT INTO DSI_salon_actividades (titulo, costo, fecha_creacion) VALUES (?, ?, NOW())',
-        [titulo, costo]
+        'INSERT INTO DSI_salon_actividades (titulo, costo, fecha_creacion, fecha_limite, multa_por_dia) VALUES (?, ?, NOW(), ?, ?)',
+        [titulo, costo, fechaStr.isNotEmpty ? fechaStr : null, multaPorDia]
       );
       
       // 3. Actualizar lista local
@@ -54,8 +62,27 @@ class ControladorActividades extends ChangeNotifier {
         id: result.insertId!, 
         titulo: titulo, 
         costo: costo, 
-        fechaCreada: DateTime.now() // Aproximado para UI inmediata
+        fechaCreada: DateTime.now(),
+        fechaLimite: fechaLimite,
+        multaPorDia: multaPorDia,
       ));
+
+      // 4. Enviar notificación push masiva a todos los usuarios con FCM Token
+      try {
+        final resultTokens = await conn.query('SELECT fcm_token FROM DSI_salon_usuarios WHERE fcm_token IS NOT NULL AND fcm_token != "" AND id != ?', [usuario.id]);
+        
+        for (var row in resultTokens) {
+          String tokenDestino = row['fcm_token'].toString();
+          await push.ServicioNotificacionesSecundario.enviarPush(
+            tokenDestino: tokenDestino,
+            titulo: '📢 Nueva Actividad', 
+            cuerpo: 'Se ha registrado la actividad "$titulo". ¡Revisa la app!',
+          ).catchError((_) => false); // Silencioso individualmente
+        }
+        debugPrint('Notificaciones enviadas a ${resultTokens.length} usuarios.');
+      } catch (e) {
+        debugPrint('Aviso: Falló envío de notificaciones: $e');
+      }
       
       return true;
     } catch (e) {
@@ -94,7 +121,10 @@ class ControladorActividades extends ChangeNotifier {
   }
 
   // Editar Actividad Existente (Solo Admin)
-  Future<bool> editarActividad(int id, String nuevoTitulo, double nuevoCosto, Usuario usuario) async {
+  Future<bool> editarActividad(int id, String nuevoTitulo, double nuevoCosto, Usuario usuario, {
+    DateTime? fechaLimite,
+    double multaPorDia = 0.0,
+  }) async {
     _cargando = true;
     notifyListeners();
     
@@ -121,13 +151,17 @@ class ControladorActividades extends ChangeNotifier {
         return false;
       }
       
-      // 2. Actualizar en BD
+      // 2. Actualizar en BD incluyendo campos de multa
+      final String? fechaStr = fechaLimite != null
+          ? '${fechaLimite.year}-${fechaLimite.month.toString().padLeft(2, '0')}-${fechaLimite.day.toString().padLeft(2, '0')}'
+          : null;
+
       await conn.query(
-        'UPDATE DSI_salon_actividades SET titulo = ?, costo = ?, updated_at = NOW() WHERE id = ?',
-        [nuevoTitulo, nuevoCosto, id]
+        'UPDATE DSI_salon_actividades SET titulo = ?, costo = ?, fecha_limite = ?, multa_por_dia = ?, updated_at = NOW() WHERE id = ?',
+        [nuevoTitulo, nuevoCosto, fechaStr, multaPorDia, id]
       );
       
-      // 3. Actualizar lista local (buscamos por ID y la sobreescribimos pero manteniendo su fecha_creacion)
+      // 3. Actualizar lista local
       final index = _actividades.indexWhere((a) => a.id == id);
       if (index != -1) {
         final actVieja = _actividades[index];
@@ -135,7 +169,9 @@ class ControladorActividades extends ChangeNotifier {
             id: id, 
             titulo: nuevoTitulo, 
             costo: nuevoCosto, 
-            fechaCreada: actVieja.fechaCreada
+            fechaCreada: actVieja.fechaCreada,
+            fechaLimite: fechaLimite,
+            multaPorDia: multaPorDia,
         );
       }
       

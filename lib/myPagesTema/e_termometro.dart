@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../myPagesTema/a_tema.dart';
+import 'a_tema.dart';
 
 class TermometroActividades extends StatelessWidget {
   final List<Map<String, dynamic>> metas;
@@ -41,11 +41,11 @@ class TermometroActividades extends StatelessWidget {
   Widget _buildTarjetaPremium(BuildContext context, Map<String, dynamic> meta, bool isLast) {
     final currencyFormat = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
     
-    double porcentaje = meta['porcentaje_recaudacion'];
-    double metaTotal = meta['meta_total'];
-    double recaudado = meta['recaudado'];
-    double gastos = meta['gastado'];
-    double saldoDisponible = meta['saldo_disponible'];
+    double porcentaje = (meta['porcentaje_recaudacion'] as num).toDouble();
+    double metaTotal = (meta['meta_total'] as num).toDouble();
+    double recaudado = (meta['recaudado'] as num).toDouble();
+    double gastos = (meta['gastado'] as num).toDouble();
+    double saldoDisponible = (meta['saldo_disponible'] as num).toDouble();
     String titulo = meta['titulo'];
     
     bool metaCumplida = porcentaje >= 1.0;

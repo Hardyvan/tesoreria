@@ -109,19 +109,35 @@ class _ThemeColorPicker extends StatelessWidget {
                   width: isMobileSmall ? 45 : 55,
                   height: isMobileSmall ? 45 : 55,
                   decoration: BoxDecoration(
-                    color: color,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        color.withValues(alpha: 0.4), // Reflejo de luz
+                        color,                         // Color principal
+                        AppPalettes.obtenerColorSecundario(color), // Sombra
+                      ],
+                      stops: const [0.0, 0.4, 1.0],
+                    ),
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isSelected
                           ? Theme.of(context).colorScheme.onSurface
-                          : Colors.transparent,
-                      width: isSelected ? 3 : 0,
+                          : Colors.white.withValues(alpha: 0.3), // Borde interno sutil para efecto cristal
+                      width: isSelected ? 3 : 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: color.withValues(alpha: 0.4),
-                        blurRadius: 8,
+                        color: color.withValues(alpha: 0.6), // Sombra más fuerte y tintada
+                        blurRadius: 10,
+                        spreadRadius: isSelected ? 2 : 0,
                         offset: const Offset(0, 4),
+                      ),
+                      // Sombra interior sutil
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(-2, -2),
                       ),
                     ],
                   ),

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart'; // Para debugPrint
 import 'package:googleapis_auth/auth_io.dart'; // Para ServiceAccountCredentials
 import 'package:http/http.dart' as http;
 
-class ServicioNotificaciones {
+class ServicioNotificacionesSecundario {
   // ID del Proyecto en Firebase
   static const String _projectId = 'insoft-tesoreria';
   
@@ -23,9 +23,9 @@ class ServicioNotificaciones {
       // Obtenemos el cliente autenticado
       final client = await clientViaServiceAccount(credenciales, _scopes);
       
-      // Extraemos el token (el cliente lo maneja internamente, pero aquí lo exponemos para el Header)
+      // Extraemos el token
       final accessCredentials = client.credentials;
-      client.close(); // Cerramos el cliente, solo queríamos el token temporal
+      client.close();
       
       return accessCredentials.accessToken.data;
     } catch (e) {

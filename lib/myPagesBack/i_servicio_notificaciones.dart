@@ -1,11 +1,9 @@
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ServicioNotificaciones {
   static final ServicioNotificaciones _instancia = ServicioNotificaciones._interno();
@@ -76,43 +74,6 @@ class ServicioNotificaciones {
           ),
         ),
       );
-    }
-  }
-
-  // Enviar PUSH a todos (Llamado por el Admin al registrar pago)
-  Future<void> enviarNotificacionGlobalPago(String nombreAlumno, double monto) async {
-    final serverKey = dotenv.env['FCM_SERVER_KEY'];
-    
-    if (serverKey == null || serverKey.isEmpty) {
-      debugPrint('⚠️ FALTAN CREDENCIALES: Agrega FCM_SERVER_KEY en tu .env');
-      return;
-    }
-
-    try {
-      await http.post(
-        Uri.parse('https://fcm.googleapis.com/fcm/send'),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-          'Authorization': 'key=$serverKey',
-        },
-        body: jsonEncode(
-          <String, dynamic>{
-            'to': '/topics/general', // Envía a todos los suscritos
-            'notification': <String, dynamic>{
-              'title': '💰 Nuevo Pago Recibido',
-              'body': '$nombreAlumno ha pagado S/ ${monto.toStringAsFixed(2)}',
-              'sound': 'default'
-            },
-            'data': <String, dynamic>{
-              'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-              'tipo': 'pago'
-            },
-          },
-        ),
-      );
-      debugPrint('✅ Notificación enviada a todos.');
-    } catch (e) {
-      debugPrint('❌ Error enviando notificación: $e');
     }
   }
 

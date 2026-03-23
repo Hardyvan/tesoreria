@@ -3,16 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart'; 
-import '../../myPagesTema/b_formato.dart';
-import '../../myPagesBack/b_controlador_finanzas.dart';
-import '../../myPagesBack/a_controlador_auth.dart';
+import '../myPagesTema/c_formatos.dart';
+import '../../myPagesBack/b_logica_estado_financiero.dart';
+import '../../myPagesBack/a_logica_inicio_sesion.dart';
 import '../../myPagesTema/a_tema.dart';
-import '../../myPagesTema/c_ui_kit.dart';
-import 'c_editar_pago.dart';
-import 'f_registro_gastos.dart';
-import 'h_reportes_avanzados.dart';
-import '../myPagesServer/g_servicio_excel.dart';
-import '../../globals.dart';
+import '../myPagesTema/b_ui_kit.dart';
+import 'b_estado_financiero.dart';
+import 'e_actividades.dart';
+import 'd_reportes_avanzados.dart';
+import '../../myPagesBack/g_servicio_excel.dart';
 
 class ReporteFinanciero extends StatefulWidget {
   const ReporteFinanciero({super.key});

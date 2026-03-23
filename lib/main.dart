@@ -7,11 +7,11 @@ import 'package:dsi/myPagesTema/a_tema.dart';
 import 'myMenu/a_pantalla_bienvenida.dart';
 
 // Importamos Controllers
-import 'myPagesBack/a_controlador_auth.dart';
-import 'myPagesBack/b_controlador_finanzas.dart';
-import 'myPagesBack/c_controlador_actividades.dart';
-import 'myPagesBack/d_controlador_usuarios.dart'; // Controlador Usuarios
-import 'myPagesBack/a_servicio_conectividad.dart';
+import 'myPagesBack/a_logica_inicio_sesion.dart';
+import 'myPagesBack/b_logica_estado_financiero.dart';
+import 'myPagesBack/e_logica_actividades.dart';
+import 'myPagesBack/f_logica_perfil.dart'; // Controlador Usuarios
+import 'myPagesBack/h_servicio_conectividad.dart';
 
 // Importamos Rutas
 import 'myMenu/b_rutas_app.dart';
@@ -19,7 +19,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Importante para fechas
 import 'package:flutter/services.dart'; // Para MethodChannel
 
-import 'globals.dart'; // Importante para BannerSinConexion
+import 'myPagesTema/b_ui_kit.dart';
+
+// No es necesario import 'package:tesoreria_ivan/myPagesTema/b_ui_kit.dart'; para el Banner, ya está en misPagesTema/b_ui_kit.dart
 
 Future<void> main() async {
   // Aseguramos binding para operaciones asíncronas antes de runApp
@@ -86,16 +88,27 @@ class MiApp extends StatelessWidget {
         Locale('es', 'PE'), // Español Perú
       ],
       
-      // Banner de Conexión Global
+      // Banner de Conexión y Responsividad Global
       builder: (context, child) {
-        return Column(
+        final columnChild = Column(
           children: [
              Expanded(child: child ?? const SizedBox()),
              const BannerSinConexion(),
           ],
         );
+        
+        return Container(
+          color: Theme.of(context).brightness == Brightness.dark 
+              ? Colors.black87 
+              : Colors.blueGrey.shade50,
+          child: ContenedorMaximoLectura(
+            child: Container(
+              color: Theme.of(context).scaffoldBackgroundColor, // Mantiene el color base del app
+              child: columnChild,
+            ),
+          ),
+        );
       },
-
       // Pantalla Inicial (Wrapper de Login)
       home: const PantallaBienvenida(),
       

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../myPagesServer/b_base_datos_remota.dart';
 import 'modelo_usuario.dart';
 import '../myPagesServer/c_base_datos_local.dart';
-import '../myPagesServer/d_sincronizador.dart';
-import 'f_servicio_auditoria.dart';
+import 'd_sincronizador.dart';
+import 'k_servicio_auditoria.dart';
 import 'dart:async';
 
 class ControladorUsuarios extends ChangeNotifier {

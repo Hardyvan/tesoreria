@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 
-import 'b_base_datos_remota.dart';
+import '../myPagesServer/b_base_datos_remota.dart';
 
 class ServicioExcel {
   
@@ -26,7 +26,6 @@ class ServicioExcel {
       // -----------------------------------------------------
       Sheet sheetAlumnos = excel['Estado Alumnos'];
       excel.setDefaultSheet('Estado Alumnos');
-      // No existe 'Sheet1' por defecto dependiendo de la versión, pero renombraremos las creadas.
       if (excel.tables.containsKey('Sheet1')) {
          excel.rename('Sheet1', 'Estado Alumnos');
          sheetAlumnos = excel['Estado Alumnos'];
@@ -153,7 +152,6 @@ class ServicioExcel {
         ..createSync(recursive: true)
         ..writeAsBytesSync(fileBytes);
 
-      // Usar share_plus para abrir selector y compartir a WhatsApp (número por defecto propuesto: 986342182)
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Cierre Contable generado automáticamante. (Sugerido para Teso: 986342182)',
