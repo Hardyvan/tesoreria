@@ -104,42 +104,12 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         children: vistas,
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color.lerp(Colors.white, Theme.of(context).colorScheme.primary, 0.8)!,
-              Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.secondary,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            stops: const [0.0, 0.4, 1.0],
-          ),
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            navigationBarTheme: NavigationBarThemeData(
-              backgroundColor: Colors.transparent,
-              indicatorColor: Colors.white.withValues(alpha: 0.25),
-              iconTheme: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return const IconThemeData(color: Colors.white, size: 26);
-                }
-                return IconThemeData(color: Colors.white.withValues(alpha: 0.7), size: 24);
-              }),
-              labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13);
-                }
-                return TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12);
-              }),
-            ),
-          ),
-          child: NavigationBar(
-            selectedIndex: _indiceActual,
-            onDestinationSelected: (i) => setState(() => _indiceActual = i),
-            destinations: botonesVavegacion,
-          ),
+        padding: const EdgeInsets.only(top: 4),  // Sutil separación
+        color: Theme.of(context).colorScheme.surface,
+        child: NavigationBar(
+          selectedIndex: _indiceActual,
+          onDestinationSelected: (i) => setState(() => _indiceActual = i),
+          destinations: botonesVavegacion,
         ),
       ),
     );

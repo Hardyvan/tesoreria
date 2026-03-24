@@ -423,11 +423,7 @@ class _RegistroGastosState extends State<RegistroGastos> {
                         text: 'GUARDAR SALIDA',
                         icon: Icons.save,
                         onPressed: _guardarGasto,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFEF5350), Color(0xFFC62828)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        useSecondaryColor: true,
                       );
                     },
                   ),
@@ -526,7 +522,7 @@ class _CrearActividadState extends State<CrearActividad> {
               const SizedBox(height: 20),
               CampoTextoPersonalizado(
                 label: 'Costo General',
-                prefixText: 'S/ ',
+                prefixIcon: Icons.attach_money,
                 controller: _ctrlCosto,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -563,7 +559,7 @@ class _CrearActividadState extends State<CrearActividad> {
                 const SizedBox(height: 20),
                 CampoTextoPersonalizado(
                   label: 'Multa por día vencido',
-                  prefixText: 'S/ ',
+                  prefixIcon: Icons.attach_money,
                   controller: _ctrlMulta,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),

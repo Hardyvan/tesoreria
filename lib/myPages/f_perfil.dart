@@ -22,7 +22,7 @@ class PerfilUsuario extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Perfil'),
-        actions: const [ BannerSinConexion() ],
+        actions: const [BannerSinConexion()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
@@ -31,13 +31,13 @@ class PerfilUsuario extends StatelessWidget {
             Stack(
               children: [
                 CircleAvatar(
-                  radius: 50,
+                  radius: 45,
                   backgroundColor: Theme.of(context).primaryColor,
-                  backgroundImage: (user?.fotoUrl ?? '').isNotEmpty 
-                      ? NetworkImage(user!.fotoUrl) 
+                  backgroundImage: (user?.fotoUrl ?? '').isNotEmpty
+                      ? NetworkImage(user!.fotoUrl)
                       : null,
-                  child: (user?.fotoUrl ?? '').isEmpty 
-                      ? const Icon(Icons.person, size: 50, color: Colors.white) 
+                  child: (user?.fotoUrl ?? '').isEmpty
+                      ? const Icon(Icons.person, size: 50, color: Colors.white)
                       : null,
                 ),
                 Positioned(
@@ -47,68 +47,90 @@ class PerfilUsuario extends StatelessWidget {
                     radius: 18,
                     backgroundColor: Colors.white,
                     child: IconButton(
-                      icon: Icon(Icons.camera_alt, size: 18, color: Theme.of(context).primaryColor),
+                      icon: Icon(
+                        Icons.camera_alt,
+                        size: 18,
+                        color: Theme.of(context).primaryColor,
+                      ),
                       onPressed: () {
-                         // MOSTRAR SELECTOR (Cámara o Galería)
-                         showModalBottomSheet(
-                           context: context,
-                           backgroundColor: Colors.white,
-                           shape: const RoundedRectangleBorder(
-                             borderRadius: BorderRadius.vertical(top: Radius.circular(20))
-                           ),
-                           builder: (ctx) => SafeArea(
-                             child: Wrap(
-                               children: [
-                                 ListTile(
-                                   leading: const Icon(Icons.photo_library),
-                                   title: const Text('Galería'),
-                                   onTap: () async {
-                                     Navigator.pop(ctx);
-                                     unawaited(_seleccionarYSubirFoto(context, ImageSource.gallery));
-                                   },
-                                 ),
-                                 ListTile(
-                                   leading: const Icon(Icons.camera_alt),
-                                   title: const Text('Cámara'),
-                                   onTap: () async {
-                                     Navigator.pop(ctx);
-                                     unawaited(_seleccionarYSubirFoto(context, ImageSource.camera));
-                                   },
-                                 ),
-                               ],
-                             ),
-                           ),
-                         );
+                        // MOSTRAR SELECTOR (Cámara o Galería)
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
+                          ),
+                          builder: (ctx) => SafeArea(
+                            child: Wrap(
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.photo_library),
+                                  title: const Text('Galería'),
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    unawaited(
+                                      _seleccionarYSubirFoto(
+                                        context,
+                                        ImageSource.gallery,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.camera_alt),
+                                  title: const Text('Cámara'),
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    unawaited(
+                                      _seleccionarYSubirFoto(
+                                        context,
+                                        ImageSource.camera,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
-                )
+                ),
               ],
             ),
-            
-            if (auth.cargando) 
-               const Padding(
-                 padding: EdgeInsets.only(top: 10),
-                 child: LinearProgressIndicator(), 
-               ),
+
+            if (auth.cargando)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: LinearProgressIndicator(),
+              ),
             const SizedBox(height: 16),
-            Text(user?.nombre ?? 'Invitado', style: Theme.of(context).textTheme.headlineMedium),
-            Text(user?.rol ?? '', style: Theme.of(context).textTheme.titleMedium),
-            
-            const SizedBox(height: 24),
-            
+            Text(
+              user?.nombre ?? 'Invitado',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            Text(
+              user?.rol ?? '',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+
+            const SizedBox(height: 10),
+
             // ----------------------------------------------------
             // SECCIÓN DE PERSONALIZACIÓN (DISEÑO SLEEK)
             // ----------------------------------------------------
             Consumer<ProveedorTema>(
               builder: (context, ref, child) {
                 final isDark = ref.modoTema == ThemeMode.dark;
-                
+
                 // Color contenedor basado en el modo, imitando el diseño de la imagen
-                final cardColor = isDark 
+                final cardColor = isDark
                     ? const Color(0xFF1E293B) // Slate Dark
                     : Colors.white;
-                
+
                 final borderColor = isDark
                     ? Colors.white10
                     : Colors.grey.withValues(alpha: 0.2);
@@ -124,77 +146,49 @@ class PerfilUsuario extends StatelessWidget {
                         color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
-                      )
-                    ]
+                      ),
+                    ],
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Personalización',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Divider(color: borderColor),
-                        const SizedBox(height: 16),
-                        
                         // 1. SWITCH MODO OSCURO
                         _themeSwitchTile(ref: ref),
-                        const SizedBox(height: 24),
-                        
+                        const SizedBox(height: 10),
+
                         // 2. PALETA DE COLORES
                         Text(
                           'Color Corporativo',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Inter',
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Inter',
+                              ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Selecciona el color principal de la aplicación',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            fontFamily: 'Inter',
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                                fontFamily: 'Inter',
+                              ),
                         ),
                         const SizedBox(height: 16),
                         _themeColorPicker(ref: ref),
-                        
-                        const SizedBox(height: 32),
-                        
-                        // 3. ESTILO VISUAL DE COMPONENTES
-                        Text(
-                          'Estilo de Componentes',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Define la forma de botones y diálogos',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _themeStyleSelector(ref: ref),
                       ],
                     ),
                   ),
                 );
               },
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             TarjetaPremium(
               usaGradientePrimario: true,
               esBordeBrillante: true,
@@ -204,7 +198,8 @@ class PerfilUsuario extends StatelessWidget {
                     leading: const Icon(Icons.history_edu),
                     title: const Text('Historial de Pagos y Ayuda'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => Navigator.pushNamed(context, RutasApp.historialPagos),
+                    onTap: () =>
+                        Navigator.pushNamed(context, RutasApp.historialPagos),
                   ),
                   const Divider(),
                   ListTile(
@@ -223,7 +218,9 @@ class PerfilUsuario extends StatelessWidget {
                             content: TextField(
                               controller: ctrl,
                               keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(labelText: 'Nuevo Número'),
+                              decoration: const InputDecoration(
+                                labelText: 'Nuevo Número',
+                              ),
                             ),
                             actions: [
                               TextButton(
@@ -233,18 +230,26 @@ class PerfilUsuario extends StatelessWidget {
                               ElevatedButton(
                                 onPressed: () async {
                                   Navigator.pop(dialogContext);
-                                  final exito = await auth.actualizarCelular(ctrl.text);
+                                  final exito = await auth.actualizarCelular(
+                                    ctrl.text,
+                                  );
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(exito ? 'Celular actualizado' : 'Error al actualizar'),
-                                        backgroundColor: exito ? Colors.green : Colors.red,
+                                        content: Text(
+                                          exito
+                                              ? 'Celular actualizado'
+                                              : 'Error al actualizar',
+                                        ),
+                                        backgroundColor: exito
+                                            ? Colors.green
+                                            : Colors.red,
                                       ),
                                     );
                                   }
                                 },
                                 child: const Text('Guardar'),
-                              )
+                              ),
                             ],
                           ),
                         );
@@ -257,17 +262,24 @@ class PerfilUsuario extends StatelessWidget {
                     title: const Text('Cerrar Sesión'),
                     onTap: () {
                       auth.cerrarSesion();
-                      Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false);
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/inicio_sesion',
+                        (route) => false,
+                      );
                     },
                   ),
                   if (auth.esAdmin) ...[
                     const Divider(),
                     ListTile(
                       leading: const Icon(Icons.admin_panel_settings),
-                      title: const Text('Gestión de Usuarios', style: TextStyle(fontWeight: FontWeight.bold)),
+                      title: const Text(
+                        'Gestión de Usuarios',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
-                         Navigator.pushNamed(context, '/gestion_usuarios');
+                        Navigator.pushNamed(context, '/gestion_usuarios');
                       },
                     ),
                   ],
@@ -281,23 +293,29 @@ class PerfilUsuario extends StatelessWidget {
   }
 
   // MÉTODO AUXILIAR PARA SUBIR FOTO
-  Future<void> _seleccionarYSubirFoto(BuildContext context, ImageSource source) async {
+  Future<void> _seleccionarYSubirFoto(
+    BuildContext context,
+    ImageSource source,
+  ) async {
     final picker = ImagePicker();
     final auth = Provider.of<ControladorAuth>(context, listen: false);
-    
+
     try {
       // 1. Seleccionar con compresión
       final XFile? archivo = await picker.pickImage(
         source: source,
-        maxWidth: 800,  // Reducir tamaño
-        imageQuality: 60 // Calidad media (ahorro)
+        maxWidth: 800, // Reducir tamaño
+        imageQuality: 60, // Calidad media (ahorro)
       );
-      
+
       if (archivo == null) return; // Cancelado
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Subiendo foto... ☁️'), duration: Duration(seconds: 2))
+          const SnackBar(
+            content: Text('Subiendo foto... ☁️'),
+            duration: Duration(seconds: 2),
+          ),
         );
       }
 
@@ -307,16 +325,22 @@ class PerfilUsuario extends StatelessWidget {
       if (url != null) {
         // 3. Actualizar en BD (MySQL + SQLite)
         await auth.actualizarFoto(url);
-        
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('¡Foto actualizada! 📸'), backgroundColor: Colors.green)
+            const SnackBar(
+              content: Text('¡Foto actualizada! 📸'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Error al subir imagen.'), backgroundColor: Colors.red)
+            const SnackBar(
+              content: Text('Error al subir imagen.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -334,21 +358,31 @@ class PerfilUsuario extends StatelessWidget {
         final isDark = ref.modoTema == ThemeMode.dark;
         return SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Modo Oscuro', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Inter')),
+          title: const Text(
+            'Modo Oscuro',
+            style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+          ),
           subtitle: Text(
-            isDark ? 'Descansa tu vista con tonos oscuros' : 'Interfaz clara y luminosa',
-            style: TextStyle(fontFamily: 'Inter', color: isDark ? Colors.grey[400] : Colors.grey[600]),
+            isDark
+                ? 'Descansa tu vista con tonos oscuros'
+                : 'Interfaz clara y luminosa',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
           ),
           value: isDark,
-          activeThumbColor: const Color(0xFF00ADB5), // Color tipo "Teal" del switch en tu diseño
+          activeThumbColor: const Color(
+            0xFF00ADB5,
+          ), // Color tipo "Teal" del switch en tu diseño
           activeTrackColor: const Color(0xFF00ADB5).withValues(alpha: 0.4),
           inactiveThumbColor: Colors.grey[400],
           inactiveTrackColor: Colors.grey[800],
           onChanged: (val) {
-             ref.cambiarTema(val);
+            ref.cambiarTema(val);
           },
         );
-      }
+      },
     );
   }
 
@@ -367,7 +401,7 @@ class PerfilUsuario extends StatelessWidget {
           runSpacing: 12,
           alignment: WrapAlignment.start,
           children: AppPalettes.coloresDisponibles.map((color) {
-            final isSelected = ref.colorTema.toARGB32() == color.toARGB32(); 
+            final isSelected = ref.colorTema.toARGB32() == color.toARGB32();
 
             return GestureDetector(
               onTap: () => ref.cambiarColorPrimario(color),
@@ -402,81 +436,14 @@ class PerfilUsuario extends StatelessWidget {
             );
           }).toList(),
         );
-      }
+      },
     );
   }
 
   // =============================================================
   // 3. SELECTOR DE ESTILO (CHIPS MEJORADOS)
   // =============================================================
-  Widget _themeStyleSelector({required ProveedorTema ref}) {
-    IconData getStyleIcon(AppStyle style) {
-      switch (style) {
-        case AppStyle.standard: return Icons.check_box_outline_blank_rounded; 
-        case AppStyle.modern:   return Icons.circle_outlined;                 
-        case AppStyle.elegant:  return Icons.square_outlined;                 
-        case AppStyle.tech:     return Icons.code;                            
-      }
-    }
-
-    return Builder(
-      builder: (context) {
-        final isDarkTheme = ref.modoTema == ThemeMode.dark;
-
-        return Center(
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: AppStyle.values.map((style) {
-              final isSelected = ref.estiloSeleccionado == style;
-              final styleIcon = getStyleIcon(style);
-              
-              final unselectedColor = isDarkTheme ? Colors.white70 : Colors.black54;
-              final selectedColor = Colors.white;
-
-              return ChoiceChip(
-                avatar: Icon(
-                  styleIcon,
-                  size: 16,
-                  color: isSelected ? selectedColor : unselectedColor,
-                ),
-                label: Text(
-                  style.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'Inter',
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                selected: isSelected,
-                onSelected: (bool selected) {
-                  if (selected) ref.cambiarEstilo(style);
-                },
-                showCheckmark: false, 
-                elevation: 0,
-                selectedColor: isDarkTheme ? Colors.white12 : Colors.black87,
-                backgroundColor: isDarkTheme
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.grey.shade100,
-                side: BorderSide.none, 
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20), 
-                ),
-                labelStyle: TextStyle(
-                  color: isSelected ? selectedColor : unselectedColor,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              );
-            }).toList(),
-          ),
-        );
-      }
-    );
-  }
 }
-
 
 class GestionUsuarios extends StatefulWidget {
   const GestionUsuarios({super.key});
@@ -508,24 +475,36 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
       body: usuariosCtrl.cargando
           ? const Center(child: CircularProgressIndicator())
           : usuariosCtrl.usuarios.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      Text('No hay usuarios registrados', style: theme.textTheme.bodyLarge),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 64,
+                    color: Colors.grey.shade400,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80, left: 16, right: 16, top: 16),
-                  itemCount: usuariosCtrl.usuarios.length,
-                  itemBuilder: (context, index) {
-                    final usuario = usuariosCtrl.usuarios[index];
-                    return _TarjetaUsuario(usuario: usuario);
-                  },
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay usuarios registrados',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(
+                bottom: 80,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              itemCount: usuariosCtrl.usuarios.length,
+              itemBuilder: (context, index) {
+                final usuario = usuariosCtrl.usuarios[index];
+                return _TarjetaUsuario(usuario: usuario);
+              },
+            ),
     );
   }
 }
@@ -551,12 +530,16 @@ class _TarjetaUsuario extends StatelessWidget {
               nombre: usuario.nombre,
               fotoUrl: usuario.fotoUrl,
               radius: 24,
-              backgroundColor: esAdmin ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.surface,
-              textColor: esAdmin ? Colors.white : ColoresApp.textoSecundarioClaro,
+              backgroundColor: esAdmin
+                  ? Theme.of(context).primaryColor
+                  : Theme.of(context).colorScheme.surface,
+              textColor: esAdmin
+                  ? Colors.white
+                  : ColoresApp.textoSecundarioClaro,
               activo: esActivo, // NUEVO: El widget maneja el puntito verde/rojo
             ),
             const SizedBox(width: 16),
-            
+
             // DATOS BÁSICOS
             Expanded(
               child: Column(
@@ -566,25 +549,40 @@ class _TarjetaUsuario extends StatelessWidget {
                     usuario.nombre.toCapitalized(),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      decoration: !esActivo ? TextDecoration.lineThrough : null, // Tachado si bloqueado
+                      decoration: !esActivo
+                          ? TextDecoration.lineThrough
+                          : null, // Tachado si bloqueado
                       color: !esActivo ? Colors.grey : null,
                     ),
                   ),
                   Text(
                     usuario.email.isNotEmpty ? usuario.email : 'Sin correo',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.hintColor,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   // CHIP DE ROL
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // MÁS AIRE
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ), // MÁS AIRE
                     decoration: BoxDecoration(
-                      color: usuario.rol == 'SuperAdmin' 
-                          ? Colors.purple.withValues(alpha: 0.1) 
-                          : (esAdmin ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Colors.grey.shade100),
+                      color: usuario.rol == 'SuperAdmin'
+                          ? Colors.purple.withValues(alpha: 0.1)
+                          : (esAdmin
+                                ? Theme.of(
+                                    context,
+                                  ).primaryColor.withValues(alpha: 0.1)
+                                : Colors.grey.shade100),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: esAdmin ? Theme.of(context).primaryColor.withValues(alpha: 0.3) : Colors.grey.shade300,
+                        color: esAdmin
+                            ? Theme.of(
+                                context,
+                              ).primaryColor.withValues(alpha: 0.3)
+                            : Colors.grey.shade300,
                         width: 0.5,
                       ),
                     ),
@@ -593,9 +591,11 @@ class _TarjetaUsuario extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: usuario.rol == 'SuperAdmin' 
-                            ? Colors.purple 
-                            : (esAdmin ? Theme.of(context).primaryColor : Colors.grey.shade600),
+                        color: usuario.rol == 'SuperAdmin'
+                            ? Colors.purple
+                            : (esAdmin
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.grey.shade600),
                       ),
                     ),
                   ),
@@ -607,17 +607,47 @@ class _TarjetaUsuario extends StatelessWidget {
             PopupMenuButton<String>(
               onSelected: (accion) => _manejarAccion(context, accion, usuario),
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'ver', child: ListTile(leading: Icon(Icons.visibility), title: Text('Ver Perfil'))),
-                const PopupMenuItem(value: 'rol', child: ListTile(leading: Icon(Icons.admin_panel_settings), title: Text('Cambiar Rol'))),
-                PopupMenuItem(
-                  value: 'bloqueo', 
+                const PopupMenuItem(
+                  value: 'ver',
                   child: ListTile(
-                    leading: Icon(esActivo ? Icons.block : Icons.check_circle, color: esActivo ? Colors.red : Colors.green), 
-                    title: Text(esActivo ? 'Bloquear Cuenta' : 'Desbloquear')
-                  )
+                    leading: Icon(Icons.visibility),
+                    title: Text('Ver Perfil'),
+                  ),
                 ),
-                const PopupMenuItem(value: 'pass', child: ListTile(leading: Icon(Icons.lock_reset), title: Text('Restablecer Pass'))),
-                const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_forever, color: Colors.red), title: Text('Eliminar Usuario', style: TextStyle(color: Colors.red)))),
+                const PopupMenuItem(
+                  value: 'rol',
+                  child: ListTile(
+                    leading: Icon(Icons.admin_panel_settings),
+                    title: Text('Cambiar Rol'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'bloqueo',
+                  child: ListTile(
+                    leading: Icon(
+                      esActivo ? Icons.block : Icons.check_circle,
+                      color: esActivo ? Colors.red : Colors.green,
+                    ),
+                    title: Text(esActivo ? 'Bloquear Cuenta' : 'Desbloquear'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'pass',
+                  child: ListTile(
+                    leading: Icon(Icons.lock_reset),
+                    title: Text('Restablecer Pass'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_forever, color: Colors.red),
+                    title: Text(
+                      'Eliminar Usuario',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -638,7 +668,11 @@ class _TarjetaUsuario extends StatelessWidget {
         _confirmarBloqueo(context, usuario);
         break;
       case 'pass':
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Se enviaría un correo de reset (Demo)')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Se enviaría un correo de reset (Demo)'),
+          ),
+        );
         break;
       case 'delete':
         _confirmarEliminacion(context, usuario);
@@ -651,27 +685,36 @@ class _TarjetaUsuario extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminar Usuario'),
-        content: Text('¿Estás seguro de que quieres eliminar a ${usuario.nombre} PERMANENTEMENTE?\nEsta acción no se puede deshacer.'),
+        content: Text(
+          '¿Estás seguro de que quieres eliminar a ${usuario.nombre} PERMANENTEMENTE?\nEsta acción no se puede deshacer.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(context);
-              final exito = await Provider.of<ControladorUsuarios>(context, listen: false)
-                  .eliminarUsuario(usuario.id);
+              final exito = await Provider.of<ControladorUsuarios>(
+                context,
+                listen: false,
+              ).eliminarUsuario(usuario.id);
 
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(exito ? 'Usuario eliminado' : 'Error al eliminar'),
+                    content: Text(
+                      exito ? 'Usuario eliminado' : 'Error al eliminar',
+                    ),
                     backgroundColor: exito ? Colors.green : Colors.red,
                   ),
                 );
               }
             },
             child: const Text('Eliminar'),
-          )
+          ),
         ],
       ),
     );
@@ -689,15 +732,24 @@ class _TarjetaUsuario extends StatelessWidget {
             _dato('Celular', u.celular),
             _dato('Email', u.email),
             const Divider(),
-            _dato('Dirección', u.direccion.isEmpty ? 'No registrada' : u.direccion),
+            _dato(
+              'Dirección',
+              u.direccion.isEmpty ? 'No registrada' : u.direccion,
+            ),
             _dato('Edad', u.edad == 0 ? 'No registrada' : '${u.edad} años'),
             _dato('Sexo', u.sexo.isEmpty ? 'No registrado' : u.sexo),
             const SizedBox(height: 10),
-            Text('Estado: ${u.estado.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Estado: ${u.estado.toUpperCase()}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
         ],
       ),
     );
@@ -709,7 +761,13 @@ class _TarjetaUsuario extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           Expanded(child: Text(valor)),
         ],
       ),
@@ -722,19 +780,28 @@ class _TarjetaUsuario extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(esActivo ? 'Bloquear Usuario' : 'Desbloquear Usuario'),
-        content: Text("¿Estás seguro de que quieres ${esActivo ? 'bloquear' : 'desbloquear'} a ${usuario.nombre}?"),
+        content: Text(
+          "¿Estás seguro de que quieres ${esActivo ? 'bloquear' : 'desbloquear'} a ${usuario.nombre}?",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: esActivo ? Colors.red : Colors.green),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: esActivo ? Colors.red : Colors.green,
+            ),
             onPressed: () {
               Navigator.pop(context);
               final nuevoEstado = esActivo ? 'inactivo' : 'activo';
-              Provider.of<ControladorUsuarios>(context, listen: false)
-                  .cambiarEstadoUsuario(usuario.id, nuevoEstado);
+              Provider.of<ControladorUsuarios>(
+                context,
+                listen: false,
+              ).cambiarEstadoUsuario(usuario.id, nuevoEstado);
             },
             child: Text(esActivo ? 'Bloquear' : 'Desbloquear'),
-          )
+          ),
         ],
       ),
     );
@@ -756,18 +823,18 @@ class _TarjetaUsuario extends StatelessWidget {
                   RadioListTile<String>(
                     title: const Text('Alumno'),
                     value: 'Alumno',
-                     // ignore: deprecated_member_use
+                    // ignore: deprecated_member_use
                     groupValue: nuevoRol,
-                     // ignore: deprecated_member_use
+                    // ignore: deprecated_member_use
                     onChanged: (v) => setState(() => nuevoRol = v!),
                   ),
                   // ignore: deprecated_member_use
                   RadioListTile<String>(
                     title: const Text('Admin'),
                     value: 'Admin',
-                     // ignore: deprecated_member_use
+                    // ignore: deprecated_member_use
                     groupValue: nuevoRol,
-                     // ignore: deprecated_member_use
+                    // ignore: deprecated_member_use
                     onChanged: (v) => setState(() => nuevoRol = v!),
                   ),
                   // ignore: deprecated_member_use
@@ -775,19 +842,24 @@ class _TarjetaUsuario extends StatelessWidget {
                     title: const Text('Super Admin (Pro)'),
                     value: 'SuperAdmin',
                     activeColor: Colors.purple,
-                     // ignore: deprecated_member_use
+                    // ignore: deprecated_member_use
                     groupValue: nuevoRol,
-                     // ignore: deprecated_member_use
+                    // ignore: deprecated_member_use
                     onChanged: (v) => setState(() => nuevoRol = v!),
                   ),
                 ],
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
                 ElevatedButton(
                   onPressed: () {
-                    Provider.of<ControladorUsuarios>(context, listen: false)
-                        .actualizarRol(usuario.id, nuevoRol);
+                    Provider.of<ControladorUsuarios>(
+                      context,
+                      listen: false,
+                    ).actualizarRol(usuario.id, nuevoRol);
                     Navigator.pop(context);
                   },
                   child: const Text('Guardar'),

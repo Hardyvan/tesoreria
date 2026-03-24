@@ -51,7 +51,7 @@ class ControladorAuth extends ChangeNotifier {
       await cargarPreferencias();
 
     } catch (e) {
-      debugPrint('Error verificando sesiÃ³n SRP: $e');
+      debugPrint('Error verificando sesión SRP: $e');
     } finally {
       _cargando = false;
       notifyListeners();
@@ -112,7 +112,7 @@ class ControladorAuth extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // INICIO DE SESIÃ“N GOOGLE
+  // INICIO DE SESION GOOGLE
   // ---------------------------------------------------------------------------
   Future<String?> ingresarConGoogle() async {
     _cargando = true;
@@ -133,7 +133,7 @@ class ControladorAuth extends ChangeNotifier {
         if (result['status'] == 'UsuarioIncompleto') return 'UsuarioIncompleto';
         return null; // OK
       }
-      return 'No se pudo obtener la informaciÃ³n del usuario de Google.';
+      return 'No se pudo obtener la información del usuario de Google.';
     } catch (e) {
       return 'Error al iniciar con Google: $e';
     } finally {
@@ -172,15 +172,15 @@ class ControladorAuth extends ChangeNotifier {
         return errorInsertSQL; // Devuelve al UI el error sin crear un huÃ©rfano
       }
 
-      // 3. Fase VerificaciÃ³n
+      // 3. Fase Verificación
       await _authService.enviarCorreoValidacion(credential.user!);
       return 'VERIFICACION_ENVIADA';
 
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') return 'Este correo ya estÃ¡ registrado. Inicia sesiÃ³n.';
+      if (e.code == 'email-already-in-use') return 'Este correo ya esta registrado. Inicia sesión.';
       return 'Error Auth: ${e.message}';
     } catch (e) {
-      return 'Error crÃ­tico al registrar: $e';
+      return 'Error crítico al registrar: $e';
     } finally {
       _cargando = false;
       notifyListeners();

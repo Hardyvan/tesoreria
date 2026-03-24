@@ -90,6 +90,7 @@ class ColoresApp {
   static const Color error = Color(0xFFD32F2F);
   static const Color exito = Color(0xFF2E7D32);
   static const Color textoSecundarioClaro = Color(0xFF78909C);
+  static const Color textoPrimarioOscuro = Color(0xFF000000);
   static const Color secundario = AppPalettes.defaultSecondary;
   static const Color estadoPendiente = Color(0xFFF57C00);
 
@@ -98,9 +99,6 @@ class ColoresApp {
   static const Color textoOscuro = Color(0xFFF8FAFC);
 
   static final List<BoxShadow> sombraSuave = AppTokens.sombraSuave;
-  static const LinearGradient gradientePrimario = LinearGradient(
-    colors: [AppPalettes.defaultPrimary, Color(0xFF1A237E)],
-  );
 }
 
 // =============================================================================
@@ -153,111 +151,84 @@ class AppPalettes {
   }
 
   // 2. COLORES PERSONALIZADOS
-  static final MaterialColor insoftBlue = _createMaterialColor(const Color(0xFF0056D2));
+  static final MaterialColor insoftBlue = _createMaterialColor(const Color(0xFF003162));
   static final MaterialColor foodOrange = _createMaterialColor(const Color(0xFFFF6B00));
   static final MaterialColor carbon = _createMaterialColor(const Color(0xFF2C3E50));
 
   static const Color defaultPrimary = Color(0xFF0056D2);
-  static const Color defaultSecondary = Color(0xFF00A2FF); // Cian para el azul
+  static const Color defaultSecondary = Color(0xFF00A2FF);
+  static const Color azulProfundo = Color(0xFF295E73); // #295E73
+  static const Color amarilloinSoft = Color(0xFFEAA012); // #F2B441
+  static const Color rosaViejo = Color(0xFFD48392);
+  static const Color rosaPolvo = Color(0xFFE4B9AB);// #F27141
+  static const Color rojoTerracota = Color(0xFFBF5349); /// Cian para el azul
 
   // 3. LISTA DE SELECCIÓN DE COLORES
   static final List<Color> coloresDisponibles = [
-    insoftBlue,
-    foodOrange,
-    Colors.indigo,
-    Colors.teal,
-    Colors.green,
-    Colors.red,
-    Colors.purple,
-    Colors.pink,
-    carbon, // Negro azulado personalizado
-    Colors.blueGrey,
+    insoftBlue,         // Tu azul corporativo base
+    azulProfundo,       // #295E73
+    amarilloinSoft,    // #F2B441
+    rosaViejo,        // #F2A341
+    rosaPolvo,       // #F27141
+    rojoTerracota,      // #BF5349
+    carbon,             // Tu color carbón
+    //Colors.blueGrey,    // Gris azulado
   ];
 
   // ===========================================================================
-  // ✨ MÉTODO DEFINITIVO: DEGRADADOS MONOCROMÁTICOS PROFUNDOS (MÁXIMA ELEGANCIA)
+  // ✨ MÉTODO "DUOTONO VIBRANTE": COLORES COMPAÑEROS DE ALTO CONTRASTE
   // ===========================================================================
-  // ===========================================================================
-  // ✨ MÉTODO AJUSTADO: DEGRADADOS PROFUNDOS Y CÁLIDOS (RELAJAN LA VISTA)
-  // ===========================================================================
-  /*static Color obtenerColorSecundario(Color colorPrimario) {
-
-    // 1. 🔵 Azul Corporativo -> Azul Cobalto profundo (menos negro, más amigable)
-    if (colorPrimario.toARGB32() == insoftBlue.toARGB32()) return const Color(0xFF1A369D);
-
-    // 2. 🟠 Naranja -> Terracota / Ladrillo oscuro (muy acogedor y cálido)
-    if (colorPrimario.toARGB32() == foodOrange.toARGB32()) return const Color(0xFFCC4A00);
-
-    // 3. 🟣 Índigo -> Morado Ciruela (suave y elegante)
-    if (colorPrimario.toARGB32() == Colors.indigo.toARGB32()) return const Color(0xFF3D2A87);
-
-    // 4. 🌲 Teal -> Verde Esmeralda oscuro (elimina la frialdad del petróleo)
-    if (colorPrimario.toARGB32() == Colors.teal.toARGB32()) return const Color(0xFF00564F);
-
-    // 5. 🌲 Verde -> Verde Musgo / Olivo oscuro (muy natural y orgánico)
-    if (colorPrimario.toARGB32() == Colors.green.toARGB32()) return const Color(0xFF1D5A2A);
-
-    // 6. 🔴 Rojo -> Cereza oscuro / Carmín
-    if (colorPrimario.toARGB32() == Colors.red.toARGB32()) return const Color(0xFF991414);
-
-    // 7. 🟣 Púrpura -> Berenjena cálido
-    if (colorPrimario.toARGB32() == Colors.purple.toARGB32()) return const Color(0xFF5E1B8C);
-
-    // 8. 🌸 Rosa -> Vino rosado apagado
-    if (colorPrimario.toARGB32() == Colors.pink.toARGB32()) return const Color(0xFF96164E);
-
-    // 9. ⚫ Carbón -> Moka / Gris pardo oscuro (le quita el tono "frío" al negro)
-    if (colorPrimario.toARGB32() == carbon.toARGB32()) return const Color(0xFF2B2625);
-
-    // 10. 🔘 Azul Grisáceo -> Asfalto suave
-    if (colorPrimario.toARGB32() == Colors.blueGrey.toARGB32()) return const Color(0xFF363F46);
-
-    // Fallback de seguridad
-    return const Color(0xFF2C2C2C); // Gris neutro suave
-  }*/
-  // ===========================================================================
-  // ✨ MÉTODO "COZY PREMIUM": DEGRADADOS EXTREMADAMENTE CÁLIDOS Y EMPOLVADOS
-  // ===========================================================================git
   static Color obtenerColorSecundario(Color colorPrimario) {
+    final int value = colorPrimario.toARGB32();
 
-    // 1. 🔵 Azul Corporativo -> Azul Índigo cálido (con un toque de violeta grisáceo)
-    if (colorPrimario.toARGB32() == insoftBlue.toARGB32()) return const Color(0xFF2A4296);
+    // 0. 🔵 Azul Standard (Default) -> Compañero: Cian Claro (el que pediste inicialmente)
+    if (value == defaultPrimary.toARGB32()) return defaultSecondary;
 
-    // 2. 🟠 Naranja -> Caramelo Tostado (Cálido, dorado y relajante)
-    if (colorPrimario.toARGB32() == foodOrange.toARGB32()) return const Color(0xFFA86332);
+    // 1. 🔵 Azul InSOFT (#003162) -> Compañero: Ámbar InSOFT (#FD9703) (Contraste clásico)
+    if (value == insoftBlue.toARGB32()) return const Color(0xFFFD9703);
 
-    // 3. 🟣 Índigo -> Malva empolvado (muy relajante y acogedor)
-    if (colorPrimario.toARGB32() == Colors.indigo.toARGB32()) return const Color(0xFF4A3285);
+    // 2. 🌲 Azul Profundo / Teal oscuro (#295E73) -> Compañero: Coral Cálido / Terracota (#E07A5F)
+    if (value == azulProfundo.toARGB32()) return const Color(0xFFE07A5F);
 
-    // 4. 🌲 Teal -> Verde Océano profundo y cálido (menos azul, más hoja)
-    if (colorPrimario.toARGB32() == Colors.teal.toARGB32()) return const Color(0xFF166057);
+    // 3. 🟡 Amarillo InSOFT (#EAA012) -> Compañero: Azul Marino Profundo (#1E3A8A)
+    if (value == amarilloinSoft.toARGB32()) return const Color(0xFF1E3A8A);
 
-    // 5. 🌲 Verde -> Verde Oliva suave (como bosque al atardecer)
-    if (colorPrimario.toARGB32() == Colors.green.toARGB32()) return const Color(0xFF2E6339);
+    // 4. 🌸 Rosa Viejo (#D48392) -> Compañero: Verde Salvia oscuro (#4A5D23) o Vino (#5C1D2A)
+    if (value == rosaViejo.toARGB32()) return const Color(0xFF5C1D2A);
 
-    // 6. 🔴 Rojo -> Madera de rosal / Rojo óxido (cero agresivo)
-    if (colorPrimario.toARGB32() == Colors.red.toARGB32()) return const Color(0xFFA32929);
+    // 5. 🌸 Rosa Polvo (#E4B9AB) -> Compañero: Carmesí Rico (#9B2226)
+    if (value == rosaPolvo.toARGB32()) return const Color(0xFF9B2226);
 
-    // 7. 🟣 Púrpura -> Ciruela polvoriento
-    if (colorPrimario.toARGB32() == Colors.purple.toARGB32()) return const Color(0xFF6A268A);
+    // 6. 🔴 Rojo Terracota (#BF5349) -> Compañero: Teal Suave / Océano (#006D77)
+    if (value == rojoTerracota.toARGB32()) return const Color(0xFF006D77);
 
-    // 8. 🌸 Rosa -> Frutos rojos cálidos (Berry suave)
-    if (colorPrimario.toARGB32() == Colors.pink.toARGB32()) return const Color(0xFFA62B5B);
+    // 7. ⚫ Carbón (#2C3E50) -> Compañero: Naranja Quemado (#D35400) (Estilo dev elegante)
+    if (value == carbon.toARGB32()) return const Color(0xFFD35400);
 
-    // 9. ⚫ Carbón -> Espresso / Marrón grisáceo (super cálido y corporativo)
-    if (colorPrimario.toARGB32() == carbon.toARGB32()) return const Color(0xFF3A3331);
+    // 8. 🔘 Azul Grisáceo (fallback) -> Compañero: Ámbar Dorado (#FFC107)
+    if (value == Colors.blueGrey.toARGB32()) return const Color(0xFFFFC107);
 
-    // 10. 🔘 Azul Grisáceo -> Greige (mezcla de gris y beige cálido)
-    if (colorPrimario.toARGB32() == Colors.blueGrey.toARGB32()) return const Color(0xFF484E54);
+    // Fallback de seguridad: generamos un color complementario aproximado invirtiendo los canales
+    return Color.fromARGB(
+      255,
+      255 - colorPrimario.r.toInt(),
+      255 - colorPrimario.g.toInt(),
+      255 - colorPrimario.b.toInt(),
+    );
+  }
 
-    // Fallback de seguridad
-    return const Color(0xFF3B3B3B); // Gris cálido base
+
+  // ===========================================================================
+  // ✨ SURFACE TINTING: FONDOS OSCUROS DINÁMICOS
+  // ===========================================================================
+  static Color _tintarSuperficie(Color baseColor, Color tintColor, double opacity) {
+    return Color.alphaBlend(tintColor.withValues(alpha: opacity), baseColor);
   }
 
   static ThemeConfig light({Color primary = defaultPrimary, AppStyle style = AppStyle.standard}) {
-    // Tint backgrounds slightly with the primary color to make theme changes more impactful
-    final Color tintedBackground = Color.lerp(AppTokens.lightBg, primary, 0.02) ?? AppTokens.lightBg;
-    final Color tintedSurface = Color.lerp(ColoresApp.superficieClara, primary, 0.03) ?? ColoresApp.superficieClara;
+    // Restaurando fondo blanco puro para máximo contraste (Estilo InSOFT limpio)
+    const Color plainBackground = Color(0xFFF5F7FA); // Gris muy tenue para fondo (AppColors.backgroundLight)
+    const Color plainSurface = Colors.white; // Blanco puro para tarjetas
 
     // Aplicamos la lógica del secundario dinámico
     final Color dynamicSecondary = obtenerColorSecundario(primary);
@@ -266,17 +237,23 @@ class AppPalettes {
       brightness: Brightness.light,
       primary: primary,
       secondary: dynamicSecondary,
-      background: tintedBackground,
-      surface: tintedSurface,
+      background: plainBackground,
+      surface: plainSurface,
       onBackground: const Color(0xFF1E293B), // Slate 800 para mejor lectura
       style: style,
     );
   }
 
   static ThemeConfig dark({Color primary = const Color(0xFF64B5F6), AppStyle style = AppStyle.standard}) {
-    // Tint backgrounds slightly with the primary color to make theme changes more impactful
-    final Color tintedBackground = Color.lerp(AppTokens.darkBg, primary, 0.06) ?? AppTokens.darkBg;
-    final Color tintedSurface = Color.lerp(ColoresApp.superficieOscura, primary, 0.08) ?? ColoresApp.superficieOscura;
+    // 1. Base neutra súper oscura (Material 3 standard)
+    const Color grisAsfaltoBase = Color(0xFF111418); // Muy cercano al negro puro, ligeramente más amigable
+    
+    // 2. Aplicamos Surface Tinting (mezclamos un poco del color primario en el fondo gris)
+    // Fondo general recibe apenas 4% del color primario
+    final Color tintedBackground = _tintarSuperficie(grisAsfaltoBase, primary, 0.04);
+    
+    // Tarjetas/Superficies reciben 8% del primario para destacarse apenas un poco
+    final Color tintedSurface = _tintarSuperficie(grisAsfaltoBase, primary, 0.08);
 
     // Aplicamos la lógica del secundario dinámico
     final Color dynamicSecondary = obtenerColorSecundario(primary);
@@ -287,7 +264,7 @@ class AppPalettes {
       secondary: dynamicSecondary,
       background: tintedBackground,
       surface: tintedSurface,
-      onBackground: ColoresApp.textoOscuro,
+      onBackground: ColoresApp.textoOscuro, // Blanco tiza para perfecta legibilidad
       style: style,
     );
   }
@@ -330,6 +307,7 @@ class TemaApp {
     }
 
     return baseTheme.copyWith(
+      textTheme: baseTheme.textTheme.apply(fontFamily: 'Inter'), // ✨ Fuente global
       primaryColor: config.primary,
       scaffoldBackgroundColor: config.background,
       canvasColor: config.background,
@@ -367,6 +345,13 @@ class TemaApp {
         ),
       ),
 
+      // ✨ Globals Text Selection (Cursor & Highlight)
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: config.secondary,
+        selectionColor: config.secondary.withValues(alpha: 0.3),
+        selectionHandleColor: config.secondary,
+      ),
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -376,6 +361,7 @@ class TemaApp {
           borderRadius: borderRadiusGeneral,
           borderSide: BorderSide(color: isDark ? Colors.white12 : config.primary.withValues(alpha: 0.08)),
         ),
+        // ✨ Aquí usamos el color Secundario Vibrante
         focusedBorder: OutlineInputBorder(
           borderRadius: borderRadiusGeneral,
           borderSide: BorderSide(color: config.secondary, width: 2),
@@ -390,6 +376,60 @@ class TemaApp {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: shapeBoton,
         ),
+      ),
+
+      // ✨ Agregamos el FAB con el color Secundario
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: config.secondary,
+        foregroundColor: isDark ? Colors.black : Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+
+      // ✨ Agregamos el NavigationBar con el indicador Secundario
+      navigationBarTheme: NavigationBarThemeData(
+        indicatorColor: config.secondary.withValues(alpha: 0.25),
+        backgroundColor: config.surface,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(color: config.secondary); 
+          }
+          return IconThemeData(color: isDark ? Colors.white54 : Colors.black54);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+             return TextStyle(fontWeight: FontWeight.bold, color: config.secondary, fontSize: 12);
+          }
+          return TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.white54 : Colors.black54, fontSize: 12);
+        }),
+      ),
+
+      // ✨ [Refinamiento Premium] Snackbars flotantes tipo píldora
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), // Píldora
+        backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFF1E293B), // Slate oscuro sofisticado
+        contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontFamily: 'Inter'),
+        elevation: 8,
+      ),
+
+      // ✨ [Refinamiento Premium] BottomSheets iOS-style (Curvas grandes)
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: config.surface,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(32),
+            topRight: Radius.circular(32),
+          ),
+        ),
+      ),
+
+      // ✨ [Refinamiento Premium] Divisores súper sutiles para evitar ruido visual
+      dividerTheme: DividerThemeData(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+        thickness: 1,
+        space: 1,
       ),
 
       appBarTheme: AppBarTheme(

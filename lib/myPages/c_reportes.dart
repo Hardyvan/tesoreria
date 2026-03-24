@@ -196,7 +196,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: ColoresApp.gradientePrimario,
+        color: Theme.of(context).primaryColor,
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         boxShadow: [
           BoxShadow(

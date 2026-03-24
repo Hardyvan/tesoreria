@@ -1,13 +1,12 @@
-import 'a_tema.dart';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../myPagesBack/h_servicio_conectividad.dart';
-
-import 'package:flutter/services.dart';
-
+import 'a_tema.dart';
 
 // =============================================================================
-// 1. GRADIENTE BUTTON
+// 1. BOTÓN PRINCIPAL SOLID (Reemplaza BotonGradiente)
 // =============================================================================
 class BotonGradiente extends StatelessWidget {
   final String text;
@@ -16,7 +15,7 @@ class BotonGradiente extends StatelessWidget {
   final bool isLoading;
   final double width;
   final double height;
-  final Gradient? gradient;
+  final bool useSecondaryColor; // ✨ Nueva opción para usar el color de acento
 
   const BotonGradiente({
     super.key,
@@ -26,38 +25,30 @@ class BotonGradiente extends StatelessWidget {
     this.isLoading = false,
     this.width = double.infinity,
     this.height = 54,
-    this.gradient,
+    this.useSecondaryColor = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final activeGradient = gradient ?? LinearGradient(
-      colors: [
-        Color.lerp(Colors.white, colorScheme.primary, 0.8)!, // Brillo sutil
-        colorScheme.primary,
-        colorScheme.secondary, // Sombra
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      stops: const [0.0, 0.4, 1.0],
-    );
-
+    final theme = Theme.of(context);
     final isEnabled = onPressed != null && !isLoading;
+    
+    // Usamos colores SÓLIDOS puros como pidió el usuario, cero degradados
+    final solidColor = useSecondaryColor ? theme.colorScheme.secondary : theme.primaryColor;
 
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        gradient: isEnabled ? activeGradient : null,
-        color: isEnabled ? null : Colors.grey.shade400,
+        color: isEnabled ? solidColor : Colors.grey.shade400,
         borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+        // Sombra suave del mismo color sólido
         boxShadow: isEnabled
             ? [
           BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.4),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: solidColor.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ]
             : [],
@@ -86,7 +77,7 @@ class BotonGradiente extends StatelessWidget {
                   text,
                   style: const TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700, // Más Bold para compensar la falta de gradiente
                       fontSize: 16,
                       fontFamily: 'Inter'
                   ),
@@ -123,8 +114,6 @@ class CampoTextoPersonalizado extends StatefulWidget {
   final TextAlign textAlign;
   final double? letterSpacing;
   final ValueChanged<String>? onChanged;
-  final String? prefixText;
-  final Widget? prefixIconWidget;
 
   const CampoTextoPersonalizado({
     super.key,
@@ -147,8 +136,6 @@ class CampoTextoPersonalizado extends StatefulWidget {
     this.textAlign = TextAlign.start,
     this.letterSpacing,
     this.onChanged,
-    this.prefixText,
-    this.prefixIconWidget,
   });
 
   @override
@@ -172,6 +159,8 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
     return TextFormField(
       controller: widget.controller,
       focusNode: widget.focusNode,
+      showCursor: true,
+      cursorColor: theme.primaryColor,
       obscureText: widget.isPassword ? _obscureText : false,
       keyboardType: widget.keyboardType,
       textInputAction: widget.textInputAction,
@@ -183,13 +172,13 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
       maxLength: widget.maxLength,
       textAlign: widget.textAlign,
       onChanged: widget.onChanged,
-      buildCounter: (widget.maxLength != null) 
-          ? (_, {required currentLength, maxLength, required isFocused}) => null 
+      buildCounter: (widget.maxLength != null)
+          ? (_, {required currentLength, maxLength, required isFocused}) => null
           : null,
       style: theme.textTheme.bodyLarge?.copyWith(
         letterSpacing: widget.letterSpacing,
         fontWeight: widget.letterSpacing != null ? FontWeight.bold : null,
-        fontSize: widget.letterSpacing != null ? 24 : null,
+        fontSize: widget.letterSpacing != null ? 18 : null,
         color: widget.letterSpacing != null ? theme.primaryColor : null,
       ),
       inputFormatters: widget.inputFormatters,
@@ -197,24 +186,50 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
         labelText: widget.label.isEmpty ? null : widget.label,
         hintText: widget.hint,
         counterText: '',
-        prefixText: widget.prefixText,
-        prefixStyle: widget.prefixText != null 
-          ? TextStyle(color: isDark ? Colors.white70 : theme.primaryColor.withValues(alpha: 0.6), fontWeight: FontWeight.bold, fontSize: 16)
-          : null,
-        prefixIcon: widget.prefixIconWidget ?? (widget.prefixIcon != null ? Icon(
-            widget.prefixIcon,
-            color: isDark ? Colors.white70 : theme.primaryColor.withValues(alpha: 0.6)
-        ) : null),
+
+        filled: true,
+        fillColor: Theme.of(context).colorScheme.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
+            width: 0.8,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.55),
+            width: 1.2,
+          ),
+        ),
+
+        prefixIcon: widget.prefixIcon != null
+            ? Icon(
+          widget.prefixIcon,
+          color: isDark
+              ? Colors.white70
+              : theme.primaryColor.withValues(alpha: 0.6),
+        )
+            : null,
         alignLabelWithHint: widget.maxLines > 1,
         suffixIcon: widget.isPassword
             ? IconButton(
           icon: Icon(
-            _obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            _obscureText
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
             color: theme.hintColor,
           ),
           onPressed: () => setState(() => _obscureText = !_obscureText),
         )
-            : (widget.suffixIcon != null ? Icon(widget.suffixIcon, color: theme.hintColor) : null),
+            : (widget.suffixIcon != null
+            ? Icon(widget.suffixIcon, color: theme.hintColor)
+            : null),
       ),
     );
   }
@@ -229,7 +244,7 @@ class TarjetaPremium extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? backgroundColor;
   final bool esBordeBrillante;
-  final bool usaGradientePrimario; // ðŸ”¥ NUEVO: Control para activar el degradado
+  final bool usaGradientePrimario; // 🔥 NUEVO: Control para activar el degradado
 
   const TarjetaPremium({
     super.key,
@@ -238,7 +253,7 @@ class TarjetaPremium extends StatelessWidget {
     this.onTap,
     this.backgroundColor,
     this.esBordeBrillante = false,
-    this.usaGradientePrimario = false, // ðŸ”¥ NUEVO: Por defecto es falso para no romper tu UI actual
+    this.usaGradientePrimario = false, // 🔥 NUEVO: Por defecto es falso para no romper tu UI actual
   });
 
   @override
@@ -247,8 +262,7 @@ class TarjetaPremium extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     
-    // Si usa gradiente, el color de fondo sÃ³lido se vuelve transparente
-    final cardBg = usaGradientePrimario ? Colors.transparent : (backgroundColor ?? theme.cardTheme.color);
+    // Si usa gradiente, el color de fondo sólido se vuelve transparente
 
     final borderColor = esBordeBrillante
         ? theme.primaryColor.withValues(alpha: 0.5)
@@ -256,20 +270,9 @@ class TarjetaPremium extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: usaGradientePrimario ? null : cardBg,
-        // ðŸ”¥ AQUÃ SUCEDE LA MAGIA DINÃMICA
-        gradient: usaGradientePrimario
-            ? LinearGradient(
-                colors: [
-                  Color.lerp(Colors.white, colorScheme.primary, 0.8)!, // Brillo sutil
-                  colorScheme.primary,
-                  colorScheme.secondary, // Sombra
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: const [0.0, 0.4, 1.0], // âœ¨ TransiciÃ³n mÃ¡s rica en 3 paradas
-              )
-            : null,
+        // 🔥 Simplificación: Eliminamos degradados para usar colores sólidos puros (Máxima legibilidad)
+        gradient: null,
+        color: usaGradientePrimario ? colorScheme.primary : (backgroundColor ?? theme.cardTheme.color),
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         border: Border.all(
           color: usaGradientePrimario ? Colors.transparent : borderColor,
@@ -283,29 +286,42 @@ class TarjetaPremium extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          splashColor: Colors.white.withValues(alpha: 0.2), // Mejor splash para fondos oscuros/degradados
+          splashColor: Colors.white.withValues(alpha: 0.2),
           highlightColor: Colors.white.withValues(alpha: 0.1),
-          child: Padding(
-            padding: padding ?? const EdgeInsets.all(AppTokens.paddingEstandar),
-            child: usaGradientePrimario
-                ? Theme(
-                    data: theme.copyWith(
-                      iconTheme: const IconThemeData(color: Colors.white),
-                      textTheme: theme.textTheme.apply(
-                        bodyColor: Colors.white,
-                        displayColor: Colors.white,
-                      ),
-                      listTileTheme: theme.listTileTheme.copyWith(
-                        iconColor: Colors.white,
-                        textColor: Colors.white,
-                      ),
-                    ),
-                    child: DefaultTextStyle.merge(
-                      style: const TextStyle(color: Colors.white),
-                      child: child,
-                    ),
-                  )
-                : child,
+          child: Theme(
+            data: theme.copyWith(
+              iconTheme: IconThemeData(
+                color: usaGradientePrimario ? Colors.white : null,
+              ),
+              dividerTheme: theme.dividerTheme.copyWith(
+                color: usaGradientePrimario ? Colors.white.withValues(alpha: 0.2) : null,
+              ),
+              iconButtonTheme: IconButtonThemeData(
+                style: IconButton.styleFrom(
+                  foregroundColor: usaGradientePrimario ? Colors.white : null,
+                ),
+              ),
+              listTileTheme: ListTileThemeData(
+                iconColor: usaGradientePrimario ? Colors.white : null,
+                textColor: usaGradientePrimario ? Colors.white : null,
+                titleTextStyle: theme.textTheme.titleMedium!.copyWith(
+                  color: usaGradientePrimario ? Colors.white : null,
+                  fontWeight: FontWeight.bold,
+                ),
+                subtitleTextStyle: theme.textTheme.bodySmall!.copyWith(
+                  color: usaGradientePrimario ? Colors.white70 : null,
+                ),
+              ),
+            ),
+            child: DefaultTextStyle(
+              style: theme.textTheme.bodyMedium!.copyWith(
+                color: usaGradientePrimario ? Colors.white : null,
+              ),
+              child: Padding(
+                padding: padding ?? const EdgeInsets.all(AppTokens.paddingEstandar),
+                child: child,
+              ),
+            ),
           ),
         ),
       ),
@@ -328,17 +344,63 @@ class ContenedorGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2), // TranslÃºcido
-        borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1), // Más translúcido para dejar pasar el blur
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+          ),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 }
+
+// =============================================================================
+// 4.5. BADGE ESTADO (NUEVO)
+// =============================================================================
+class BadgeEstado extends StatelessWidget {
+  final String texto;
+  final Color colorBase;
+
+  const BadgeEstado({
+    super.key,
+    required this.texto,
+    required this.colorBase,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorBase.withValues(alpha: 0.15), // Fondo translúcido muy sutil
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorBase.withValues(alpha: 0.5), // Borde suave
+          width: 1,
+        ),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          color: colorBase, // Texto con alto contraste relativo a su fondo translúcido
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
+  }
+}
+
+// Fin BadgeEstado
 
 // =============================================================================
 // 5. MANEJADOR DE ERRORES GLOBAL

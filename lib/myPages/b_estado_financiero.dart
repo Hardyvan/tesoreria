@@ -38,7 +38,6 @@ class _ListaDeudoresState extends State<ListaDeudores> {
   @override
   Widget build(BuildContext context) {
     final finanzas = context.watch<ControladorFinanzas>();
-    final coloresInsoft = Theme.of(context).extension<InsoftColors>()!;
     final esAdmin = context.read<ControladorAuth>().esAdmin;
     
     return Scaffold(
@@ -81,12 +80,11 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                 final double montoDeuda = deuda ?? 0.0;
                 final esDeudor = montoDeuda > 0;
                 
-                // Definimos los colores dinámicos basados en tu tema
-                final colorEstado = esDeudor ? coloresInsoft.estadoDeudor! : coloresInsoft.estadoPagado!;
-                final colorFondoAvatar = colorEstado.withValues(alpha: 0.15); // Fondo muy suave
-                
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DimensionesApp.paddingEstandar,
+                    vertical: 8,
+                  ),
                   child: TarjetaPremium(
                     usaGradientePrimario: true,
                     onTap: !esAdmin ? null : () async {
@@ -104,13 +102,13 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                     },
                     child: Row(
                       children: [
-                        // --- EL NUEVO AVATAR CON INICIALES ---
+                        // --- AVATAR CON CONTRASTE ALTO PARA FONDOS OSCUROS ---
                         AvatarUsuario(
                           nombre: alumno['nombre'],
                           fotoUrl: alumno['foto_url'],
                           radius: 24,
-                          backgroundColor: colorFondoAvatar,
-                          textColor: colorEstado,
+                          backgroundColor: Colors.white.withValues(alpha: 0.15), // Translúcido
+                          textColor: Colors.white, // Blanco puro 
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -119,22 +117,22 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                             children: [
                               Text(
                                 alumno['nombre'].toString().toCapitalized(), 
-                                style: Theme.of(context).textTheme.titleMedium
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                esDeudor ? 'Debe S/ ${montoDeuda.toStringAsFixed(2)}' : 'Al día',
-                                style: TextStyle(
-                                  color: colorEstado,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Inter',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
                                 ),
+                              ),
+                              const SizedBox(height: 6),
+                              // --- MEJORA: USAR EL COLOR SECUNDARIO DEL TEMA COMO ACENTO ---
+                              BadgeEstado(
+                                texto: esDeudor ? 'Debe S/ ${montoDeuda.toStringAsFixed(2)}' : 'Al día',
+                                colorBase: Theme.of(context).colorScheme.secondary,
                               ),
                             ],
                           ),
                         ),
                         if (esAdmin) 
-                          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
+                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
                       ],
                     ),
                   ),

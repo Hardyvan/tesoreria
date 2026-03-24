@@ -11,8 +11,27 @@ class ThemePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Personalizar Experiencia'),
+        elevation: 0,
         centerTitle: true,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon:  Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          },
+        ),
+        title: const Text(
+          'Personalizar Experiencia',
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -41,7 +60,7 @@ class ThemePage extends StatelessWidget {
             const SizedBox(height: 25),
 
             // 3. ESTILO VISUAL
-            Text(
+            /*Text(
               'Estilo de Componentes',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
@@ -51,7 +70,7 @@ class ThemePage extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
             const SizedBox(height: 15),
-            const _ThemeStyleSelector(),
+            const _ThemeStyleSelector(),*/
 
             const SizedBox(height: 40),
           ],
@@ -99,6 +118,7 @@ class _ThemeColorPicker extends StatelessWidget {
           children: AppPalettes.coloresDisponibles.map((color) {
 
             final isSelected = proveedor.colorSeleccionado.toARGB32() == color.toARGB32();
+            AppPalettes.obtenerColorSecundario(color);
 
             return GestureDetector(
               onTap: () => proveedor.cambiarColorPrimario(color),
@@ -108,115 +128,43 @@ class _ThemeColorPicker extends StatelessWidget {
                 child: Container(
                   width: isMobileSmall ? 45 : 55,
                   height: isMobileSmall ? 45 : 55,
+                  padding: isSelected ? const EdgeInsets.all(4) : EdgeInsets.zero,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        color.withValues(alpha: 0.4), // Reflejo de luz
-                        color,                         // Color principal
-                        AppPalettes.obtenerColorSecundario(color), // Sombra
-                      ],
-                      stops: const [0.0, 0.4, 1.0],
-                    ),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.onSurface
-                          : Colors.white.withValues(alpha: 0.3), // Borde interno sutil para efecto cristal
-                      width: isSelected ? 3 : 1,
+                      color: isSelected ? color : Colors.transparent,
+                      width: 2,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.6), // Sombra más fuerte y tintada
-                        blurRadius: 10,
-                        spreadRadius: isSelected ? 2 : 0,
-                        offset: const Offset(0, 4),
-                      ),
-                      // Sombra interior sutil
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(-2, -2),
-                      ),
-                    ],
                   ),
-                  child: isSelected
-                      ? const Icon(Icons.check, color: Colors.white, size: 22)
-                      : null,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        if (isSelected)
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        else
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                      ],
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 20)
+                        : null,
+                  ),
                 ),
               ),
             );
           }).toList(),
         );
       },
-    );
-  }
-}
-
-class _ThemeStyleSelector extends StatelessWidget {
-  const _ThemeStyleSelector();
-
-  IconData _getStyleIcon(AppStyle style) {
-    switch (style) {
-      case AppStyle.standard: return Icons.check_box_outline_blank_rounded;
-      case AppStyle.modern:   return Icons.circle_outlined;
-      case AppStyle.elegant:  return Icons.square_outlined;
-      case AppStyle.tech:     return Icons.code;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final proveedor = context.watch<ProveedorTema>();
-    final colorScheme = theme.colorScheme;
-
-    return Center(
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        alignment: WrapAlignment.center,
-        children: AppStyle.values.map((style) {
-          final isSelected = proveedor.estiloSeleccionado == style;
-          final styleIcon = _getStyleIcon(style);
-
-          return ChoiceChip(
-            avatar: Icon(
-              styleIcon,
-              size: 18,
-              color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
-            ),
-            label: Text(
-              style.name.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                letterSpacing: 1.2,
-              ),
-            ),
-            selected: isSelected,
-            onSelected: (bool selected) {
-              if (selected) proveedor.cambiarEstilo(style);
-            },
-            showCheckmark: false,
-            elevation: isSelected ? 4 : 0,
-            pressElevation: 2,
-            selectedColor: colorScheme.primary,
-            backgroundColor: theme.brightness == Brightness.dark
-                ? colorScheme.surfaceContainerHigh
-                : Colors.grey.shade100,
-            side: BorderSide.none,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            labelStyle: TextStyle(
-              color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          );
-        }).toList(),
-      ),
     );
   }
 }

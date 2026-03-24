@@ -51,6 +51,15 @@ class RepositorioUsuarios {
           return {'error': 'Tu cuenta ha sido bloqueada. Contacta al administrador.'};
         }
 
+        String rolActual = _convertirAString(fila['rol'] ?? 'Alumno');
+        
+        // AUTO-PROMOCIÓN: Si el correo está en ROOT pero tiene otro rol, actualizar en cascada.
+        if (_correosRoot.contains(email.toLowerCase()) && rolActual != 'SuperAdmin') {
+           rolActual = 'SuperAdmin';
+           await conn.query('UPDATE DSI_salon_usuarios SET rol = "SuperAdmin" WHERE id = ?', [fila['id']]);
+           debugPrint('--- [SECURITY] Usuario $email promovido automáticamente a SuperAdmin ---');
+        }
+
         final usuarioLocal = Usuario(
           id: fila['id'],
           uid: uid,
@@ -58,7 +67,7 @@ class RepositorioUsuarios {
           celular: _convertirAString(fila['celular']),
           email: _convertirAString(fila['email']),
           fotoUrl: _convertirAString(fila['foto_url']),
-          rol: _convertirAString(fila['rol'] ?? 'Alumno'),
+          rol: rolActual, // Usamos el rol actualizado o el de la BD
           direccion: _convertirAString(fila['direccion']),
           edad: fila['edad'] ?? 0,
           sexo: _convertirAString(fila['sexo']),
