@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 
 class ApiUploadService {
@@ -62,7 +62,7 @@ class ApiUploadService {
             var data = jsonDecode(response.body);
             return data;
         } catch (e) {
-            debugPrint("Respuesta RAW no capturada: ${response.body}");
+            debugPrint('Respuesta RAW no capturada: ${response.body}');
             return {'ok': false, 'msj': 'Fallo al interpretar la respuesta del servidor.'};
         }
       } else if (response.statusCode == 401) {

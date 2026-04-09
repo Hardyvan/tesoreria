@@ -27,7 +27,9 @@ class BaseDatosRemota {
     );
 
     try {
+      debugPrint('Intentando conectar a MySQL en ${ConfiguracionDB.host}...');
       _conexion = await MySqlConnection.connect(settings);
+      debugPrint('✅ Conexión MySQL Exitosa.');
       return _conexion!;
     } catch (e) {
       // SEGURIDAD: No re-lanzar la excepciÃ³n cruda que puede contener la IP.

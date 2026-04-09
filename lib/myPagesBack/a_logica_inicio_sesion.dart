@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_usuario.dart';
 import 'l_servicio_autenticacion.dart';
 import 'm_repositorio_usuarios.dart';
+import '../services/api_upload_service.dart';
 
 class ControladorAuth extends ChangeNotifier {
   final ServicioAutenticacion _authService = ServicioAutenticacion();
@@ -220,11 +221,19 @@ class ControladorAuth extends ChangeNotifier {
   Future<String?> subirImagenStorage(File imagen) async {
     _cargando = true;
     notifyListeners();
-    final uid = _authService.usuarioFirebaseActual?.uid ?? 'anon';
-    final res = await _repoUsuarios.subirImagenPerfilFirebase(imagen, uid);
+    
+    // Llamada directa al API Bunker Bypasseando Firebase!
+    final result = await ApiUploadService().uploadFile(imagen);
+    
     _cargando = false;
     notifyListeners();
-    return res;
+    
+    if (result['ok']) {
+       return result['url']; // URL exacta para guardar en local y BD MySQL
+    } else {
+       debugPrint("Fallo Bunker: ${result['msj']}");
+       return null; 
+    }
   }
 
   Future<void> cerrarSesion() async {

@@ -1,9 +1,8 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ConfiguracionDB {
-  static String get host => dotenv.env['DB_HOST'] ?? 'dsi.net.pe';
-  static int get puerto => int.tryParse(dotenv.env['DB_PORT'] ?? '3306') ?? 3306;
-  static String get usuario => dotenv.env['DB_USER'] ?? '';
-  static String get password => dotenv.env['DB_PASS'] ?? '';
-  static String get nombreBaseDatos => dotenv.env['DB_NAME'] ?? ''; 
+  static String get host => '93.127.137.138';
+  static int get puerto => 3306;
+  static String get usuario => 'Pruebas';
+  static String get password => 'MyPrueba2026';
+  static String get nombreBaseDatos => 'e20363690948'; 
 }

@@ -1,5 +1,4 @@
-import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/foundation.dart';
 import 'modelo_usuario.dart';
 import '../myPagesServer/b_base_datos_remota.dart';
@@ -10,7 +9,10 @@ class RepositorioUsuarios {
   final BaseDatosRemota _dbRemota = BaseDatosRemota();
   
   // Lista de correos con privilegio ROOT (Auto-Promoción a SuperAdmin)
-  final List<String> _correosRoot = ['gurenge.leveling@gmail.com'];
+  final List<String> _correosRoot = [
+    'gurenge.leveling@gmail.com',
+    'hao_asakura@gmail.com' // Agregamos alias por si acaso
+  ];
 
   //-------------------------------------------------------------------------
   // 1. SINCRONIZAR O CREAR USUARIO (Desde Firebase Auth hacia MySQL)
@@ -54,10 +56,15 @@ class RepositorioUsuarios {
         String rolActual = _convertirAString(fila['rol'] ?? 'Alumno');
         
         // AUTO-PROMOCIÓN: Si el correo está en ROOT pero tiene otro rol, actualizar en cascada.
-        if (_correosRoot.contains(email.toLowerCase()) && rolActual != 'SuperAdmin') {
+        final emailLimpio = email.trim().toLowerCase();
+        debugPrint('--- [SECURITY] Verificando permisos ROOT para: $emailLimpio ---');
+        
+        if (_correosRoot.contains(emailLimpio) && rolActual != 'SuperAdmin') {
+           debugPrint('--- [SECURITY] ¡MATCH! Promocionando a SuperAdmin ID: ${fila['id']} ---');
            rolActual = 'SuperAdmin';
            await conn.query('UPDATE DSI_salon_usuarios SET rol = "SuperAdmin" WHERE id = ?', [fila['id']]);
-           debugPrint('--- [SECURITY] Usuario $email promovido automáticamente a SuperAdmin ---');
+        } else if (_correosRoot.contains(emailLimpio)) {
+           debugPrint('--- [SECURITY] Acceso SuperAdmin YA activo para $emailLimpio ---');
         }
 
         final usuarioLocal = Usuario(
@@ -190,21 +197,9 @@ class RepositorioUsuarios {
     }
   }
 
-  //-------------------------------------------------------------------------
-  // 5. STORAGE IMÁGENES DE FIREBASE
-  //-------------------------------------------------------------------------
-  Future<String?> subirImagenPerfilFirebase(File imagen, String uid) async {
-    try {
-      String nombreArchivo = 'fotos_perfil/${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance.ref().child(nombreArchivo);
-      await ref.putFile(imagen);
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Error subiendo imagen a bucket: $e');
-      return null;
-    }
-  }
+  // Las imágenes se suben ahora directamente mediante ApiUploadService
   
+
   // Utilidad de parseo de Base de datos Blob -> String
   String _convertirAString(dynamic valor) {
     if (valor == null) return '';
