@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "F:/Cosas de Ivan/tesoreria_ivan/windows"
+    "cmake.sourceDirectory": "F:/Cosas de Ivan/tesoreria_ivan/windows",
+    "java.configuration.updateBuildConfiguration": "disabled"
 }
