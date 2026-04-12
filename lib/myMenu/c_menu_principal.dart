@@ -215,7 +215,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         padding: const EdgeInsets.only(top: 4),  // Sutil separación
         color: Theme.of(context).colorScheme.surface,
         child: NavigationBar(
-          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           selectedIndex: _indiceActual,
           onDestinationSelected: (i) => setState(() => _indiceActual = i),
           destinations: botonesVavegacion,

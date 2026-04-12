@@ -20,7 +20,6 @@ import 'package:intl/date_symbol_data_local.dart'; // Importante para fechas
 // Para MethodChannel
 
 import 'myPagesTema/b_ui_kit.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
 // No es necesario import 'package:tesoreria_ivan/myPagesTema/b_ui_kit.dart'; para el Banner, ya está en misPagesTema/b_ui_kit.dart
 
@@ -28,13 +27,9 @@ Future<void> main() async {
   // Aseguramos binding para operaciones asíncronas antes de runApp
   WidgetsFlutterBinding.ensureInitialized();
   
-  // BLOQUEO DE CAPTURAS DE PANTALLA (Nativo Android con flutter_windowmanager)
-  try {
-     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
-  } catch (e) {
-     debugPrint('No se pudo establecer FLAG_SECURE: $e');
-  }
-
+  // BLOQUEO DE CAPTURAS DE PANTALLA desactivado por incompatibilidad de build en release.
+  // Si se requiere a futuro, usar paquete 'screen_protector'.
+  
   // Inicializamos Firebase (Sin opciones, usa google-services.json)
   await Firebase.initializeApp();
 
