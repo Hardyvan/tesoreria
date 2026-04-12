@@ -1,5 +1,6 @@
 import 'dart:io'; // Para File
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart'; // Picker
 import 'package:dsi/myPagesTema/a_tema.dart';
@@ -206,8 +207,11 @@ class PerfilUsuario extends StatelessWidget {
                             content: TextField(
                               controller: ctrl,
                               keyboardType: TextInputType.phone,
+                              maxLength: 9,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               decoration: const InputDecoration(
                                 labelText: 'Nuevo Número',
+                                counterText: '', // Ocultar contador si se prefiere una UI más limpia
                               ),
                             ),
                             actions: [
@@ -217,19 +221,23 @@ class PerfilUsuario extends StatelessWidget {
                               ),
                               ElevatedButton(
                                 onPressed: () async {
+                                  if (ctrl.text.length < 9) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('El número debe tener 9 dígitos'), backgroundColor: Colors.orange),
+                                    );
+                                    return;
+                                  }
                                   Navigator.pop(dialogContext);
-                                  final exito = await auth.actualizarCelular(
+                                  final errorMsg = await auth.actualizarCelular(
                                     ctrl.text,
                                   );
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          exito
-                                              ? 'Celular actualizado'
-                                              : 'Error al actualizar',
+                                          errorMsg ?? 'Celular actualizado correctamente',
                                         ),
-                                        backgroundColor: exito
+                                        backgroundColor: errorMsg == null
                                             ? Colors.green
                                             : Colors.red,
                                       ),

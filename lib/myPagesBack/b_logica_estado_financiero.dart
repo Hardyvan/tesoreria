@@ -35,8 +35,10 @@ class ControladorFinanzas extends ChangeNotifier {
   List<Map<String, dynamic>> _misPagos = [];
   List<Map<String, dynamic>> _metasActividades = [];
   
-  // CACHE SISTEMA (MAPA)
+  // CACHE SISTEMA (MAPA Y FUTUROS)
   final Map<int, List<Map<String, dynamic>>> _cacheDetallePagos = {};
+  Future<void>? _futureResumenEnCurso;
+  Future<void>? _futureKardexEnCurso;
 
   bool _cargando = false;
   
@@ -550,7 +552,19 @@ class ControladorFinanzas extends ChangeNotifier {
   final BaseDatosRemota _db = BaseDatosRemota();
 
   // 2. Obtener Resumen Financiero (SUM Directo en BD)
-  Future<void> obtenerResumenFinanciero() async {
+  Future<void> obtenerResumenFinanciero() {
+    if (_futureResumenEnCurso != null) {
+      return _futureResumenEnCurso!; // Retorna el que ya está en proceso
+    }
+
+    _futureResumenEnCurso = _obtenerResumenFinancieroInterno().whenComplete(() {
+      _futureResumenEnCurso = null; // Limpiar al terminar
+    });
+    
+    return _futureResumenEnCurso!;
+  }
+
+  Future<void> _obtenerResumenFinancieroInterno() async {
     _cargando = true;
     notifyListeners();
     
@@ -622,7 +636,19 @@ class ControladorFinanzas extends ChangeNotifier {
   }
 
   // 3. Obtener Kardex (UNION de Pagos y Gastos) Paginado
-  Future<void> obtenerMovimientosKardex({bool reset = false}) async {
+  Future<void> obtenerMovimientosKardex({bool reset = false}) {
+    if (_futureKardexEnCurso != null && !reset) {
+       return _futureKardexEnCurso!; // Reusar si no es reset y ya está cargando
+    }
+
+    _futureKardexEnCurso = _obtenerMovimientosKardexInterno(reset: reset).whenComplete(() {
+       _futureKardexEnCurso = null;
+    });
+
+    return _futureKardexEnCurso!;
+  }
+
+  Future<void> _obtenerMovimientosKardexInterno({required bool reset}) async {
     if (reset) {
       _kardexPage = 0;
       _kardex = [];

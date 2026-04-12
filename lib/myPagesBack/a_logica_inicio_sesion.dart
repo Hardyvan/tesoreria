@@ -164,6 +164,12 @@ class ControladorAuth extends ChangeNotifier {
     User? usuarioMecanismoTemporal;
 
     try {
+      // 0. Validación de Celular Único en MySQL (Check preventivo antes de tocar Firebase)
+      if (celular.isNotEmpty) {
+        final enUso = await _repoUsuarios.verificarCelularEnUso(celular);
+        if (enUso) return 'El número de celular ya está registrado con otra cuenta.';
+      }
+
       // 1. Fase Nube (CreaciÃ³n Firebase)
       final credential = await _authService.crearUsuarioConCorreo(email, password);
       if (credential.user == null) return 'Error creando cuenta auth.';
@@ -199,25 +205,37 @@ class ControladorAuth extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // UTILIDADES DEL PERFIL
   // ---------------------------------------------------------------------------
-  Future<bool> completarPerfil({
+  Future<String?> completarPerfil({
     required String nombre, required String celular, required String direccion, required int edad, required String sexo
   }) async {
     final nombreFormateado = nombre.toCapitalized();
-    if (_usuarioActual == null) return false;
+    if (_usuarioActual == null) return 'Usuario no logueado.';
+
+    // Verificar celular único (si cambió o es nuevo)
+    if (celular.isNotEmpty) {
+      final enUso = await _repoUsuarios.verificarCelularEnUso(celular, excluirId: _usuarioActual!.id);
+      if (enUso) return 'El número de celular ya está registrado con otra cuenta.'; 
+    }
+
     final userCompleto = await _repoUsuarios.guardarPerfilCompletado(_usuarioActual!, nombreFormateado, celular, direccion, edad, sexo);
     if (userCompleto != null) {
       _usuarioActual = userCompleto;
       notifyListeners();
-      return true;
+      return null; // Éxito
     }
-    return false;
+    return 'Error al guardar los datos en el servidor.';
   }
 
-  Future<bool> actualizarCelular(String nuevoCelular) async {
-    if (_usuarioActual == null) return false;
+  Future<String?> actualizarCelular(String nuevoCelular) async {
+    if (_usuarioActual == null) return 'Usuario no logueado';
+
+    // Verificar si el celular ya existe en otro usuario
+    final enUso = await _repoUsuarios.verificarCelularEnUso(nuevoCelular, excluirId: _usuarioActual!.id);
+    if (enUso) return 'El celular ya está en uso por otra persona';
+
     final r = await _repoUsuarios.actualizarElementoUsuario(_usuarioActual!, celular: nuevoCelular);
-    if (r != null) { _usuarioActual = r; notifyListeners(); return true; }
-    return false;
+    if (r != null) { _usuarioActual = r; notifyListeners(); return null; }
+    return 'Error al actualizar el celular';
   }
 
   Future<bool> actualizarFoto(String nuevaUrl) async {

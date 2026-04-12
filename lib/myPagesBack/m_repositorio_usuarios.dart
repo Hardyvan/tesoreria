@@ -15,6 +15,24 @@ class RepositorioUsuarios {
   ];
 
   //-------------------------------------------------------------------------
+  // 0. VERIFICAR UNICIDAD DE CELULAR
+  //-------------------------------------------------------------------------
+  Future<bool> verificarCelularEnUso(String celular, {int? excluirId}) async {
+    if (celular.isEmpty) return false;
+    try {
+      final conn = await _dbRemota.obtenerConexion();
+      final results = await conn.query(
+        'SELECT id FROM DSI_salon_usuarios WHERE celular = ? ${excluirId != null ? "AND id != $excluirId" : ""}',
+        [celular]
+      );
+      return results.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error verificando celular único: $e');
+      return false; // Ante la duda, permitimos
+    }
+  }
+
+  //-------------------------------------------------------------------------
   // 1. SINCRONIZAR O CREAR USUARIO (Desde Firebase Auth hacia MySQL)
   //-------------------------------------------------------------------------
   Future<Map<String, dynamic>> sincronizarUsuarioBD(String uid, String email, String nombre, String fotoGoogle) async {

@@ -36,6 +36,11 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
           setState(() {
             _futureCarga = _cargarDatos(reset: true);
           });
+        } else {
+           // Datos ya en memoria, le damos un Future completado para evitar reload
+          setState(() {
+             _futureCarga = Future.value();
+          });
         }
       }
     });
@@ -58,8 +63,12 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
 
   Future<void> _cargarDatos({bool reset = false}) async {
     final provider = context.read<ControladorFinanzas>();
-    await provider.obtenerResumenFinanciero();
-    await provider.obtenerMovimientosKardex(reset: reset);
+    
+    // Almacenamos el future unificado de las dos dependencias para el FutureBuilder
+    await Future.wait([
+      provider.obtenerResumenFinanciero(),
+      provider.obtenerMovimientosKardex(reset: reset),
+    ]);
   }
 
   @override
@@ -93,8 +102,8 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
         child: FutureBuilder(
           future: _futureCarga,
           builder: (context, snapshot) {
-            // Si no hay datos cacheados y estamos esperando la carga inicial, mostramos el Esqueleto
-            if (finanzas.kardex.isEmpty && (_futureCarga == null || snapshot.connectionState == ConnectionState.waiting)) {
+            // Si no hay datos cacheados y la carga está en progreso o no iniciada
+            if (finanzas.kardex.isEmpty && (snapshot.connectionState == ConnectionState.waiting || _futureCarga == null)) {
                return const EsqueletoReporteFinanciero();
             }
 

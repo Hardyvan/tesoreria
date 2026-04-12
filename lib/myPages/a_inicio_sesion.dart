@@ -1,7 +1,7 @@
 import 'dart:async';
 import '../myPagesTema/b_ui_kit.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:dsi/myPagesTema/a_tema.dart';
 
@@ -357,9 +357,11 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     label: 'Celular',
                     prefixIcon: Icons.phone,
                     keyboardType: TextInputType.phone,
+                    maxLength: 9,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'El celular es obligatorio';
-                      if (!RegExp(r'^\d+$').hasMatch(v)) return 'Solo números';
+                      if (v.length < 9) return 'Debe tener 9 dígitos';
                       return null;
                     },
                   ),
@@ -574,9 +576,11 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                     prefixIcon: Icons.phone,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
+                    maxLength: 9,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'El celular es obligatorio';
-                      if (!RegExp(r'^\d+$').hasMatch(v)) return 'Solo números';
+                      if (v.trim().length < 9) return 'Debe tener 9 dígitos';
                       return null;
                     },
                   ),
@@ -670,7 +674,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     setState(() => _cargando = true);
     final auth = Provider.of<ControladorAuth>(context, listen: false);
 
-    final exito = await auth.completarPerfil(
+    final errorMsg = await auth.completarPerfil(
       nombre: nombreCtrl.text.trim(),
       celular: celularCtrl.text.trim(),
       direccion: direccionCtrl.text.trim(), // Opcional
@@ -681,12 +685,12 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     if (!mounted) return;
     setState(() => _cargando = false);
 
-    if (exito) {
+    if (errorMsg == null) {
       // Éxito -> Ir al Menu
       unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al guardar perfil. Intente nuevamente.'), backgroundColor: ColoresApp.error),
+        SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),
       );
     }
   }
