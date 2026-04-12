@@ -454,6 +454,11 @@ class ControladorFinanzas extends ChangeNotifier {
     try {
       final conn = await _db.obtenerConexion();
       
+      // Asegurarnos de que admin_id exista antes de consultar
+      try {
+        await conn.query('ALTER TABLE DSI_salon_pagos ADD COLUMN admin_id INT(11) NULL');
+      } catch (_) {}
+      
       // A. TOTALES GENERALES EN EL RANGO
       final sqlIngresos = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1 AND fecha_pago BETWEEN ? AND ?';
       final sqlGastos = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos WHERE fecha_gasto BETWEEN ? AND ?';

@@ -15,6 +15,10 @@ class ServicioExcel {
       final db = BaseDatosRemota();
       final conn = await db.obtenerConexion();
       
+      try {
+        await conn.query('ALTER TABLE DSI_salon_pagos ADD COLUMN admin_id INT(11) NULL');
+      } catch (_) {}
+      
       // Inicializar Excel
       var excel = Excel.createExcel();
       

@@ -19,11 +19,7 @@ class PerfilUsuario extends StatelessWidget {
     final user = auth.usuarioActual;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi Perfil'),
-        actions: const [BannerSinConexion()],
-      ),
-      body: SingleChildScrollView(
+        body: SingleChildScrollView(
         padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
         child: Column(
           children: [

@@ -30,9 +30,12 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        setState(() {
-          _futureCarga = _cargarDatos(reset: true);
-        });
+        final finanzas = context.read<ControladorFinanzas>();
+        if (finanzas.kardex.isEmpty) {
+          setState(() {
+            _futureCarga = _cargarDatos(reset: true);
+          });
+        }
       }
     });
 

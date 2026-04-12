@@ -29,8 +29,13 @@ class _ListaDeudoresState extends State<ListaDeudores> {
     super.initState();
     // Cargar reporte al entrar
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ControladorFinanzas>().obtenerMetasActividades();
-      context.read<ControladorFinanzas>().obtenerReporteDeudores();
+      final finanzas = context.read<ControladorFinanzas>();
+      if (finanzas.metasActividades.isEmpty) {
+        finanzas.obtenerMetasActividades();
+      }
+      if (finanzas.listaDeudores.isEmpty) {
+        finanzas.obtenerReporteDeudores();
+      }
     });
   }
 

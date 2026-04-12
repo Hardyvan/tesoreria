@@ -20,7 +20,10 @@ class _GestionActividadesState extends State<GestionActividades> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ControladorActividades>().listarActividades();
+      final ctrl = context.read<ControladorActividades>();
+      if (ctrl.actividades.isEmpty) {
+        ctrl.listarActividades();
+      }
     });
   }
 
@@ -130,26 +133,30 @@ class _GestionActividadesState extends State<GestionActividades> {
     );
   }
 
-  void _confirmarBorrado(BuildContext context, int id, String titulo) {
+  void _confirmarBorrado(BuildContext parentContext, int id, String titulo) {
     showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Eliminar Actividad'),
         content: Text('¿Estás seguro de que deseas eliminar permanentemente "$titulo"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final auth = context.read<ControladorAuth>();
-              final error = await context.read<ControladorActividades>().eliminarActividad(id, auth.usuarioActual!);
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                if (error == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Actividad eliminada')));
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red));
-                }
+              final auth = parentContext.read<ControladorAuth>();
+              
+              Navigator.pop(dialogContext); // Cerramos el dialogo RÁPIDO
+              
+              // Verificamos si parentContext está montado ANTES de la operación pesada
+              if (!parentContext.mounted) return;
+              final error = await parentContext.read<ControladorActividades>().eliminarActividad(id, auth.usuarioActual!);
+              
+              if (!parentContext.mounted) return;
+              if (error == null) {
+                ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('Actividad eliminada')));
+              } else {
+                ScaffoldMessenger.of(parentContext).showSnackBar(SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red));
               }
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
