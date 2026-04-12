@@ -522,7 +522,7 @@ class _CrearActividadState extends State<CrearActividad> {
               const SizedBox(height: 20),
               CampoTextoPersonalizado(
                 label: 'Costo General',
-                prefixIcon: Icons.attach_money,
+                prefixText: 'S/ ',
                 controller: _ctrlCosto,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -559,7 +559,7 @@ class _CrearActividadState extends State<CrearActividad> {
                 const SizedBox(height: 20),
                 CampoTextoPersonalizado(
                   label: 'Multa por día vencido',
-                  prefixIcon: Icons.attach_money,
+                  prefixText: 'S/ ',
                   controller: _ctrlMulta,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),

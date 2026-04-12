@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart'; // Picker
 import 'package:dsi/myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
 import '../myPagesBack/a_logica_inicio_sesion.dart';
-import '../myMenu/b_rutas_app.dart';
 import 'dart:async';
 import '../myPagesTema/c_formatos.dart';
 import '../myPagesBack/f_logica_perfil.dart';
@@ -194,14 +193,7 @@ class PerfilUsuario extends StatelessWidget {
               esBordeBrillante: true,
               child: Column(
                 children: [
-                  ListTile(
-                    leading: const Icon(Icons.history_edu),
-                    title: const Text('Historial de Pagos y Ayuda'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () =>
-                        Navigator.pushNamed(context, RutasApp.historialPagos),
-                  ),
-                  const Divider(),
+
                   ListTile(
                     leading: const Icon(Icons.phone),
                     title: const Text('Celular'),

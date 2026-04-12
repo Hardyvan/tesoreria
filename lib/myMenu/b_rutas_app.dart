@@ -7,6 +7,9 @@ import '../myPages/f_perfil.dart';
 import '../myPages/b_estado_financiero.dart';
 import '../myMenu/d_historial_pagos.dart'; 
 
+import '../myPages/c_reportes.dart';
+import '../myPages/d_reportes_avanzados.dart';
+
 class RutasApp {
   // Constantes de Rutas
   static const String inicioSesion = '/inicio_sesion';
@@ -15,6 +18,8 @@ class RutasApp {
   static const String perfilUsuario = '/perfil_usuario';
   static const String gestionUsuarios = '/gestion_usuarios';
   static const String historialPagos = '/historial_pagos';
+  static const String reportes = '/reportes';
+  static const String auditoria = '/auditoria';
 
   // Mapa de Rutas
   static Map<String, WidgetBuilder> obtenerRutas() {
@@ -27,6 +32,9 @@ class RutasApp {
       '/registro_correo': (_) => const PantallaRegistro(),
       '/completar_perfil': (_) => const PantallaCompletarPerfil(),
       '/historial_pagos': (_) => const HistorialPagos(),
+      reportes: (_) => const ReporteFinanciero(),
+      '/reportes_avanzados': (_) => const ReportesAvanzados(),
+      auditoria: (_) => const AuditoriaAdmin(),
     };
   }
 }

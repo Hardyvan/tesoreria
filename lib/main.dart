@@ -17,9 +17,10 @@ import 'myPagesBack/h_servicio_conectividad.dart';
 import 'myMenu/b_rutas_app.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Importante para fechas
-import 'package:flutter/services.dart'; // Para MethodChannel
+// Para MethodChannel
 
 import 'myPagesTema/b_ui_kit.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
 // No es necesario import 'package:tesoreria_ivan/myPagesTema/b_ui_kit.dart'; para el Banner, ya está en misPagesTema/b_ui_kit.dart
 
@@ -27,10 +28,9 @@ Future<void> main() async {
   // Aseguramos binding para operaciones asíncronas antes de runApp
   WidgetsFlutterBinding.ensureInitialized();
   
-  // BLOQUEO DE CAPTURAS DE PANTALLA (Nativo Android)
+  // BLOQUEO DE CAPTURAS DE PANTALLA (Nativo Android con flutter_windowmanager)
   try {
-     const platform = MethodChannel('com.insoft.tesoreria/seguridad');
-     await platform.invokeMethod('protegerPantalla');
+     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   } catch (e) {
      debugPrint('No se pudo establecer FLAG_SECURE: $e');
   }

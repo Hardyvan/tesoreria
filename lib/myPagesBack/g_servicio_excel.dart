@@ -79,15 +79,18 @@ class ServicioExcel {
         TextCellValue('Alumno'), 
         TextCellValue('Actividad'), 
         TextCellValue('Monto Pagado (S/)'), 
+        TextCellValue('Recaudador / Cajero'),
         TextCellValue('Fecha de Pago')
       ]);
 
       String sqlPagos = '''
         SELECT 
-          p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.fecha_pago
+          p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.fecha_pago,
+          admin.nombre as recaudador
         FROM DSI_salon_pagos p
         JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
         JOIN DSI_salon_actividades a ON p.actividad_id = a.id
+        LEFT JOIN DSI_salon_usuarios admin ON p.admin_id = admin.id
         WHERE p.confirmado = 1
         ORDER BY p.fecha_pago DESC
       ''';
@@ -99,6 +102,7 @@ class ServicioExcel {
           TextCellValue(row['alumno'].toString()),
           TextCellValue(row['actividad'].toString()),
           DoubleCellValue((row['monto'] ?? 0.0).toDouble()),
+          TextCellValue(row['recaudador']?.toString() ?? 'Sistema (Anterior)'),
           TextCellValue(row['fecha_pago'] != null ? dateFormat.format(row['fecha_pago'] as DateTime) : ''),
         ]);
       }

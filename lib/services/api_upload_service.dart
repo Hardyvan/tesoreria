@@ -56,6 +56,14 @@ class ApiUploadService {
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
+      // Debug: loguear siempre el status recibido para diagnóstico
+      debugPrint('API Upload → HTTP ${response.statusCode}');
+      if (response.statusCode == 301 || response.statusCode == 302) {
+        final location = response.headers['location'] ?? 'desconocida';
+        debugPrint('⚠️ Redirect detectado hacia: $location — Revisar URL en .env');
+        return {'ok': false, 'msj': 'Error de configuración del servidor (Redirect). Contacte al administrador.'};
+      }
+
       // Tratamiento unificado de las respuestas del "Búnker"
       if (response.statusCode == 200 || response.statusCode == 400 || response.statusCode == 500) {
         try {

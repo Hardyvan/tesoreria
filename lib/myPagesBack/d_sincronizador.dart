@@ -57,44 +57,57 @@ class Sincronizador {
   // 2. SUBIR CAMBIOS PENDIENTES (SQLite -> MySQL)
   Future<void> subirCambios() async {
     try {
-      debugPrint('⬆️ Buscando cambios pendientes...');
+      // SUBIDA DE USUARIOS PENDIENTES
       final pendientes = await _dbLocal.obtenerNoSincronizados();
 
-      if (pendientes.isEmpty) {
-        debugPrint('✅ No hay cambios pendientes para subir.');
-        return;
+      if (pendientes.isNotEmpty) {
+        final conn = await _dbRemota.obtenerConexion();
+        for (var user in pendientes) {
+          debugPrint('Sincronizando usuario: ${user.nombre}...');
+          var remoto = await conn.query('SELECT updated_at FROM DSI_salon_usuarios WHERE id = ?', [user.id]);
+          bool sobrescribir = true;
+          
+          if (remoto.isNotEmpty && remoto.first['updated_at'] != null && user.updatedAt != null) {
+            DateTime updatedRemoto = remoto.first['updated_at'] as DateTime;
+            if (updatedRemoto.isAfter(user.updatedAt!)) {
+              sobrescribir = false;
+              debugPrint('⚠️ Conflicto: El servidor tiene datos más recientes para ${user.nombre}. Omitiendo subida.');
+            }
+          }
+
+          if (sobrescribir) {
+            await conn.query(
+              'UPDATE DSI_salon_usuarios SET celular = ?, direccion = ?, edad = ?, sexo = ? WHERE id = ?',
+              [user.celular, user.direccion, user.edad, user.sexo, user.id]
+            );
+            debugPrint('✅ Usuario ${user.nombre} actualizado en la nube.');
+          }
+
+          await _dbLocal.marcarSincronizado(user.id);
+        }
       }
 
-      final conn = await _dbRemota.obtenerConexion();
-
-      for (var user in pendientes) {
-        debugPrint('Sincronizando usuario: ${user.nombre}...');
-        
-        // 1. Verificar si el remoto es más nuevo
-        var remoto = await conn.query('SELECT updated_at FROM DSI_salon_usuarios WHERE id = ?', [user.id]);
-        bool sobrescribir = true;
-        
-        if (remoto.isNotEmpty && remoto.first['updated_at'] != null && user.updatedAt != null) {
-          DateTime updatedRemoto = remoto.first['updated_at'] as DateTime;
-          if (updatedRemoto.isAfter(user.updatedAt!)) {
-            sobrescribir = false;
-            debugPrint('⚠️ Conflicto: El servidor tiene datos más recientes para ${user.nombre}. Omitiendo subida.');
+      // SUBIDA DE PAGOS PENDIENTES (MODO OFFLINE)
+      final pagosPendientes = await _dbLocal.obtenerPagosNoSincronizados();
+      if (pagosPendientes.isNotEmpty) {
+        final conn = await _dbRemota.obtenerConexion();
+        for (var pago in pagosPendientes) {
+          debugPrint('Sincronizando pago offline: S/ \${pago.montoPagado}...');
+          try {
+            await conn.query(
+              'INSERT INTO dsi_pagos (usuario_id, actividad_id, monto_pagado, fecha_pago, metodo_pago, confirmado) VALUES (?, ?, ?, ?, ?, ?)',
+              [pago.usuarioId, pago.actividadId, pago.montoPagado, pago.fechaPago.toIso8601String(), pago.metodoPago, pago.confirmado ? 1 : 0]
+            );
+            // Marcar como sincronizado a nivel local (remotoId dummy, se podria recuperar con LAST_INSERT_ID)
+            await _dbLocal.marcarPagoSincronizado(pago.id, 0); 
+            debugPrint('✅ Pago de S/ \${pago.montoPagado} subido a la nube.');
+          } catch (e) {
+            debugPrint('❌ Error al subir pago offline: $e');
           }
         }
-
-        if (sobrescribir) {
-          await conn.query(
-            'UPDATE DSI_salon_usuarios SET celular = ?, direccion = ?, edad = ?, sexo = ? WHERE id = ?',
-            [user.celular, user.direccion, user.edad, user.sexo, user.id]
-          );
-          debugPrint('✅ Usuario ${user.nombre} actualizado en la nube.');
-        }
-
-        // Marcar como sincronizado
-        await _dbLocal.marcarSincronizado(user.id);
       }
 
-      debugPrint('✅ Todos los cambios pendientes fueron subidos.');
+      debugPrint('✅ Todos los cambios pendientes fueron procesados.');
 
     } catch (e) {
       debugPrint('❌ Error subiendo cambios: $e');

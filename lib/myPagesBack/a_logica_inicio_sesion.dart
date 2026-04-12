@@ -46,6 +46,7 @@ class ControladorAuth extends ChangeNotifier {
         _usuarioActual = result['usuario'];
         
         if (result['status'] == 'UsuarioIncompleto') return true; 
+        if (result['status'] == 'UsuarioNuevo') return true; // También necesita completar perfil
         if (result['status'] == 'OK') return true;
       }
       
@@ -131,7 +132,10 @@ class ControladorAuth extends ChangeNotifier {
         if (result['error'] != null) return result['error'];
         _usuarioActual = result['usuario'];
         
-        if (result['status'] == 'UsuarioIncompleto') return 'UsuarioIncompleto';
+        // 'UsuarioNuevo' también necesita completar perfil (celular vacío)
+        if (result['status'] == 'UsuarioIncompleto' || result['status'] == 'UsuarioNuevo') {
+          return 'UsuarioIncompleto';
+        }
         return null; // OK
       }
       return 'No se pudo obtener la información del usuario de Google.';

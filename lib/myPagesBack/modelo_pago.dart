@@ -7,6 +7,8 @@ class Pago {
   final DateTime fechaPago;
   final bool confirmado;
   final String metodoPago;
+  final int? adminId;
+  final String? adminNombre;
 
   Pago({
     required this.id,
@@ -17,6 +19,8 @@ class Pago {
     required this.fechaPago,
     required this.confirmado,
     this.metodoPago = 'Efectivo',
+    this.adminId,
+    this.adminNombre,
   });
 
   // Factory para crear desde BD
@@ -30,6 +34,8 @@ class Pago {
       fechaPago: mapa['fecha_pago'] ?? DateTime.now(),
       confirmado: mapa['confirmado'] == 1 || mapa['confirmado'] == true,
       metodoPago: mapa['metodo_pago'] ?? 'Efectivo',
+      adminId: mapa['admin_id'],
+      adminNombre: mapa['admin_nombre']?.toString(),
     );
   }
 
@@ -44,6 +50,7 @@ class Pago {
       'fecha_pago': fechaPago.toIso8601String(),
       'confirmado': confirmado ? 1 : 0,
       'metodo_pago': metodoPago,
+      'admin_id': adminId,
     };
   }
 }

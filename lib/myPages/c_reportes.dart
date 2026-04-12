@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart'; 
+import 'package:fl_chart/fl_chart.dart';
 import '../myPagesTema/c_formatos.dart';
 import '../../myPagesBack/b_logica_estado_financiero.dart';
 import '../../myPagesBack/a_logica_inicio_sesion.dart';
@@ -10,7 +11,7 @@ import '../../myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
 import 'b_estado_financiero.dart';
 import 'e_actividades.dart';
-import 'd_reportes_avanzados.dart';
+
 import '../../myPagesBack/g_servicio_excel.dart';
 
 class ReporteFinanciero extends StatefulWidget {
@@ -80,16 +81,6 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                 }
               },
             ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'Reportes Avanzados',
-            onPressed: () {
-              Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => const ReportesAvanzados())
-              );
-            },
-          ),
           const BannerSinConexion() 
         ],
       ),
@@ -125,11 +116,11 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
             }
 
             // Usamos ListView.builder para mejorar el rendimiento
-            // Sumamos 2 items extra para la cabecera (Wallet + Título)
+            // Sumamos 3 items extra para la cabecera (Wallet + Gráfico + Título)
             // Y 1 adicional al final si hay más por cargar
             final itemCount = finanzas.kardex.isEmpty 
-              ? 3 
-              : finanzas.kardex.length + 2 + (finanzas.hayMasKardex ? 1 : 0);
+              ? 4 
+              : finanzas.kardex.length + 3 + (finanzas.hayMasKardex ? 1 : 0);
 
             return ListView.builder(
               controller: _scrollController,
@@ -145,6 +136,9 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                   return _buildWalletCard(finanzas);
                 }
                 if (index == 1) {
+                  return _buildGraficoResumen(finanzas);
+                }
+                if (index == 2) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 24, bottom: 12),
                     child: Text(
@@ -154,12 +148,12 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                   );
                 }
                 
-                if (finanzas.kardex.isEmpty && index == 2) {
+                if (finanzas.kardex.isEmpty && index == 3) {
                   return _buildEmptyState();
                 }
 
-                if (index - 2 < finanzas.kardex.length) {
-                  final mov = finanzas.kardex[index - 2];
+                if (index - 3 < finanzas.kardex.length) {
+                  final mov = finanzas.kardex[index - 3];
                   return _buildMovimientoItem(mov, esAdmin, dateFormat, currencyFormat);
                 } else {
                   // Elemento de cargando más...
@@ -222,7 +216,33 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                   fontWeight: FontWeight.w500
                 ),
               ),
-              Icon(Icons.account_balance_wallet, color: Colors.white.withValues(alpha: 0.8), size: 20),
+              if (context.read<ControladorAuth>().usuarioActual?.rol == 'SuperAdmin')
+                InkWell(
+                  onTap: () => _mostrarDialogoFondoBase(context, finanzas),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange, // <-- GRAN RESALTE NARANJA 
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.add_card, color: Colors.white, size: 16),
+                        const SizedBox(width: 6),
+                        Text('Aperturar Caja', style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Icon(Icons.account_balance_wallet, color: Colors.white.withValues(alpha: 0.8), size: 20),
             ],
           ),
           const SizedBox(height: 8),
@@ -250,7 +270,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                           child: const Icon(Icons.arrow_downward, color: Colors.greenAccent, size: 14),
                         ),
                         const SizedBox(width: 8),
-                        Text('Ingresos', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                        Text('Pagos Alumnos', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -258,10 +278,35 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                       'S/ ${finanzas.totalIngresos.toStringAsFixed(2)}',
                       style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
+                    if (finanzas.fondoBase > 0) ...[
+                       const SizedBox(height: 12),
+                       Row(
+                         children: [
+                           Container(
+                             padding: const EdgeInsets.all(4),
+                             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
+                             child: const Icon(Icons.account_balance, color: Colors.cyanAccent, size: 14),
+                           ),
+                           const SizedBox(width: 8),
+                           Text('Fondo Base', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                         ],
+                       ),
+                       const SizedBox(height: 4),
+                       Text(
+                         'S/ ${finanzas.fondoBase.toStringAsFixed(2)}',
+                         style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                       ),
+                       Text(
+                         finanzas.fondoBaseMotivo,
+                         style: GoogleFonts.inter(color: Colors.white54, fontSize: 10),
+                         overflow: TextOverflow.ellipsis,
+                         maxLines: 1,
+                       ),
+                    ],
                   ],
                 ),
               ),
-              Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.2)),
+              Container(width: 1, height: finanzas.fondoBase > 0 ? 80 : 40, color: Colors.white.withValues(alpha: 0.2)),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(left: 16),
@@ -292,6 +337,118 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
           )
         ],
       ),
+    );
+  }
+
+  // --- DIÁLOGO DE APERTURA DE CAJA (SOLO SUPERADMIN) ---
+  void _mostrarDialogoFondoBase(BuildContext context, ControladorFinanzas finanzas) {
+     final ctrlMonto = TextEditingController(text: finanzas.fondoBase > 0 ? finanzas.fondoBase.toStringAsFixed(2) : '');
+     final ctrlMotivo = TextEditingController(text: finanzas.fondoBaseMotivo);
+
+     showDialog(
+       context: context,
+       builder: (ctx) => AlertDialog(
+         title: const Text('Fondo de Apertura', style: TextStyle(fontWeight: FontWeight.bold)),
+         content: Column(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             const Text('Registra aquí el dinero base con el que abre la caja fuerte (ej. de la directiva anterior).', style: TextStyle(fontSize: 13, color: Colors.grey)),
+             const SizedBox(height: 16),
+             TextField(
+               controller: ctrlMonto,
+               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+               decoration: const InputDecoration(
+                 labelText: 'Monto Total (S/)', 
+                 prefixIcon: Padding(
+                   padding: EdgeInsets.only(left: 15, right: 10, top: 14), 
+                   child: Text('S/', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+                 )
+               ),
+             ),
+             const SizedBox(height: 12),
+             TextField(
+               controller: ctrlMotivo,
+               maxLines: 2,
+               decoration: const InputDecoration(labelText: 'Detalle (ej. "Tesorera anterior")', prefixIcon: Icon(Icons.info_outline)),
+             ),
+           ],
+         ),
+         actions: [
+           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+           ElevatedButton(
+             onPressed: () async {
+               Navigator.pop(ctx);
+               double? monto = double.tryParse(ctrlMonto.text);
+               if (monto != null) {
+                  final usr = context.read<ControladorAuth>().usuarioActual;
+                  if (usr != null) {
+                     ManejadorErrores.mostrarMensajeExito(context, 'Guardando configuración...');
+                     bool exito = await finanzas.establecerFondoBase(monto, ctrlMotivo.text.trim(), usr);
+                     if (exito && context.mounted) {
+                        ManejadorErrores.mostrarMensajeExito(context, 'Fondo base establecido correctamente.');
+                     }
+                  }
+               } else {
+                 if (context.mounted) ManejadorErrores.mostrarErrorCritico(context, 'Inválido', 'Ingrese un importe válido.');
+               }
+             },
+             child: const Text('Guardar Fondo'),
+           )
+         ]
+       )
+     );
+  }
+
+  Widget _buildGraficoResumen(ControladorFinanzas finanzas) {
+    if (finanzas.totalIngresos == 0 && finanzas.totalGastos == 0 && finanzas.fondoBase == 0) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4)
+          )
+        ]
+      ),
+      child: Column(
+        children: [
+          Text('Resumen de Gestión', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 40,
+                sections: [
+                  PieChartSectionData(
+                    color: Colors.greenAccent.shade700,
+                    value: finanzas.totalIngresos,
+                    title: 'Ingresos',
+                    radius: 50,
+                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  PieChartSectionData(
+                    color: Colors.redAccent.shade700,
+                    value: finanzas.totalGastos,
+                    title: 'Gastos',
+                    radius: 50,
+                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      )
     );
   }
 

@@ -13,7 +13,7 @@ import '../../myPagesBack/e_logica_actividades.dart';
 import '../../myPagesBack/modelo_usuario.dart';
 import '../../myPagesBack/modelo_actividad.dart';
 import '../../myPagesBack/modelo_pago.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 
 class ListaDeudores extends StatefulWidget {
   const ListaDeudores({super.key});
@@ -41,10 +41,7 @@ class _ListaDeudoresState extends State<ListaDeudores> {
     final esAdmin = context.read<ControladorAuth>().esAdmin;
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Estado Financiero'),
-        actions: const [ BannerSinConexion() ],
-      ),
+
       body: finanzas.cargando && finanzas.listaDeudores.isEmpty
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(
@@ -86,7 +83,8 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                     vertical: 8,
                   ),
                   child: TarjetaPremium(
-                    usaGradientePrimario: true,
+                    usaGradientePrimario: false, // <-- Card blanca y limpia
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                     onTap: !esAdmin ? null : () async {
                       // Acción SOLO Admin: Registrar Pago para este alumno
                       await Navigator.push(
@@ -102,13 +100,13 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                     },
                     child: Row(
                       children: [
-                        // --- AVATAR CON CONTRASTE ALTO PARA FONDOS OSCUROS ---
+                        // --- AVATAR CON COLORES PASTELES MODERNOS ---
                         AvatarUsuario(
                           nombre: alumno['nombre'],
                           fotoUrl: alumno['foto_url'],
-                          radius: 24,
-                          backgroundColor: Colors.white.withValues(alpha: 0.15), // Translúcido
-                          textColor: Colors.white, // Blanco puro 
+                          radius: 26,
+                          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                          textColor: Theme.of(context).primaryColor, 
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -118,21 +116,35 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                               Text(
                                 alumno['nombre'].toString().toCapitalized(), 
                                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.5,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              // --- MEJORA: USAR EL COLOR SECUNDARIO DEL TEMA COMO ACENTO ---
+                              // Badge de estado moderno
                               BadgeEstado(
                                 texto: esDeudor ? 'Debe S/ ${montoDeuda.toStringAsFixed(2)}' : 'Al día',
-                                colorBase: Theme.of(context).colorScheme.secondary,
+                                colorBase: esDeudor ? Colors.red : Colors.green,
                               ),
                             ],
                           ),
                         ),
                         if (esAdmin) 
-                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_ios, 
+                              size: 14, 
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white54 
+                                  : Colors.black38
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -140,6 +152,66 @@ class _ListaDeudoresState extends State<ListaDeudores> {
               },
             ),
           ),
+      floatingActionButton: !esAdmin ? null : FloatingActionButton.extended(
+        heroTag: 'fab_alumno_offline',
+        onPressed: () {
+          _mostrarDialogoAgregarAlumno(context);
+        },
+        backgroundColor: Theme.of(context).primaryColor,
+        icon: const Icon(Icons.person_add, color: Colors.white),
+        label: Text('Alumno Manual', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  void _mostrarDialogoAgregarAlumno(BuildContext parentContext) {
+    final nombreController = TextEditingController();
+    showDialog(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Agregar Alumno Manual'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Añade a un compañero que no usará la app para fines contables.'),
+            const SizedBox(height: 16),
+            CampoTextoPersonalizado(
+              controller: nombreController,
+              label: 'Nombre Completo',
+              prefixIcon: Icons.person,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nombreController.text.trim().isEmpty) return;
+              
+              final nombre = nombreController.text.trim();
+              Navigator.pop(dialogContext); 
+              
+              // Usar el parentContext que sigue vivo
+              if (!parentContext.mounted) return;
+              
+              final exito = await parentContext.read<ControladorFinanzas>().registrarAlumnoOffline(nombre);
+              
+              if (!parentContext.mounted) return;
+              
+              if (exito) {
+                 ManejadorErrores.mostrarMensajeExito(parentContext, 'Alumno guardado correctamente');
+                 unawaited(parentContext.read<ControladorFinanzas>().obtenerReporteDeudores());
+              } else {
+                 ManejadorErrores.mostrarErrorCritico(parentContext, 'Error', 'No se pudo guardar el alumno');
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
     );
   }
 }

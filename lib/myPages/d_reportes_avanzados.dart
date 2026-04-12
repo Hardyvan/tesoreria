@@ -211,6 +211,36 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
         const Divider(),
         const SizedBox(height: 16),
         _cardResultado('Utilidad Neta', utilidad, utilidad >= 0 ? Theme.of(context).primaryColor : ColoresApp.estadoPendiente, Icons.account_balance_wallet, destacado: true),
+        
+        const SizedBox(height: 32),
+        Text('Recaudado por Administrador', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 16),
+        ...(_datosReporte['recaudacionAdmins'] as List<dynamic>? ?? []).map((admin) {
+          final nombre = admin['admin_nombre'].toString();
+          final total = (admin['total'] as num).toDouble();
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person, size: 20, color: Colors.blueGrey),
+                    const SizedBox(width: 8),
+                    Text(nombre, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                Text(total.toSoles(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: ColoresApp.exito)),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }

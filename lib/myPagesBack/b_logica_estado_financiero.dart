@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../myPagesServer/b_base_datos_remota.dart';
+import '../myPagesServer/c_base_datos_local.dart';
 import 'modelo_pago.dart';
 import 'modelo_gasto.dart';
 import 'modelo_usuario.dart';
@@ -9,6 +10,7 @@ import 'i_servicio_notificaciones.dart';
 import 'j_servicio_notificaciones_secundario.dart' as push;
 import 'k_servicio_auditoria.dart';
 import 'dart:async';
+import 'dart:convert';
 
 class ControladorFinanzas extends ChangeNotifier {
   double _deudaTotal = 0.0;
@@ -18,6 +20,10 @@ class ControladorFinanzas extends ChangeNotifier {
   double _totalIngresos = 0.0;
   double _totalGastos = 0.0;
   double _saldoCaja = 0.0;
+  
+  // Fondo Base / Apertura de Caja
+  double _fondoBase = 0.0;
+  String _fondoBaseMotivo = '';
   
   List<Map<String, dynamic>> _kardex = [];
   bool _hayMasKardex = true;
@@ -36,6 +42,9 @@ class ControladorFinanzas extends ChangeNotifier {
   double get totalIngresos => _totalIngresos;
   double get totalGastos => _totalGastos;
   double get saldoCaja => _saldoCaja;
+  
+  double get fondoBase => _fondoBase;
+  String get fondoBaseMotivo => _fondoBaseMotivo;
   
   List<Map<String, dynamic>> get kardex => _kardex;
   bool get hayMasKardex => _hayMasKardex;
@@ -183,14 +192,17 @@ class ControladorFinanzas extends ChangeNotifier {
       // 1. SEGURIDAD: Verificar si quien llama es Admin (Legacy o Firebase)
       bool esAdminSeguro = false;
 
-      if (adminEjecutor.id == 1 && adminEjecutor.rol == 'Admin') {
+      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
         esAdminSeguro = true;
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
            final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty && resultRol.first['rol'] == 'Admin') {
-             esAdminSeguro = true;
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
            }
         }
       }
@@ -235,10 +247,14 @@ class ControladorFinanzas extends ChangeNotifier {
         debugPrint('Advertencia: no pudo calcular multa: $e'); // No es fatal
       }
 
-      // 4. Proceder con el registro (incluyendo multa si aplica)
+      try {
+        await conn.query('ALTER TABLE DSI_salon_pagos ADD COLUMN admin_id INT(11) NULL');
+      } catch (_) {}
+
+      // 4. Proceder con el registro (incluyendo multa si aplica y admin_id)
       await conn.query(
-        'INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, monto_multa, fecha_pago, confirmado, metodo_pago) VALUES (?, ?, ?, ?, NOW(), ?, ?)',
-        [pago.usuarioId, pago.actividadId, pago.montoPagado, montoMultaCalculada, true, pago.metodoPago]
+        'INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, monto_multa, fecha_pago, confirmado, metodo_pago, admin_id) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
+        [pago.usuarioId, pago.actividadId, pago.montoPagado, montoMultaCalculada, true, pago.metodoPago, adminEjecutor.id]
       );
 
       // --- NOTIFICACIÃ“N GLOBAL ---
@@ -274,8 +290,18 @@ class ControladorFinanzas extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      debugPrint('Error registrando pago: $e');
-      return false;
+      debugPrint('Error registrando pago en la nube: $e');
+      // FALLBACK MODO OFFLINE
+      debugPrint('Guardando pago localmente...');
+      try {
+        await BaseDatosLocal.instance.insertarPagoLocal(pago);
+        debugPrint('Pago guardado offline con exito.');
+        // Auditoria offline? Omitida por ahora.
+        return true;
+      } catch (eLocal) {
+        debugPrint('Error registrando pago offline: $eLocal');
+        return false;
+      }
     } finally {
       notifyListeners();
     }
@@ -293,14 +319,17 @@ class ControladorFinanzas extends ChangeNotifier {
       // 1. SEGURIDAD: Verificar Admin
       bool esAdminSeguro = false;
 
-      if (adminEjecutor.id == 1 && adminEjecutor.rol == 'Admin') {
+      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
         esAdminSeguro = true;
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
            final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty && resultRol.first['rol'] == 'Admin') {
-             esAdminSeguro = true;
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
            }
         }
       }
@@ -367,14 +396,17 @@ class ControladorFinanzas extends ChangeNotifier {
       
       // SEGURIDAD: Verificar Admin
       bool esAdminSeguro = false;
-      if (adminEjecutor.id == 1 && adminEjecutor.rol == 'Admin') {
+      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
         esAdminSeguro = true;
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
            final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty && resultRol.first['rol'] == 'Admin') {
-             esAdminSeguro = true;
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
            }
         }
       }
@@ -457,11 +489,33 @@ class ControladorFinanzas extends ChangeNotifier {
         };
       }).toList();
 
+      // C. RECAUDACIÓN POR ADMINISTRADOR (Auditoría)
+      String sqlAdmins = '''
+        SELECT 
+            COALESCE(u.nombre, 'Sistema/Anterior') as admin_nombre,
+            SUM(p.monto) as total_recaudado
+        FROM DSI_salon_pagos p
+        LEFT JOIN DSI_salon_usuarios u ON p.admin_id = u.id
+        WHERE p.confirmado = 1 AND p.fecha_pago BETWEEN ? AND ?
+        GROUP BY u.id, u.nombre
+        ORDER BY total_recaudado DESC
+      ''';
+      
+      final resAdmins = await conn.query(sqlAdmins, [inicioLocal, finAjustado]);
+      
+      List<Map<String, dynamic>> recaudacionAdmins = resAdmins.map((fila) {
+        return {
+          'admin_nombre': fila['admin_nombre'].toString(),
+          'total': (fila['total_recaudado'] ?? 0.0).toDouble()
+        };
+      }).toList();
+
       return {
         'totalIngresos': totalIngresos,
         'totalGastos': totalGastos,
         'utilidadNeta': totalIngresos - totalGastos,
-        'desglose': desglose
+        'desglose': desglose,
+        'recaudacionAdmins': recaudacionAdmins
       };
       
     } catch (e) {
@@ -480,20 +534,34 @@ class ControladorFinanzas extends ChangeNotifier {
   Future<void> obtenerResumenFinanciero() async {
     _cargando = true;
     notifyListeners();
-
+    
     try {
-      // Intentar correcciÃ³n de tablas al cargar resumen (punto estratÃ©gico)
-      // await _db.autocorregirTablas(); // ACTIVADO TEMPORALMENTE PARA MIGRACIÃ“N
+      await _db.inicializarTablaConfiguracion();
 
-      // Ejecutamos las sumas en paralelo para mayor velocidad
       final resultados = await Future.wait([
         _db.obtenerSumaIngresos(),
-        _db.obtenerSumaGastos()
+        _db.obtenerSumaGastos(),
+        _db.obtenerConfiguracion('apertura_caja')
       ]);
 
-      _totalIngresos = resultados[0];
-      _totalGastos = resultados[1];
-      _saldoCaja = _totalIngresos - _totalGastos;
+      double totalPagos = resultados[0] as double;
+      _totalGastos = resultados[1] as double;
+      
+      // Parsear Fondo Base si existe
+      _fondoBase = 0.0;
+      _fondoBaseMotivo = '';
+      if (resultados[2] != null) {
+         try {
+           final baseData = jsonDecode(resultados[2] as String);
+           _fondoBase = (baseData['monto'] ?? 0.0).toDouble();
+           _fondoBaseMotivo = baseData['motivo']?.toString() ?? 'Sin motivo';
+         } catch(e) {
+           debugPrint('Error parseando fondo base: $e');
+         }
+      }
+
+      _totalIngresos = totalPagos;
+      _saldoCaja = _totalIngresos + _fondoBase - _totalGastos;
       
     } catch (e) {
       debugPrint('Error obteniendo resumen: $e');
@@ -502,7 +570,37 @@ class ControladorFinanzas extends ChangeNotifier {
       notifyListeners();
     }
   }
-// ... (rest of the file)
+
+  // --- MÉTODOS PARA APERTURA DE CAJA ---
+  Future<bool> establecerFondoBase(double monto, String motivo, Usuario admin) async {
+    _cargando = true;
+    notifyListeners();
+
+    try {
+      if (admin.rol != 'SuperAdmin') {
+         return false; // Solo SuperAdmin puede hacer esto.
+      }
+
+      final jsonDatos = jsonEncode({'monto': monto, 'motivo': motivo});
+      final exito = await _db.guardarConfiguracion('apertura_caja', jsonDatos);
+      
+      if (exito) {
+        unawaited(ServicioAuditoria().registrarAccion(
+          accion: 'Aperturar Caja',
+          detalle: 'Monto: S/ ${monto.toStringAsFixed(2)} - Motivo: $motivo',
+        ));
+        await obtenerResumenFinanciero();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error en establecerFondoBase: $e');
+      return false;
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
 
   // 3. Obtener Kardex (UNION de Pagos y Gastos) Paginado
   Future<void> obtenerMovimientosKardex({bool reset = false}) async {
@@ -587,6 +685,36 @@ class ControladorFinanzas extends ChangeNotifier {
       
     } catch (e) {
       debugPrint('Error obteniendo deudores: $e');
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  // --- NUEVA FUNCIÓN: Alumno Offline ---
+  Future<bool> registrarAlumnoOffline(String nombre) async {
+    _cargando = true;
+    notifyListeners();
+    try {
+      final conn = await _db.obtenerConexion();
+      
+      String offlineUid = 'offline_${DateTime.now().millisecondsSinceEpoch}';
+      
+      await conn.query(
+        'INSERT INTO DSI_salon_usuarios (uid, nombre, email, celular, foto_url, rol) VALUES (?, ?, ?, ?, ?, ?)',
+        [offlineUid, nombre, 'offline@tesoreriasalon.local', '000000000', '', 'Alumno']
+      );
+
+      // Auditoría
+      unawaited(ServicioAuditoria().registrarAccion(
+        accion: 'Alumno Offline Creado',
+        detalle: 'Nombre: $nombre',
+      ));
+
+      return true;
+    } catch (e) {
+      debugPrint('Error registrando alumno offline: $e');
+      return false;
     } finally {
       _cargando = false;
       notifyListeners();

@@ -282,7 +282,6 @@ class TemaApp {
     final primaryContainer = isDark ? config.primary.withValues(alpha: 0.2) : config.primary.withValues(alpha: 0.1);
     final onPrimaryContainer = isDark ? config.onBackground : config.primary;
 
-    final baseTheme = isDark ? ThemeData.dark(useMaterial3: true) : ThemeData.light(useMaterial3: true);
 
     BorderRadius borderRadiusGeneral;
     OutlinedBorder shapeBoton;
@@ -305,18 +304,21 @@ class TemaApp {
         shapeBoton = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0));
         break;
     }
+    final Color colorAdaptado = isDark ? ColorScheme.fromSeed(seedColor: config.primary, brightness: Brightness.dark).primary : config.primary;
 
-    return baseTheme.copyWith(
-      textTheme: baseTheme.textTheme.apply(fontFamily: 'Inter'), // ✨ Fuente global
-      primaryColor: config.primary,
+    return ThemeData(
+      useMaterial3: true,
+      brightness: config.brightness,
+      primaryColor: colorAdaptado,
       scaffoldBackgroundColor: config.background,
       canvasColor: config.background,
+      fontFamily: 'Inter',
       extensions: [extensionColores],
 
       colorScheme: ColorScheme.fromSeed(
         seedColor: config.primary,
         brightness: config.brightness,
-        primary: config.primary,
+        // No forzamos el primary para que M3 controle el contraste, pero SÍ forzamos el onSurface
         secondary: config.secondary,
         surface: config.surface,
         onSurface: config.onBackground,
@@ -334,6 +336,24 @@ class TemaApp {
             color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
           ),
         ),
+      ),
+      
+      textTheme: TextTheme(
+        displayLarge: TextStyle(color: colorAdaptado),
+        displayMedium: TextStyle(color: colorAdaptado),
+        displaySmall: TextStyle(color: colorAdaptado),
+        headlineLarge: TextStyle(color: colorAdaptado),
+        headlineMedium: TextStyle(color: colorAdaptado),
+        headlineSmall: TextStyle(color: colorAdaptado),
+        titleLarge: TextStyle(color: colorAdaptado),
+        titleMedium: TextStyle(color: colorAdaptado),
+        titleSmall: TextStyle(color: colorAdaptado),
+        bodyLarge: TextStyle(color: isDark ? config.onBackground : const Color(0xFF1E293B)), // Cuerpo normal un poco más neutro
+        bodyMedium: TextStyle(color: isDark ? config.onBackground : const Color(0xFF1E293B)),
+        bodySmall: TextStyle(color: isDark ? config.onBackground : const Color(0xFF1E293B)),
+        labelLarge: TextStyle(color: colorAdaptado),
+        labelMedium: TextStyle(color: colorAdaptado),
+        labelSmall: TextStyle(color: colorAdaptado),
       ),
 
       dialogTheme: DialogThemeData(
@@ -442,6 +462,28 @@ class TemaApp {
           fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 18,
           color: isDark ? Colors.white : config.primary,
         ),
+      ),
+
+      // ✨ [Nuevo] Drawer dinámico basado en MyPagesTema
+      drawerTheme: DrawerThemeData(
+        backgroundColor: config.surface,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+        ),
+      ),
+
+      // ✨ [Nuevo] ListTiles dinámicos
+      listTileTheme: ListTileThemeData(
+        iconColor: colorAdaptado,
+        textColor: config.onBackground,
+        titleTextStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        subtitleTextStyle: TextStyle(color: config.onBackground.withValues(alpha: 0.6), fontSize: 13),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

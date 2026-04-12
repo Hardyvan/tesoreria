@@ -27,17 +27,20 @@ class ControladorActividades extends ChangeNotifier {
       // 1. SEGURIDAD: Verificar Admin
       bool esAdminSeguro = false;
 
-      // A. Backdoor para Admin Legacy (ID 1)
-      if (usuario.id == 1 && usuario.rol == 'Admin') {
+      // A. Backdoor para Admin Legacy (ID 1) o SuperAdmin
+      if (usuario.rol == 'Admin' || usuario.rol == 'SuperAdmin') {
         esAdminSeguro = true;
       } 
-      // B. Verificacion Firebase (Produccion)
+      // B. Verificacion Firebase (Produccion - Doble Check)
       else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
            final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty && resultRol.first['rol'] == 'Admin') {
-             esAdminSeguro = true;
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
            }
         }
       }
@@ -134,14 +137,17 @@ class ControladorActividades extends ChangeNotifier {
       
       // 1. SEGURIDAD: Verificar Admin
       bool esAdminSeguro = false;
-      if (usuario.id == 1 && usuario.rol == 'Admin') {
+      if (usuario.rol == 'Admin' || usuario.rol == 'SuperAdmin') {
         esAdminSeguro = true;
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
            final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty && resultRol.first['rol'] == 'Admin') {
-             esAdminSeguro = true;
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
            }
         }
       }
@@ -196,14 +202,17 @@ class ControladorActividades extends ChangeNotifier {
       
       // 1. SEGURIDAD: Verificar Admin
       bool esAdminSeguro = false;
-      if (usuario.id == 1 && usuario.rol == 'Admin') {
+      if (usuario.rol == 'Admin' || usuario.rol == 'SuperAdmin') {
         esAdminSeguro = true;
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
            final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty && resultRol.first['rol'] == 'Admin') {
-             esAdminSeguro = true;
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
            }
         }
       }

@@ -4,9 +4,7 @@ import 'package:provider/provider.dart';
 import '../myPagesBack/a_logica_inicio_sesion.dart';
 import '../myPages/b_estado_financiero.dart';
 import '../myPages/f_perfil.dart';
-import '../myPages/c_reportes.dart';
 import '../myMenu/d_historial_pagos.dart';
-import '../myPages/d_reportes_avanzados.dart';
 import '../myPages/e_actividades.dart';
 
 class MenuPrincipal extends StatefulWidget {
@@ -42,7 +40,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     vistas.add(const ListaDeudores());
     botonesVavegacion.add(const NavigationDestination(
       icon: Icon(Icons.people_alt_outlined),
-      label: 'Estado',
+      label: 'Estado Financiero',
     ));
 
 
@@ -54,12 +52,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       label: 'Historial',
     ));
 
-    // 3. Reportes (Kardex Global - Transparencia Total)
-    vistas.add(const ReporteFinanciero());
-    botonesVavegacion.add(const NavigationDestination(
-      icon: Icon(Icons.assessment_outlined),
-      label: 'Reportes',
-    ));
+    // NOTA: Reportes se ha movido al DrawerLateral
 
     // 3. Gestión de Actividades (SOLO ADMIN/SUPER ADMIN)
     final auth = Provider.of<ControladorAuth>(context);
@@ -79,26 +72,106 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       label: 'Mi Perfil',
     ));
 
-    // 5. Auditoría (SOLO SUPER ADMIN)
-    if (auth.usuarioActual?.rol == 'SuperAdmin') {
-      // Importar arriba: import '../myPages/d_reportes_avanzados.dart';
-      vistas.add(const AuditoriaAdmin());
-      botonesVavegacion.add(const NavigationDestination(
-        icon: Icon(Icons.security, color: Colors.red),
-        label: 'Auditoría',
-      ));
-    }
+    // NOTA: Auditoría se ha movido al Drawer Lateral
 
 
 
     // PROTECCIÓN CONTRA CRASH:
-    // Si cambiamos de rol y el índice estaba en una pestaña que ya no existe (ej: 2 o 3),
-    // lo reseteamos a 0 para evitar el error "RangeError".
     if (_indiceActual >= vistas.length) {
       _indiceActual = 0;
     }
 
     return Scaffold(
+      appBar: AppBar(
+        title: Text(botonesVavegacion[_indiceActual].label),
+        centerTitle: true,
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'DSI Tesorería',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary, 
+                      fontSize: 24, 
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    auth.usuarioActual?.nombre ?? '',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8), 
+                      fontSize: 16
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.history_edu),
+              title: const Text('Mis Pagos y Ayuda'),
+              subtitle: const Text('Historial y contacto'),
+              onTap: () {
+                Navigator.pop(context); // Cierra el drawer
+                Navigator.pushNamed(context, '/historial_pagos');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.assessment_outlined),
+              title: const Text('Reporte Financiero'),
+              subtitle: const Text('Kardex global'),
+              onTap: () {
+                Navigator.pop(context); 
+                Navigator.pushNamed(context, '/reportes');
+              },
+            ),
+            if (auth.usuarioActual?.rol == 'SuperAdmin' || auth.usuarioActual?.rol == 'Admin') ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.bar_chart),
+                title: const Text('Reportes Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Gráficas y estadísticas'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/reportes_avanzados');
+                },
+              ),
+              if (auth.usuarioActual?.rol == 'SuperAdmin')
+                ListTile(
+                  leading: Icon(Icons.security, color: Theme.of(context).colorScheme.error),
+                  title: Text(
+                    'Panel de Auditoría', 
+                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)
+                  ),
+                  subtitle: const Text('Rastreo de sistema'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/auditoria');
+                  },
+                ),
+            ],
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Cerrar Sesión'),
+              onTap: () {
+                 auth.cerrarSesion();
+                 Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false);
+              },
+            ),
+          ],
+        ),
+      ),
       body: IndexedStack(
         index: _indiceActual,
         children: vistas,
@@ -115,3 +188,4 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     );
   }
 }
+

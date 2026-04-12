@@ -1,12 +1,12 @@
 import 'package:mysql1/mysql1.dart';
 import 'package:flutter/foundation.dart';
 import 'a_configuracion_db.dart';
-import 'c_excepciones.dart'; // Import nuevo
+import 'c_excepciones.dart';
 
 class BaseDatosRemota {
   static MySqlConnection? _conexion;
 
-  // MÃ©todo para obtener conexiÃ³n
+  // Método para obtener conexión (con reintentos para redes lentas)
   Future<MySqlConnection> obtenerConexion() async {
     // Para evitar problemas de timeout ("MySQL server has gone away")
     // con conexiones remotas inactivas, cerramos la anterior y abrimos una nueva.
@@ -23,28 +23,81 @@ class BaseDatosRemota {
       user: ConfiguracionDB.usuario,
       password: ConfiguracionDB.password,
       db: ConfiguracionDB.nombreBaseDatos,
-      timeout: const Duration(seconds: 5), 
+      timeout: const Duration(seconds: 15), // Aumentado para redes móviles lentas
     );
 
-    try {
-      debugPrint('Intentando conectar a MySQL en ${ConfiguracionDB.host}...');
-      _conexion = await MySqlConnection.connect(settings);
-      debugPrint('✅ Conexión MySQL Exitosa.');
-      return _conexion!;
-    } catch (e) {
-      // SEGURIDAD: No re-lanzar la excepciÃ³n cruda que puede contener la IP.
-      debugPrint('Error CRÃTICO conectando a MySQL: $e'); // Log interno sÃ­ puede tener detalles
-      throw ExcepcionSegura('No se pudo conectar al servidor. Verifique su internet.');
+    // Reintento automático: 2 intentos con pausa de 2s entre ellos
+    // Evita expulsar usuarios por picos de latencia transitorios
+    const maxIntentos = 2;
+    Exception? ultimoError;
+
+    for (int intento = 1; intento <= maxIntentos; intento++) {
+      try {
+        debugPrint('Conectando a MySQL [Intento $intento/$maxIntentos]...');
+        _conexion = await MySqlConnection.connect(settings);
+        debugPrint('✅ Conexión MySQL Exitosa (intento $intento).');
+        return _conexion!;
+      } catch (e) {
+        ultimoError = e is Exception ? e : Exception(e.toString());
+        debugPrint('Fallo intento $intento: $e');
+        if (intento < maxIntentos) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
     }
+
+    // SEGURIDAD: No re-lanzar la excepción cruda que puede contener la IP.
+    debugPrint('Error CRÍTICO tras $maxIntentos intentos: $ultimoError');
+    throw ExcepcionSegura('No se pudo conectar al servidor. Verifique su internet.');
   }
 
-  // MÃ©todo para cerrar conexiÃ³n
+  // Método para cerrar conexión
   Future<void> cerrarConexion() async {
     await _conexion?.close();
     _conexion = null;
   }
 
-  // --- CONSULTAS OPTIMIZADAS PARA KARDEX (Reporte Financiero) ---
+  // --- CONFIGURACIONES GLOBALES (Saldo Inicial, etc) ---
+  
+  Future<void> inicializarTablaConfiguracion() async {
+    try {
+      final conn = await obtenerConexion();
+      await conn.query('''
+        CREATE TABLE IF NOT EXISTS DSI_salon_configuracion (
+          clave VARCHAR(50) PRIMARY KEY,
+          valor TEXT NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      ''');
+    } catch (e) {
+      debugPrint('Error creando tabla configuracion: $e');
+    }
+  }
+
+  Future<String?> obtenerConfiguracion(String clave) async {
+    try {
+      final conn = await obtenerConexion();
+      final results = await conn.query('SELECT valor FROM DSI_salon_configuracion WHERE clave = ?', [clave]);
+      if (results.isNotEmpty) return results.first['valor'].toString();
+    } catch (e) {
+      debugPrint('Error leyendo configuracion ($clave): $e');
+    }
+    return null;
+  }
+
+  Future<bool> guardarConfiguracion(String clave, String valor) async {
+    try {
+      final conn = await obtenerConexion();
+      await conn.query('''
+        INSERT INTO DSI_salon_configuracion (clave, valor) 
+        VALUES (?, ?) 
+        ON DUPLICATE KEY UPDATE valor = ?
+      ''', [clave, valor, valor]);
+      return true;
+    } catch (e) {
+      debugPrint('Error guardando configuracion ($clave): $e');
+      return false;
+    }
+  }
 
   // 1. Total Ingresos (Suma directa en BD)
   Future<double> obtenerSumaIngresos() async {
@@ -116,19 +169,19 @@ class BaseDatosRemota {
       return [];
     }
   }
+
   // --- MANTENIMIENTO BD ---
   @Deprecated('Desactivado por seguridad. Las migraciones deben ser manuales.')
   Future<void> autocorregirTablas() async {
     // DESACTIVADO POR SEGURIDAD
-    // La app no debe tener permisos de ALTER TABLE en producciÃ³n.
-    
+    // La app no debe tener permisos de ALTER TABLE en producción.
     try {
       final conn = await obtenerConexion();
       try {
         await conn.query('ALTER TABLE DSI_salon_gastos ADD COLUMN actividad_id INT NULL');
         debugPrint('Columna actividad_id agregada a DSI_salon_gastos.');
       } catch (e) {
-         debugPrint('Columna actividad_id probablemente ya existe o error menor: $e');
+        debugPrint('Columna actividad_id probablemente ya existe o error menor: $e');
       }
     } catch (e) {
       debugPrint('Error en autocorregirTablas: $e');

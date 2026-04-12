@@ -114,6 +114,7 @@ class CampoTextoPersonalizado extends StatefulWidget {
   final TextAlign textAlign;
   final double? letterSpacing;
   final ValueChanged<String>? onChanged;
+  final String? prefixText;
 
   const CampoTextoPersonalizado({
     super.key,
@@ -136,6 +137,7 @@ class CampoTextoPersonalizado extends StatefulWidget {
     this.textAlign = TextAlign.start,
     this.letterSpacing,
     this.onChanged,
+    this.prefixText,
   });
 
   @override
@@ -186,6 +188,7 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
         labelText: widget.label.isEmpty ? null : widget.label,
         hintText: widget.hint,
         counterText: '',
+        prefixText: widget.prefixText,
 
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,

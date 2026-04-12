@@ -12,7 +12,7 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "protegerPantalla") {
-                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                // window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 result.success(null)
             } else {
                 result.notImplemented()
