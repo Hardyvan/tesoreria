@@ -41,12 +41,7 @@ class _HistorialPagosState extends State<HistorialPagos> {
     final currencyFormat = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
     final dateFormat = DateFormat('dd MMM yyyy');
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mis Pagos y Ayuda'),
-        actions: const [BannerSinConexion()],
-      ),
-      body: RefreshIndicator(
+    return RefreshIndicator(
         onRefresh: () async {
           final usuario = context.read<ControladorAuth>().usuarioActual;
           if (usuario != null) {
@@ -181,14 +176,6 @@ class _HistorialPagosState extends State<HistorialPagos> {
             );
           },
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_whatsapp',
-        onPressed: _abrirWhatsApp,
-        backgroundColor: const Color(0xFF25D366), // Color oficial de WhatsApp
-        icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white),
-        label: const Text('Consultar Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
     );
   }
 

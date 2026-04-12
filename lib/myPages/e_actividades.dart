@@ -173,9 +173,7 @@ class _GestionActividadesState extends State<GestionActividades> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Gestión de Actividades')),
-      body: FutureBuilder<void>(
+    return FutureBuilder<void>(
         future: _futureActividades,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -235,15 +233,7 @@ class _GestionActividadesState extends State<GestionActividades> {
          },
         );
        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_actividad',
-        backgroundColor: Theme.of(context).primaryColor,
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CrearActividad())),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('NUEVA ACTIVIDAD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
-    );
+        );
   }
 }
 

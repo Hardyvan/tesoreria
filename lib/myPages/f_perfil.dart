@@ -18,9 +18,7 @@ class PerfilUsuario extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Provider.of<ControladorAuth>(context);
     final user = auth.usuarioActual;
-
-    return Scaffold(
-        body: SingleChildScrollView(
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
         child: Column(
           children: [
@@ -284,7 +282,6 @@ class PerfilUsuario extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -883,3 +880,4 @@ class _TarjetaUsuario extends StatelessWidget {
     );
   }
 }
+

@@ -13,7 +13,6 @@ import '../../myPagesBack/e_logica_actividades.dart';
 import '../../myPagesBack/modelo_usuario.dart';
 import '../../myPagesBack/modelo_actividad.dart';
 import '../../myPagesBack/modelo_pago.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class ListaDeudores extends StatefulWidget {
   const ListaDeudores({super.key});
@@ -46,9 +45,7 @@ class _ListaDeudoresState extends State<ListaDeudores> {
     final finanzas = context.watch<ControladorFinanzas>();
     final esAdmin = context.read<ControladorAuth>().esAdmin;
     
-    return Scaffold(
-
-      body: FutureBuilder<void>(
+    return FutureBuilder<void>(
         future: _futureDatos,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -165,16 +162,6 @@ class _ListaDeudoresState extends State<ListaDeudores> {
             ),
           );
         },
-      ),
-      floatingActionButton: !esAdmin ? null : FloatingActionButton.extended(
-        heroTag: 'fab_alumno_offline',
-        onPressed: () {
-          _mostrarDialogoAgregarAlumno(context);
-        },
-        backgroundColor: Theme.of(context).primaryColor,
-        icon: const Icon(Icons.person_add, color: Colors.white),
-        label: Text('Alumno Manual', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
     );
   }
 
@@ -186,57 +173,6 @@ class _ListaDeudoresState extends State<ListaDeudores> {
     ]);
   }
 
-  void _mostrarDialogoAgregarAlumno(BuildContext parentContext) {
-    final nombreController = TextEditingController();
-    showDialog(
-      context: parentContext,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Agregar Alumno Manual'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Añade a un compañero que no usará la app para fines contables.'),
-            const SizedBox(height: 16),
-            CampoTextoPersonalizado(
-              controller: nombreController,
-              label: 'Nombre Completo',
-              prefixIcon: Icons.person,
-              textCapitalization: TextCapitalization.words,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nombreController.text.trim().isEmpty) return;
-              
-              final nombre = nombreController.text.trim();
-              Navigator.pop(dialogContext); 
-              
-              // Usar el parentContext que sigue vivo
-              if (!parentContext.mounted) return;
-              
-              final exito = await parentContext.read<ControladorFinanzas>().registrarAlumnoOffline(nombre);
-              
-              if (!parentContext.mounted) return;
-              
-              if (exito) {
-                 ManejadorErrores.mostrarMensajeExito(parentContext, 'Alumno guardado correctamente');
-                 unawaited(parentContext.read<ControladorFinanzas>().obtenerReporteDeudores());
-              } else {
-                 ManejadorErrores.mostrarErrorCritico(parentContext, 'Error', 'No se pudo guardar el alumno');
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class RegistroPagos extends StatefulWidget {
