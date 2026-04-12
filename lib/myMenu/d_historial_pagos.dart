@@ -43,120 +43,144 @@ class _HistorialPagosState extends State<HistorialPagos> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mis Pagos Detallados'),
+        title: const Text('Mis Pagos y Ayuda'),
         actions: const [BannerSinConexion()],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _futureHistorial,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+      body: RefreshIndicator(
+        onRefresh: () async {
+          final usuario = context.read<ControladorAuth>().usuarioActual;
+          if (usuario != null) {
+            setState(() {
+              _futureHistorial = context.read<ControladorFinanzas>()
+                  .obtenerDetallePagosPorActividad(usuario.id, forceRefresh: true);
+            });
+            await _futureHistorial;
           }
-          
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return _VistaVacia();
-          }
-
-          final actividades = snapshot.data!;
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: actividades.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final item = actividades[index];
-              final pagos = item['pagos'] as List<Map<String, dynamic>>;
-              final estado = item['estado'];
-              final costo = item['costo'];
-              final pagado = item['total_pagado'];
-              final saldo = costo - pagado;
-
-              Color colorEstado;
-              switch (estado) {
-                case 'Completo': colorEstado = Colors.green; break;
-                case 'Parcial': colorEstado = Colors.orange; break;
-                default: colorEstado = Colors.red;
-              }
-
-              return TarjetaPremium(
-                child: ExpansionTile(
-                  leading: CircleAvatar(
-                    backgroundColor: colorEstado.withValues(alpha: 0.1),
-                    child: Icon(
-                      estado == 'Completo' ? Icons.check : Icons.access_time, 
-                      color: colorEstado
-                    ),
-                  ),
-                  title: Text(item['titulo'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                    'Pagado: ${currencyFormat.format(pagado)} / ${currencyFormat.format(costo)}',
-                    style: TextStyle(color: colorEstado)
-                  ),
-                  childrenPadding: const EdgeInsets.all(16),
-                  children: [
-                    if (pagos.isNotEmpty) ...[
-                       const Align(
-                         alignment: Alignment.centerLeft, 
-                         child: Text('Historial de Abonos:', style: TextStyle(fontWeight: FontWeight.bold))
-                       ),
-                       const SizedBox(height: 8),
-                       ...pagos.map((p) => Column(
-                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                         children: [
-                           Row(
-                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                             children: [
-                               Text(dateFormat.format(p['fecha'])),
-                               Text(currencyFormat.format(p['monto']), style: const TextStyle(fontWeight: FontWeight.w500)),
-                             ],
-                           ),
-                           if (p['multa'] != null && p['multa'] > 0)
-                             Text(
-                               'Incluye mora: ${currencyFormat.format(p['multa'])}', 
-                               textAlign: TextAlign.right, 
-                               style: const TextStyle(fontSize: 12, color: Colors.orange)
-                             ),
-                           const SizedBox(height: 4),
-                         ],
-                       )),
-                       const Divider(),
-                    ],
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Saldo Pendiente:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                          currencyFormat.format(saldo > 0 ? saldo : 0), 
-                          style: TextStyle(
-                            color: saldo > 0 ? Colors.red : Colors.green,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16
-                          )
-                        ),
-                      ],
-                    ),
-                    if (saldo > 0) ...[
-                       const SizedBox(height: 16),
-                       SizedBox(
-                         width: double.infinity,
-                         child: ElevatedButton.icon(
-                           onPressed: () => _mostrarModalYape(context, item['titulo'], saldo),
-                           icon: const FaIcon(FontAwesomeIcons.mobileScreen, color: Colors.white, size: 18),
-                           label: const Text('Pagar con Yape', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                           style: ElevatedButton.styleFrom(
-                             backgroundColor: const Color(0xFF742284), // Morado Yape
-                             padding: const EdgeInsets.symmetric(vertical: 12),
-                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                           ),
-                         ),
-                       )
-                    ],
-                  ],
-                ),
-              );
-            },
-          );
         },
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _futureHistorial,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return ListView(
+                children: [
+                  const SizedBox(height: 100),
+                  _VistaVacia(),
+                ],
+              );
+            }
+
+            final actividades = snapshot.data!;
+
+            return ListView.separated(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: actividades.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = actividades[index];
+                final pagos = item['pagos'] as List<Map<String, dynamic>>;
+                final estado = item['estado'];
+                final costo = item['costo'];
+                final pagado = item['total_pagado'];
+                final saldo = costo - pagado;
+
+                Color colorEstado;
+                switch (estado) {
+                  case 'Completo':
+                    colorEstado = Colors.green;
+                    break;
+                  case 'Parcial':
+                    colorEstado = Colors.orange;
+                    break;
+                  default:
+                    colorEstado = Colors.red;
+                }
+
+                return TarjetaPremium(
+                  child: ExpansionTile(
+                    leading: CircleAvatar(
+                      backgroundColor: colorEstado.withValues(alpha: 0.1),
+                      child: Icon(
+                        estado == 'Completo' ? Icons.check : Icons.access_time,
+                        color: colorEstado,
+                      ),
+                    ),
+                    title: Text(item['titulo'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(
+                      'Pagado: ${currencyFormat.format(pagado)} / ${currencyFormat.format(costo)}',
+                      style: TextStyle(color: colorEstado),
+                    ),
+                    childrenPadding: const EdgeInsets.all(16),
+                    children: [
+                      if (pagos.isNotEmpty) ...[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Historial de Abonos:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(height: 8),
+                        ...pagos.map((p) => Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(dateFormat.format(p['fecha'])),
+                                    Text(currencyFormat.format(p['monto']),
+                                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                                if (p['multa'] != null && p['multa'] > 0)
+                                  Text(
+                                    'Incluye mora: ${currencyFormat.format(p['multa'])}',
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(fontSize: 12, color: Colors.orange),
+                                  ),
+                                const SizedBox(height: 4),
+                              ],
+                            )),
+                        const Divider(),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Saldo Pendiente:', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            currencyFormat.format(saldo > 0 ? saldo : 0),
+                            style: TextStyle(
+                              color: saldo > 0 ? Colors.red : Colors.green,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (saldo > 0) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _mostrarModalYape(context, item['titulo'], saldo),
+                            icon: const FaIcon(FontAwesomeIcons.mobileScreen, color: Colors.white, size: 18),
+                            label: const Text('Pagar con Yape',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF742284), // Morado Yape
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        )
+                      ],
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_whatsapp',

@@ -469,7 +469,7 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Auditoría (Super Admin)'),
+        title: const Text('Panel de Auditoría'),
         centerTitle: true,
         actions: [
           IconButton(

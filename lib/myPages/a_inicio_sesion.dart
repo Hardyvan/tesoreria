@@ -553,10 +553,15 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                   // Llenar Datos Faltantes
                   CampoTextoPersonalizado(
                     controller: celularCtrl,
-                    label: 'Celular',
+                    label: 'Celular *',
                     prefixIcon: Icons.phone,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'El celular es obligatorio';
+                      if (!RegExp(r'^\d+$').hasMatch(v)) return 'Solo números';
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   CampoTextoPersonalizado(
@@ -628,7 +633,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                   TextButton(
                     onPressed: () {
                         auth.cerrarSesion();
-                        Navigator.pop(context);
+                        Navigator.pushReplacementNamed(context, '/inicio_sesion');
                     }, 
                     child: const Text('Cancelar y Salir', style: TextStyle(color: ColoresApp.error))
                   )
@@ -643,14 +648,6 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
 
   Future<void> _guardarDatos() async {
     if (!_formKey.currentState!.validate()) return;
-    
-    // VALIDACIÓN: Celular es lo único obligatorio
-    if (celularCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El celular es obligatorio para continuar'))
-      );
-      return;
-    }
 
     setState(() => _cargando = true);
     final auth = Provider.of<ControladorAuth>(context, listen: false);

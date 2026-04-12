@@ -70,7 +70,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Caja General'),
+        title: const Text('Reporte Financiero'),
         actions: [
           if (esAdmin)
             IconButton(

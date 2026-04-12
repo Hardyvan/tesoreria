@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../myPagesBack/a_logica_inicio_sesion.dart';
+import '../myPagesBack/b_logica_estado_financiero.dart';
+import '../myPagesBack/e_logica_actividades.dart';
 import '../myPages/b_estado_financiero.dart';
 import '../myPages/f_perfil.dart';
 import '../myMenu/d_historial_pagos.dart';
@@ -23,9 +25,27 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     // Red de Seguridad: Verificar si faltan datos obligatorios
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = Provider.of<ControladorAuth>(context, listen: false);
-      if (auth.usuarioActual != null && auth.usuarioActual!.celular.isEmpty) {
-        // Si logró entrar sin teléfono, lo sacamos de aquí
-        Navigator.pushReplacementNamed(context, '/completar_perfil');
+      if (auth.usuarioActual != null) {
+        if (auth.usuarioActual!.celular.isEmpty) {
+          // Si logró entrar sin teléfono, lo sacamos de aquí
+          Navigator.pushReplacementNamed(context, '/completar_perfil');
+        } else {
+          // --- OPTIMIZACIÓN: PRECARGA EN SEGUNDO PLANO ---
+          // Precargamos los datos que se mostrarán en el menú lateral para evitar lag
+          final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
+          
+          // 1. Precargar historial de pagos para la caché (asíncrono, fire-and-forget)
+          finanzas.obtenerDetallePagosPorActividad(auth.usuarioActual!.id);
+          finanzas.cargarFinanzasUsuario(auth.usuarioActual!.id);
+          
+          // 2. Si es Admin, precargar datos de actividades y reportes
+          if (auth.usuarioActual!.rol == 'Admin' || auth.usuarioActual!.rol == 'SuperAdmin') {
+             final actividadesCtrl = Provider.of<ControladorActividades>(context, listen: false);
+             actividadesCtrl.listarActividades();
+             finanzas.obtenerResumenFinanciero();
+             finanzas.obtenerMovimientosKardex(reset: true);
+          }
+        }
       }
     });
   }

@@ -33,6 +33,9 @@ class ControladorFinanzas extends ChangeNotifier {
   List<Map<String, dynamic>> _listaDeudores = [];
   List<Map<String, dynamic>> _misPagos = [];
   List<Map<String, dynamic>> _metasActividades = [];
+  
+  // CACHE SISTEMA (MAPA)
+  final Map<int, List<Map<String, dynamic>>> _cacheDetallePagos = {};
 
   bool _cargando = false;
   
@@ -108,8 +111,13 @@ class ControladorFinanzas extends ChangeNotifier {
     }
   }
 
-  // Obtener Detalle Agrupado (FASE 9)
-  Future<List<Map<String, dynamic>>> obtenerDetallePagosPorActividad(int usuarioId) async {
+  Future<List<Map<String, dynamic>>> obtenerDetallePagosPorActividad(int usuarioId, {bool forceRefresh = false}) async {
+    // 1. Verificar CACHÉ (MAPA) para respuesta instantánea
+    if (!forceRefresh && _cacheDetallePagos.containsKey(usuarioId)) {
+      debugPrint('CACHE: Cargando historial desde memoria (instantáneo)');
+      return _cacheDetallePagos[usuarioId]!;
+    }
+
     final db = BaseDatosRemota();
     try {
       final conn = await db.obtenerConexion();
@@ -172,11 +180,16 @@ class ControladorFinanzas extends ChangeNotifier {
         }
       });
 
-      return agrupado.values.toList();
+      final listaFinal = agrupado.values.toList();
+      
+      // 2. Guardar en CACHÉ (MAPA)
+      _cacheDetallePagos[usuarioId] = listaFinal;
+
+      return listaFinal;
       
     } catch (e) {
       debugPrint('Error obteniendo detalle pagos: $e');
-      return [];
+      return _cacheDetallePagos[usuarioId] ?? []; // Devolver caché si falla la red
     }
   }
 
