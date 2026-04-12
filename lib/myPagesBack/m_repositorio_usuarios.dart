@@ -137,7 +137,7 @@ class RepositorioUsuarios {
   //-------------------------------------------------------------------------
   // 3. COMPLETAR PERFIL INCOMPLETO
   //-------------------------------------------------------------------------
-  Future<Usuario?> guardarPerfilCompletado(Usuario usuarioBase, String celular, String direccion, int edad, String sexo) async {
+  Future<Usuario?> guardarPerfilCompletado(Usuario usuarioBase, String nombre, String celular, String direccion, int edad, String sexo) async {
     try {
       final conn = await _dbRemota.obtenerConexion();
       int id = usuarioBase.id;
@@ -146,17 +146,17 @@ class RepositorioUsuarios {
         String rolAsignado = _correosRoot.contains(usuarioBase.email.toLowerCase()) ? 'SuperAdmin' : 'Alumno';
         final resultInsert = await conn.query(
           'INSERT INTO DSI_salon_usuarios (uid, nombre, email, celular, direccion, edad, sexo, foto_url, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-          [usuarioBase.uid, usuarioBase.nombre, usuarioBase.email, celular, direccion, edad, sexo, usuarioBase.fotoUrl, rolAsignado]
+          [usuarioBase.uid, nombre, usuarioBase.email, celular, direccion, edad, sexo, usuarioBase.fotoUrl, rolAsignado]
         );
         id = resultInsert.insertId!;
       } else {
         await conn.query(
-          'UPDATE DSI_salon_usuarios SET celular = ?, direccion = ?, edad = ?, sexo = ? WHERE id = ?',
-          [celular, direccion, edad, sexo, id]
+          'UPDATE DSI_salon_usuarios SET nombre = ?, celular = ?, direccion = ?, edad = ?, sexo = ? WHERE id = ?',
+          [nombre, celular, direccion, edad, sexo, id]
         );
       }
 
-      return usuarioBase.copyWith(id: id, celular: celular, direccion: direccion, edad: edad, sexo: sexo);
+      return usuarioBase.copyWith(id: id, nombre: nombre, celular: celular, direccion: direccion, edad: edad, sexo: sexo);
     } catch (e) {
       debugPrint('Error guardando perfil completado: $e');
       return null;

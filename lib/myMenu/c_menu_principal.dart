@@ -34,16 +34,18 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
           // Precargamos los datos que se mostrarán en el menú lateral para evitar lag
           final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
           
-          // 1. Precargar historial de pagos para la caché (asíncrono, fire-and-forget)
+          // 1. Precargar historial de pagos (para todos)
           finanzas.obtenerDetallePagosPorActividad(auth.usuarioActual!.id);
           finanzas.cargarFinanzasUsuario(auth.usuarioActual!.id);
           
-          // 2. Si es Admin, precargar datos de actividades y reportes
+          // 2. Precargar Reporte Financiero (Kardex global, para todos por política de transparencia)
+          finanzas.obtenerResumenFinanciero();
+          finanzas.obtenerMovimientosKardex(reset: true);
+          
+          // 3. Si es Admin, precargar datos de actividades
           if (auth.usuarioActual!.rol == 'Admin' || auth.usuarioActual!.rol == 'SuperAdmin') {
              final actividadesCtrl = Provider.of<ControladorActividades>(context, listen: false);
              actividadesCtrl.listarActividades();
-             finanzas.obtenerResumenFinanciero();
-             finanzas.obtenerMovimientosKardex(reset: true);
           }
         }
       }
@@ -65,11 +67,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
 
 
-    // 2. Historial de Pagos
     vistas.add(const HistorialPagos());
     botonesVavegacion.add(const NavigationDestination(
       icon: Icon(Icons.history_edu),
-      label: 'Historial',
+      label: 'Mis Pagos y Ayuda',
     ));
 
     // NOTA: Reportes se ha movido al DrawerLateral
@@ -81,7 +82,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       vistas.add(const GestionActividades());
       botonesVavegacion.add(const NavigationDestination(
         icon: Icon(Icons.event_note_outlined),
-        label: 'Actividades',
+        label: 'Gestión de Actividades',
       ));
     }
 

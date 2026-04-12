@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_usuario.dart';
 import 'l_servicio_autenticacion.dart';
 import 'm_repositorio_usuarios.dart';
+import '../myPagesTema/c_formatos.dart';
 import '../services/api_upload_service.dart';
 
 class ControladorAuth extends ChangeNotifier {
@@ -33,6 +34,8 @@ class ControladorAuth extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await cargarPreferencias();
+      
       final user = _authService.usuarioFirebaseActual;
       if (user != null) {
         final result = await _repoUsuarios.sincronizarUsuarioBD(
@@ -50,8 +53,6 @@ class ControladorAuth extends ChangeNotifier {
         if (result['status'] == 'OK') return true;
       }
       
-      await cargarPreferencias();
-
     } catch (e) {
       debugPrint('Error verificando sesión SRP: $e');
     } finally {
@@ -98,7 +99,9 @@ class ControladorAuth extends ChangeNotifier {
         if (result['error'] != null) return result['error'];
         _usuarioActual = result['usuario'];
         
-        if (result['status'] == 'UsuarioIncompleto') return 'UsuarioIncompleto';
+        if (result['status'] == 'UsuarioIncompleto' || result['status'] == 'UsuarioNuevo') {
+           return 'UsuarioIncompleto';
+        }
         return null; // OK
       }
       return 'Credenciales incorrectas.';
@@ -154,6 +157,7 @@ class ControladorAuth extends ChangeNotifier {
     required String email, required String password, required String nombre,
     required String celular, required String direccion, required int edad, required String sexo
   }) async {
+    final nombreFormateado = nombre.toCapitalized();
     _cargando = true;
     notifyListeners();
 
@@ -167,7 +171,7 @@ class ControladorAuth extends ChangeNotifier {
 
       // 2. Fase Servidor SQL (AquÃ­ ocurre el riesgo de fantasmas)
       final errorInsertSQL = await _repoUsuarios.insertarUsuarioEnBD(
-        nombre: nombre, email: email, celular: celular, 
+        nombre: nombreFormateado, email: email, celular: celular, 
         direccion: direccion, edad: edad, sexo: sexo
       );
 
@@ -196,10 +200,11 @@ class ControladorAuth extends ChangeNotifier {
   // UTILIDADES DEL PERFIL
   // ---------------------------------------------------------------------------
   Future<bool> completarPerfil({
-    required String celular, required String direccion, required int edad, required String sexo
+    required String nombre, required String celular, required String direccion, required int edad, required String sexo
   }) async {
+    final nombreFormateado = nombre.toCapitalized();
     if (_usuarioActual == null) return false;
-    final userCompleto = await _repoUsuarios.guardarPerfilCompletado(_usuarioActual!, celular, direccion, edad, sexo);
+    final userCompleto = await _repoUsuarios.guardarPerfilCompletado(_usuarioActual!, nombreFormateado, celular, direccion, edad, sexo);
     if (userCompleto != null) {
       _usuarioActual = userCompleto;
       notifyListeners();

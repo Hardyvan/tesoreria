@@ -16,15 +16,19 @@ class GestionActividades extends StatefulWidget {
 }
 
 class _GestionActividadesState extends State<GestionActividades> {
+  late Future<void> _futureActividades;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctrl = context.read<ControladorActividades>();
-      if (ctrl.actividades.isEmpty) {
-        ctrl.listarActividades();
-      }
-    });
+    _futureActividades = Future.delayed(Duration.zero, _cargarActividades);
+  }
+
+  Future<void> _cargarActividades() async {
+    final ctrl = context.read<ControladorActividades>();
+    if (ctrl.actividades.isEmpty) {
+      await ctrl.listarActividades();
+    }
   }
 
   void _mostrarDialogoEditar(BuildContext context, actividad) {
@@ -48,6 +52,7 @@ class _GestionActividadesState extends State<GestionActividades> {
                   TextFormField(
                     controller: ctrlTitulo,
                     decoration: const InputDecoration(labelText: 'Título'),
+                    textCapitalization: TextCapitalization.words,
                     validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 10),
@@ -170,14 +175,17 @@ class _GestionActividadesState extends State<GestionActividades> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Gestión de Actividades')),
-      body: Consumer<ControladorActividades>(
-        builder: (context, ctrl, _) {
-          if (ctrl.cargando && ctrl.actividades.isEmpty) {
+      body: FutureBuilder<void>(
+        future: _futureActividades,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (ctrl.actividades.isEmpty) {
-            return const Center(child: Text('No hay actividades registradas.'));
-          }
+          return Consumer<ControladorActividades>(
+            builder: (context, ctrl, _) {
+              if (ctrl.actividades.isEmpty) {
+                return const Center(child: Text('No hay actividades registradas.'));
+              }
           
           return ListView.builder(
             padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
@@ -224,7 +232,9 @@ class _GestionActividadesState extends State<GestionActividades> {
               );
             },
           );
-        },
+         },
+        );
+       },
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_actividad',

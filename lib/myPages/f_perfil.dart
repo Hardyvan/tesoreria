@@ -441,29 +441,39 @@ class GestionUsuarios extends StatefulWidget {
 }
 
 class _GestionUsuariosState extends State<GestionUsuarios> {
+  late Future<void> _futureUsuarios;
+
   @override
   void initState() {
     super.initState();
-    // Cargar usuarios al entrar
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ControladorUsuarios>(context, listen: false).listarUsuarios();
-    });
+    _futureUsuarios = Future.delayed(Duration.zero, _cargarUsuarios);
+  }
+
+  Future<void> _cargarUsuarios() async {
+    final ctrl = Provider.of<ControladorUsuarios>(context, listen: false);
+    if (ctrl.usuarios.isEmpty) {
+      await ctrl.listarUsuarios();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final usuariosCtrl = Provider.of<ControladorUsuarios>(context);
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Usuarios'),
         centerTitle: true,
       ),
-      body: usuariosCtrl.cargando
-          ? const Center(child: CircularProgressIndicator())
-          : usuariosCtrl.usuarios.isEmpty
-          ? Center(
+      body: FutureBuilder<void>(
+        future: _futureUsuarios,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return Consumer<ControladorUsuarios>(
+            builder: (context, usuariosCtrl, _) {
+              final theme = Theme.of(context);
+              if (usuariosCtrl.usuarios.isEmpty) {
+                return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -479,8 +489,9 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
                   ),
                 ],
               ),
-            )
-          : ListView.builder(
+            );
+              }
+              return ListView.builder(
               padding: const EdgeInsets.only(
                 bottom: 80,
                 left: 16,
@@ -492,7 +503,11 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
                 final usuario = usuariosCtrl.usuarios[index];
                 return _TarjetaUsuario(usuario: usuario);
               },
-            ),
+            );
+            },
+          );
+        },
+      ),
     );
   }
 }

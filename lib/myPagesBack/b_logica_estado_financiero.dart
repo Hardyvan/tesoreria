@@ -11,6 +11,7 @@ import 'j_servicio_notificaciones_secundario.dart' as push;
 import 'k_servicio_auditoria.dart';
 import 'dart:async';
 import 'dart:convert';
+import '../myPagesTema/c_formatos.dart';
 
 class ControladorFinanzas extends ChangeNotifier {
   double _deudaTotal = 0.0;
@@ -711,6 +712,7 @@ class ControladorFinanzas extends ChangeNotifier {
 
   // --- NUEVA FUNCIÓN: Alumno Offline ---
   Future<bool> registrarAlumnoOffline(String nombre) async {
+    final nombreFormateado = nombre.toCapitalized();
     _cargando = true;
     notifyListeners();
     try {
@@ -720,13 +722,13 @@ class ControladorFinanzas extends ChangeNotifier {
       
       await conn.query(
         'INSERT INTO DSI_salon_usuarios (uid, nombre, email, celular, foto_url, rol) VALUES (?, ?, ?, ?, ?, ?)',
-        [offlineUid, nombre, 'offline@tesoreriasalon.local', '000000000', '', 'Alumno']
+        [offlineUid, nombreFormateado, 'offline@tesoreriasalon.local', '000000000', '', 'Alumno']
       );
 
       // Auditoría
       unawaited(ServicioAuditoria().registrarAccion(
         accion: 'Alumno Offline Creado',
-        detalle: 'Nombre: $nombre',
+        detalle: 'Nombre: $nombreFormateado',
       ));
 
       return true;

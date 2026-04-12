@@ -24,29 +24,21 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
   );
   
   Map<String, dynamic> _datosReporte = {};
-  bool _cargando = false;
+  late Future<void> _futureReporte;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    
-    // Corregimos error "setState() called during build"
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _cargarReporte();
-    });
+    _futureReporte = Future.delayed(Duration.zero, _cargarReporte);
   }
 
   Future<void> _cargarReporte() async {
-    setState(() => _cargando = true);
     final datos = await context.read<ControladorFinanzas>()
         .obtenerReporteAvanzado(_rangoFechas.start, _rangoFechas.end);
     
     if (mounted) {
-      setState(() {
-        _datosReporte = datos;
-        _cargando = false;
-      });
+      _datosReporte = datos;
     }
   }
 
@@ -101,8 +93,10 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
     );
 
     if (picked != null && picked != _rangoFechas) {
-      setState(() => _rangoFechas = picked);
-      unawaited(_cargarReporte());
+      setState(() {
+        _rangoFechas = picked;
+        _futureReporte = _cargarReporte();
+      });
     }
   }
 
@@ -159,15 +153,21 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
 
           // CONTENIDO
           Expanded(
-            child: _cargando 
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
+            child: FutureBuilder<void>(
+              future: _futureReporte,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                return TabBarView(
                   controller: _tabController,
                   children: [
                     _construirBalanceGeneral(),
                     _construirDesgloseActividad(),
                   ],
-                ),
+                );
+              },
+            ),
           ),
         ],
       ),

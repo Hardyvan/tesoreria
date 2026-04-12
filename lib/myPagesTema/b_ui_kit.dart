@@ -115,6 +115,7 @@ class CampoTextoPersonalizado extends StatefulWidget {
   final double? letterSpacing;
   final ValueChanged<String>? onChanged;
   final String? prefixText;
+  final TextCapitalization textCapitalization;
 
   const CampoTextoPersonalizado({
     super.key,
@@ -138,6 +139,7 @@ class CampoTextoPersonalizado extends StatefulWidget {
     this.letterSpacing,
     this.onChanged,
     this.prefixText,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -165,6 +167,7 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
       cursorColor: theme.primaryColor,
       obscureText: widget.isPassword ? _obscureText : false,
       keyboardType: widget.keyboardType,
+      textCapitalization: widget.textCapitalization,
       textInputAction: widget.textInputAction,
       onFieldSubmitted: widget.onFieldSubmitted,
       validator: widget.validator,

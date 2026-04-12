@@ -11,6 +11,7 @@ import '../../myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
 import 'b_estado_financiero.dart';
 import 'e_actividades.dart';
+import '../../myPagesTema/f_esqueletos.dart'; // IMPORTANTE
 
 import '../../myPagesBack/g_servicio_excel.dart';
 
@@ -92,8 +93,9 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
         child: FutureBuilder(
           future: _futureCarga,
           builder: (context, snapshot) {
-            if (_futureCarga == null || (snapshot.connectionState == ConnectionState.waiting && finanzas.kardex.isEmpty)) {
-               return const Center(child: CircularProgressIndicator());
+            // Si no hay datos cacheados y estamos esperando la carga inicial, mostramos el Esqueleto
+            if (finanzas.kardex.isEmpty && (_futureCarga == null || snapshot.connectionState == ConnectionState.waiting)) {
+               return const EsqueletoReporteFinanciero();
             }
 
             if (snapshot.hasError) {

@@ -348,6 +348,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     controller: nombreCtrl,
                     label: 'Nombre Completo',
                     prefixIcon: Icons.person,
+                    textCapitalization: TextCapitalization.words,
                     validator: (v) => (v == null || v.isEmpty) ? 'El nombre es obligatorio' : null,
                   ),
                   const SizedBox(height: 12),
@@ -367,6 +368,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     controller: direccionCtrl,
                     label: 'Dirección (Opcional)',
                     prefixIcon: Icons.home,
+                    textCapitalization: TextCapitalization.sentences,
                   ),
                   const SizedBox(height: 12),
                   
@@ -500,6 +502,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
   final _formKey = GlobalKey<FormState>();
   
   // Controladores
+  final nombreCtrl = TextEditingController();
   final celularCtrl = TextEditingController();
   final direccionCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
@@ -512,6 +515,11 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     // Obtenemos los datos que ya tenemos (Nombre, Email) del Controlador
     final auth = Provider.of<ControladorAuth>(context);
     final user = auth.usuarioActual;
+    
+    // Inicializar nombre si está vacío
+    if (nombreCtrl.text.isEmpty && user != null) {
+      nombreCtrl.text = user.nombre == 'Usuario' ? '' : user.nombre;
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -552,6 +560,15 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
 
                   // Llenar Datos Faltantes
                   CampoTextoPersonalizado(
+                    controller: nombreCtrl,
+                    label: 'Nombre Completo *',
+                    prefixIcon: Icons.person,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'El nombre es obligatorio' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  CampoTextoPersonalizado(
                     controller: celularCtrl,
                     label: 'Celular *',
                     prefixIcon: Icons.phone,
@@ -568,6 +585,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                     controller: direccionCtrl,
                     label: 'Dirección (Opcional)',
                     prefixIcon: Icons.home,
+                    textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
@@ -653,6 +671,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     final auth = Provider.of<ControladorAuth>(context, listen: false);
 
     final exito = await auth.completarPerfil(
+      nombre: nombreCtrl.text.trim(),
       celular: celularCtrl.text.trim(),
       direccion: direccionCtrl.text.trim(), // Opcional
       edad: int.tryParse(edadCtrl.text) ?? 0, // Opcional

@@ -23,22 +23,23 @@ class ListaDeudores extends StatefulWidget {
 }
 
 class _ListaDeudoresState extends State<ListaDeudores> {
-  
+  late Future<void> _futureDatos;
+
   @override
   void initState() {
     super.initState();
-    // Cargar reporte al entrar
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final finanzas = context.read<ControladorFinanzas>();
-      if (finanzas.metasActividades.isEmpty) {
-        finanzas.obtenerMetasActividades();
-      }
-      if (finanzas.listaDeudores.isEmpty) {
-        finanzas.obtenerReporteDeudores();
-      }
-    });
+    _futureDatos = Future.delayed(Duration.zero, _cargarDatos);
   }
 
+  Future<void> _cargarDatos() async {
+    final finanzas = context.read<ControladorFinanzas>();
+    if (finanzas.listaDeudores.isEmpty || finanzas.metasActividades.isEmpty) {
+      await Future.wait([
+        finanzas.obtenerMetasActividades(),
+        finanzas.obtenerReporteDeudores(),
+      ]);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +48,19 @@ class _ListaDeudoresState extends State<ListaDeudores> {
     
     return Scaffold(
 
-      body: finanzas.cargando && finanzas.listaDeudores.isEmpty
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
+      body: FutureBuilder<void>(
+        future: _futureDatos,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          return RefreshIndicator(
             onRefresh: () async {
-              final finanzas = context.read<ControladorFinanzas>();
-              await finanzas.obtenerMetasActividades();
-              await finanzas.obtenerReporteDeudores();
+              setState(() {
+                _futureDatos = _cargarDatosForzado();
+              });
+              await _futureDatos;
             },
             child: ListView.builder(
               // Padding extendido para evitar que el FAB tape el último elemento
@@ -71,7 +78,7 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar, vertical: 8),
                     child: Text(
-                      'Estado por Alumnos', 
+                      'Estado Financiero', 
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
                     ),
                   );
@@ -156,7 +163,9 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                 );
               },
             ),
-          ),
+          );
+        },
+      ),
       floatingActionButton: !esAdmin ? null : FloatingActionButton.extended(
         heroTag: 'fab_alumno_offline',
         onPressed: () {
@@ -167,6 +176,14 @@ class _ListaDeudoresState extends State<ListaDeudores> {
         label: Text('Alumno Manual', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
+  }
+
+  Future<void> _cargarDatosForzado() async {
+    final finanzas = context.read<ControladorFinanzas>();
+    await Future.wait([
+      finanzas.obtenerMetasActividades(),
+      finanzas.obtenerReporteDeudores(),
+    ]);
   }
 
   void _mostrarDialogoAgregarAlumno(BuildContext parentContext) {
@@ -184,6 +201,7 @@ class _ListaDeudoresState extends State<ListaDeudores> {
               controller: nombreController,
               label: 'Nombre Completo',
               prefixIcon: Icons.person,
+              textCapitalization: TextCapitalization.words,
             ),
           ],
         ),
