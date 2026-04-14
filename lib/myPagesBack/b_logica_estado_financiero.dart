@@ -706,7 +706,7 @@ class ControladorFinanzas extends ChangeNotifier {
             (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
         FROM DSI_salon_usuarios u
         WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
-        ORDER BY (total_a_pagar - total_pagado) DESC
+        ORDER BY u.nombre ASC
       ''';
 
       final results = await conn.query(sql);

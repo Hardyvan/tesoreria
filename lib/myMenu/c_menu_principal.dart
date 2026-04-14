@@ -161,9 +161,22 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             ),
             // NOTA: Mis Pagos y Ayuda ya está en la barra inferior para acceso rápido.
             ListTile(
+              leading: const Icon(Icons.dashboard_outlined),
+              title: const Text('Portal Financiero', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Centro de control y descargas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+              iconColor: Theme.of(context).primaryColor,
+              textColor: Theme.of(context).primaryColor,
+              onTap: () {
+                Navigator.pop(context); 
+                Navigator.pushNamed(context, '/portal_financiero');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.assessment_outlined),
-              title: const Text('Reporte Financiero'),
-              subtitle: const Text('Kardex global'),
+              title: const Text('Reporte Financiero', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Kardex global', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+              iconColor: Theme.of(context).primaryColor,
+              textColor: Theme.of(context).primaryColor,
               onTap: () {
                 Navigator.pop(context); 
                 Navigator.pushNamed(context, '/reportes');
@@ -174,7 +187,9 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
               ListTile(
                 leading: const Icon(Icons.bar_chart),
                 title: const Text('Reportes Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Gráficas y estadísticas'),
+                subtitle: Text('Gráficas y estadísticas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+                iconColor: Theme.of(context).primaryColor,
+                textColor: Theme.of(context).primaryColor,
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/reportes_avanzados');
@@ -187,7 +202,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                     'Panel de Auditoría', 
                     style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)
                   ),
-                  subtitle: const Text('Rastreo de sistema'),
+                  subtitle: Text('Rastreo de sistema', style: TextStyle(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7))),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/auditoria');
@@ -197,7 +212,9 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
-              title: const Text('Cerrar Sesión'),
+              title: const Text('Cerrar Sesión', style: TextStyle(fontWeight: FontWeight.bold)),
+              iconColor: Theme.of(context).primaryColor,
+              textColor: Theme.of(context).primaryColor,
               onTap: () {
                  auth.cerrarSesion();
                  Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false);

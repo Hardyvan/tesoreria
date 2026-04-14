@@ -12,8 +12,9 @@ class BaseDatosRemota {
     // Esto elimina el 90% del LAG (Cuellos de botella por handshakes TCP constantes).
     if (_conexion != null) {
       try {
-        // Enviar un Ping rapidísimo para asegurar que el socket siga vivo
-        await _conexion!.query('SELECT 1');
+        // Enviar un Ping rapidísimo con Timeout estricto. 
+        // Evita que el socket se quede colgado "esperando" si la red cambió o se hizo hot reload.
+        await _conexion!.query('SELECT 1').timeout(const Duration(seconds: 2));
         return _conexion!;
       } catch (_) {
         // Si falló el ping, limpiar para reconectar

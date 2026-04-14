@@ -245,15 +245,13 @@ class AppPalettes {
   }
 
   static ThemeConfig dark({Color primary = const Color(0xFF64B5F6), AppStyle style = AppStyle.standard}) {
-    // 1. Base neutra súper oscura (Material 3 standard)
-    const Color grisAsfaltoBase = Color(0xFF111418); // Muy cercano al negro puro, ligeramente más amigable
+    // 1. Fondos menos oscuros para aliviar la vista
+    const Color darkBackgroundBase = Color(0xFF1E293B); // Slate 800 (Fondo principal más suave)
+    const Color darkSurfaceBase = Color(0xFF334155);    // Slate 700 (Fondo de tarjetas, ligeramente más claro)
     
-    // 2. Aplicamos Surface Tinting (mezclamos un poco del color primario en el fondo gris)
-    // Fondo general recibe apenas 4% del color primario
-    final Color tintedBackground = _tintarSuperficie(grisAsfaltoBase, primary, 0.04);
-    
-    // Tarjetas/Superficies reciben 8% del primario para destacarse apenas un poco
-    final Color tintedSurface = _tintarSuperficie(grisAsfaltoBase, primary, 0.08);
+    // 2. Aplicamos Surface Tinting muy suave
+    final Color tintedBackground = _tintarSuperficie(darkBackgroundBase, primary, 0.03);
+    final Color tintedSurface = _tintarSuperficie(darkSurfaceBase, primary, 0.05);
 
     // Aplicamos la lógica del secundario dinámico
     final Color dynamicSecondary = obtenerColorSecundario(primary);
@@ -318,7 +316,7 @@ class TemaApp {
       colorScheme: ColorScheme.fromSeed(
         seedColor: config.primary,
         brightness: config.brightness,
-        // No forzamos el primary para que M3 controle el contraste, pero SÍ forzamos el onSurface
+      ).copyWith(
         secondary: config.secondary,
         surface: config.surface,
         onSurface: config.onBackground,
@@ -339,21 +337,21 @@ class TemaApp {
       ),
       
       textTheme: TextTheme(
-        displayLarge: TextStyle(color: colorAdaptado),
-        displayMedium: TextStyle(color: colorAdaptado),
-        displaySmall: TextStyle(color: colorAdaptado),
-        headlineLarge: TextStyle(color: colorAdaptado),
-        headlineMedium: TextStyle(color: colorAdaptado),
-        headlineSmall: TextStyle(color: colorAdaptado),
-        titleLarge: TextStyle(color: colorAdaptado),
-        titleMedium: TextStyle(color: colorAdaptado),
-        titleSmall: TextStyle(color: colorAdaptado),
-        bodyLarge: TextStyle(color: isDark ? config.onBackground : const Color(0xFF1E293B)), // Cuerpo normal un poco más neutro
-        bodyMedium: TextStyle(color: isDark ? config.onBackground : const Color(0xFF1E293B)),
-        bodySmall: TextStyle(color: isDark ? config.onBackground : const Color(0xFF1E293B)),
-        labelLarge: TextStyle(color: colorAdaptado),
-        labelMedium: TextStyle(color: colorAdaptado),
-        labelSmall: TextStyle(color: colorAdaptado),
+        displayLarge: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        displayMedium: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        displaySmall: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        headlineLarge: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        headlineMedium: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        headlineSmall: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        titleLarge: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        titleMedium: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        titleSmall: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        bodyLarge: TextStyle(color: isDark ? Colors.white : const Color(0xFF1E293B)), // Textos legibles en oscuros
+        bodyMedium: TextStyle(color: isDark ? Colors.white70 : const Color(0xFF1E293B)),
+        bodySmall: TextStyle(color: isDark ? Colors.white60 : const Color(0xFF1E293B)),
+        labelLarge: TextStyle(color: isDark ? Colors.white : colorAdaptado),
+        labelMedium: TextStyle(color: isDark ? Colors.white70 : colorAdaptado),
+        labelSmall: TextStyle(color: isDark ? Colors.white60 : colorAdaptado),
       ),
 
       dialogTheme: DialogThemeData(

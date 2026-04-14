@@ -23,11 +23,19 @@ class ListaDeudores extends StatefulWidget {
 
 class _ListaDeudoresState extends State<ListaDeudores> {
   late Future<void> _futureDatos;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _futureDatos = Future.delayed(Duration.zero, _cargarDatos);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarDatos() async {
@@ -44,7 +52,34 @@ class _ListaDeudoresState extends State<ListaDeudores> {
   Widget build(BuildContext context) {
     final finanzas = context.watch<ControladorFinanzas>();
     final esAdmin = context.read<ControladorAuth>().esAdmin;
+    final proveedorTema = context.watch<ProveedorTema>();
     
+    final bool esModoOscuro = proveedorTema.modoTema == ThemeMode.dark || 
+                             (proveedorTema.modoTema == ThemeMode.system && MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+    final Color colorPrimarioBase = proveedorTema.colorTema;
+    
+    // Helper temporal para quitar acentos
+    String quitarAcentos(String texto) {
+      const conAcento = 'ÀÁÂÃÄÅàáâãäåÒÓÔÕÕÖØòóôõöøÈÉÊËèéêëðÇçÐÌÍÎÏìíîïÙÚÛÜùúûüÑñŠšŸÿýŽž';
+      const sinAcento = 'AAAAAAaaaaaaOOOOOOOooooooEEEEeeeeeCcDIIIIiiiiUUUUuuuuNnSsYyyZz';
+      String res = texto;
+      for (int i = 0; i < conAcento.length; i++) {
+        res = res.replaceAll(conAcento[i], sinAcento[i]);
+      }
+      return res;
+    }
+
+    final queryLimpio = quitarAcentos(_searchQuery.toLowerCase().trim());
+    final palabrasBusqueda = queryLimpio.isEmpty ? <String>[] : queryLimpio.split(RegExp(r'\s+'));
+
+    final deudoresFiltrados = palabrasBusqueda.isEmpty 
+        ? finanzas.listaDeudores 
+        : finanzas.listaDeudores.where((alumno) {
+            final nombreCompleto = quitarAcentos(alumno['nombre'].toString().toLowerCase());
+            // Verifica que TODAS las palabras ingresadas existan en alguna parte del nombre
+            return palabrasBusqueda.every((palabra) => nombreCompleto.contains(palabra));
+          }).toList();
+
     return FutureBuilder<void>(
         future: _futureDatos,
         builder: (context, snapshot) {
@@ -65,7 +100,7 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                 top: DimensionesApp.paddingEstandar,
                 bottom: 80, 
               ),
-              itemCount: finanzas.listaDeudores.length + 2,
+              itemCount: deudoresFiltrados.length + 3,
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return TermometroActividades(metas: finanzas.metasActividades, cargando: finanzas.cargando);
@@ -73,18 +108,56 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                 
                 if (index == 1) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar, vertical: 8).copyWith(bottom: 0),
                     child: Text(
                       'Estado Financiero', 
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: esModoOscuro ? Colors.white : colorPrimarioBase,
+                      )
                     ),
                   );
                 }
 
-                final alumno = finanzas.listaDeudores[index - 2];
+                if (index == 2) {
+                   return Padding(
+                     padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar, vertical: 12),
+                     child: TextField(
+                       controller: _searchCtrl,
+                       onChanged: (val) {
+                         setState(() {
+                           _searchQuery = val;
+                         });
+                       },
+                       decoration: InputDecoration(
+                         hintText: 'Buscar alumno...',
+                         prefixIcon: const Icon(Icons.search),
+                         suffixIcon: _searchQuery.isNotEmpty 
+                           ? IconButton(
+                               icon: const Icon(Icons.clear), 
+                               onPressed: () {
+                                 _searchCtrl.clear();
+                                 setState(() => _searchQuery = '');
+                               }
+                             ) 
+                           : null,
+                         filled: true,
+                         border: OutlineInputBorder(
+                           borderRadius: BorderRadius.circular(16),
+                           borderSide: BorderSide.none,
+                         ),
+                       ),
+                     )
+                   );
+                }
+
+                final alumno = deudoresFiltrados[index - 3];
                 final double? deuda = double.tryParse(alumno['deuda'].toString());
                 final double montoDeuda = deuda ?? 0.0;
                 final esDeudor = montoDeuda > 0;
+                
+                final Color colorAvatar = esModoOscuro ? Colors.white : colorPrimarioBase;
+                final Color adaptiveTextColor = esModoOscuro ? Colors.white : Colors.black87;
                 
                 return Padding(
                   padding: const EdgeInsets.symmetric(
@@ -114,8 +187,8 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                           nombre: alumno['nombre'],
                           fotoUrl: alumno['foto_url'],
                           radius: 26,
-                          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                          textColor: Theme.of(context).primaryColor, 
+                          backgroundColor: colorAvatar.withValues(alpha: 0.1),
+                          textColor: colorAvatar, 
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -124,10 +197,12 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                             children: [
                               Text(
                                 alumno['nombre'].toString().toCapitalized(), 
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.5,
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: adaptiveTextColor,
                                 ),
                               ),
                               const SizedBox(height: 6),
