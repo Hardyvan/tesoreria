@@ -146,6 +146,37 @@ class ServicioExcel {
       }
 
       // -----------------------------------------------------
+      // 4. PESTAÑA: HISTORIAL DE DONACIONES / INGRESOS EXTRA
+      // -----------------------------------------------------
+      Sheet sheetExtras = excel['Ingresos Extra'];
+      sheetExtras.appendRow([
+        TextCellValue('ID Registro'), 
+        TextCellValue('Descripción o Motivo'), 
+        TextCellValue('Monto Ingresado (S/)'), 
+        TextCellValue('Registrado por (Responsable)'),
+        TextCellValue('Fecha de Registro')
+      ]);
+
+      String sqlExtras = '''
+        SELECT 
+          i.id, i.descripcion, i.monto, i.fecha_ingreso, u.nombre as responsable
+        FROM DSI_salon_ingresos_extra i
+        LEFT JOIN DSI_salon_usuarios u ON i.admin_id = u.id
+        ORDER BY i.fecha_ingreso DESC
+      ''';
+      
+      var resExtras = await conn.query(sqlExtras);
+      for (var row in resExtras) {
+        sheetExtras.appendRow([
+          IntCellValue(row['id']),
+          TextCellValue(row['descripcion'].toString()),
+          DoubleCellValue((row['monto'] ?? 0.0).toDouble()),
+          TextCellValue(row['responsable']?.toString() ?? 'Sistema'),
+          TextCellValue(row['fecha_ingreso'] != null ? dateFormat.format(row['fecha_ingreso'] as DateTime) : ''),
+        ]);
+      }
+
+      // -----------------------------------------------------
       // GUARDAR Y COMPARTIR
       // -----------------------------------------------------
       var fileBytes = excel.save();

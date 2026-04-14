@@ -437,7 +437,22 @@ class ControladorFinanzas extends ChangeNotifier {
       
       // Actualizar datos financieros automÃ¡ticamente
       await obtenerResumenFinanciero();
-      await obtenerMovimientosKardex();
+      await obtenerMovimientosKardex(reset: true);
+      
+      // --- NOTIFICACIÓN GLOBAL DE GASTO ---
+      try {
+        final resultTokens = await conn.query('SELECT fcm_token FROM DSI_salon_usuarios WHERE fcm_token IS NOT NULL AND fcm_token != "" AND id != ?', [adminEjecutor.id]);
+        for (var row in resultTokens) {
+          String tokenDestino = row['fcm_token'].toString();
+          await push.ServicioNotificacionesSecundario.enviarPush(
+            tokenDestino: tokenDestino,
+            titulo: '⚠️ Gasto / Salida de Caja', 
+            cuerpo: 'Se ha registrado un gasto de S/ ${gasto.monto.toStringAsFixed(2)} por: ${gasto.descripcion}',
+          ).catchError((_) => false);
+        }
+      } catch (e) {
+        debugPrint('Aviso: Falló envío de notificaciones de gasto: $e');
+      }
       
       // --- AUDITORÃA ---
       unawaited(ServicioAuditoria().registrarAccion(
@@ -448,6 +463,74 @@ class ControladorFinanzas extends ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('Error registrando gasto: $e');
+      return false;
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  // --- REGISTRAR INGRESO EXTRA / DONACION ---
+  Future<bool> registrarIngresoExtra(double monto, String descripcion, Usuario adminEjecutor) async {
+    _cargando = true;
+    notifyListeners();
+
+    try {
+      final conn = await _db.obtenerConexion();
+      
+      // SEGURIDAD: Verificar Admin
+      bool esAdminSeguro = false;
+      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
+        esAdminSeguro = true;
+      } else {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
+           if (resultRol.isNotEmpty) {
+             final rolDb = resultRol.first['rol'].toString();
+             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
+               esAdminSeguro = true;
+             }
+           }
+        }
+      }
+
+      if (!esAdminSeguro) return false;
+
+      // INSERT DONACION
+      await conn.query(
+        'INSERT INTO DSI_salon_ingresos_extra (descripcion, monto, fecha_ingreso, admin_id) VALUES (?, ?, NOW(), ?)',
+        [descripcion, monto, adminEjecutor.id]
+      );
+      
+      // Actualizar finanzas en la app en tiempo real
+      await obtenerResumenFinanciero();
+      await obtenerMovimientosKardex(reset: true);
+      
+      // --- NOTIFICACIÓN GLOBAL DE INGRESO ---
+      try {
+        final resultTokens = await conn.query('SELECT fcm_token FROM DSI_salon_usuarios WHERE fcm_token IS NOT NULL AND fcm_token != "" AND id != ?', [adminEjecutor.id]);
+        for (var row in resultTokens) {
+          String tokenDestino = row['fcm_token'].toString();
+          await push.ServicioNotificacionesSecundario.enviarPush(
+            tokenDestino: tokenDestino,
+            titulo: '🎉 Nuevo Ingreso a Caja', 
+            cuerpo: '¡Hemos recibido un abono/donación de S/ ${monto.toStringAsFixed(2)}! ($descripcion)',
+          ).catchError((_) => false);
+        }
+      } catch (e) {
+        debugPrint('Aviso: Falló envío de notificaciones de donación: $e');
+      }
+
+      // --- AUDITORÍA ---
+      unawaited(ServicioAuditoria().registrarAccion(
+        accion: 'Registrar Ingreso Extra',
+        detalle: 'Monto: S/ ${monto.toStringAsFixed(2)} - Desc: $descripcion',
+      ));
+
+      return true;
+    } catch (e) {
+      debugPrint('Error registrando ingreso extra: $e');
       return false;
     } finally {
       _cargando = false;
@@ -478,12 +561,17 @@ class ControladorFinanzas extends ChangeNotifier {
       // A. TOTALES GENERALES EN EL RANGO
       final sqlIngresos = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1 AND fecha_pago BETWEEN ? AND ?';
       final sqlGastos = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos WHERE fecha_gasto BETWEEN ? AND ?';
+      final sqlExtra = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra WHERE fecha_ingreso BETWEEN ? AND ?';
       
       final resIngresos = await conn.query(sqlIngresos, [inicioLocal, finAjustado]);
       final resGastos = await conn.query(sqlGastos, [inicioLocal, finAjustado]);
+      final resExtra = await conn.query(sqlExtra, [inicioLocal, finAjustado]);
       
       double totalIngresos = (resIngresos.first['total'] ?? 0.0).toDouble();
       double totalGastos = (resGastos.first['total'] ?? 0.0).toDouble();
+      double totalExtra = (resExtra.first['total'] ?? 0.0).toDouble();
+      
+      totalIngresos += totalExtra;
       
       // B. DESGLOSE POR ACTIVIDAD (Ingresos - Gastos)
       // Esta query es compleja: Une actividades con sus pagos y sus gastos asociados
@@ -509,6 +597,15 @@ class ControladorFinanzas extends ChangeNotifier {
           'utilidad': ing - gas
         };
       }).toList();
+
+      if (totalExtra > 0) {
+        desglose.insert(0, {
+          'titulo': 'DONACIONES / INGRESOS EXTRA',
+          'ingresos': totalExtra,
+          'gastos': 0.0,
+          'utilidad': totalExtra
+        });
+      }
 
       // C. RECAUDACIÓN POR ADMINISTRADOR (Auditoría)
       String sqlAdmins = '''

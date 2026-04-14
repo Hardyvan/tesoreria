@@ -73,6 +73,17 @@ class BaseDatosRemota {
           valor TEXT NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       ''');
+      
+      // Auto-crear tabla de ingresos extras / donaciones
+      await conn.query('''
+        CREATE TABLE IF NOT EXISTS DSI_salon_ingresos_extra (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          descripcion VARCHAR(255) NOT NULL,
+          monto DECIMAL(10,2) NOT NULL,
+          fecha_ingreso DATETIME NOT NULL,
+          admin_id INT NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      ''');
     } catch (e) {
       debugPrint('Error creando tabla configuracion: $e');
     }
@@ -108,8 +119,12 @@ class BaseDatosRemota {
   Future<double> obtenerSumaIngresos() async {
     try {
       final conn = await obtenerConexion();
-      final result = await conn.query('SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1');
-      return (result.first['total'] ?? 0.0).toDouble();
+      final resultPagos = await conn.query('SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1');
+      final resultExtra = await conn.query('SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra');
+      
+      double pagos = (resultPagos.first['total'] ?? 0.0).toDouble();
+      double extras = (resultExtra.first['total'] ?? 0.0).toDouble();
+      return pagos + extras;
     } catch (e) {
       debugPrint('Error obteniendo suma ingresos: $e');
       return 0.0;
@@ -154,6 +169,16 @@ class BaseDatosRemota {
             g.monto AS monto, 
             g.fecha_gasto AS fecha
         FROM DSI_salon_gastos g
+
+        UNION ALL
+
+        SELECT 
+            'D' AS tipo, 
+            i.id AS id_movimiento, 
+            i.descripcion AS descripcion, 
+            i.monto AS monto, 
+            i.fecha_ingreso AS fecha
+        FROM DSI_salon_ingresos_extra i
 
         ORDER BY fecha DESC
         LIMIT ? OFFSET ?

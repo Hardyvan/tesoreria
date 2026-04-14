@@ -186,6 +186,12 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                     onTap: () => Navigator.pushNamed(context, '/reportes_avanzados'),
                   ),
                   _TarjetaOpcionAdmin(
+                    titulo: 'Registrar\nIngreso Extra',
+                    icono: Icons.volunteer_activism,
+                    colorBase: Colors.green,
+                    onTap: () => _mostrarDialogoDonacion(context),
+                  ),
+                  _TarjetaOpcionAdmin(
                     titulo: 'Gestión\nUsuarios',
                     icono: Icons.manage_accounts,
                     colorBase: Colors.orange,
@@ -229,6 +235,70 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
           ],
         ),
       ),
+    );
+  }
+
+  // DIÁLOGO PARA REGISTRAR DONACIÓN O INGRESO EXTRA
+  void _mostrarDialogoDonacion(BuildContext context) {
+    final ctrlMonto = TextEditingController();
+    final ctrlMotivo = TextEditingController();
+    final finanzas = context.read<ControladorFinanzas>();
+    final auth = context.read<ControladorAuth>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Registrar Ingreso Extra', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Añade un ingreso a caja que no proviene de una actividad regular (Ej. Donativos, Rifas).', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrlMonto,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Monto Total (S/)', 
+                prefixIcon: Padding(
+                  padding: EdgeInsets.only(left: 15, right: 10, top: 14), 
+                  child: Text('S/', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+                )
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrlMotivo,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Motivo (Ej. Donación voluntaria)', prefixIcon: Icon(Icons.description)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            onPressed: () async {
+              double? monto = double.tryParse(ctrlMonto.text);
+              String motivo = ctrlMotivo.text.trim();
+              
+              if (monto != null && monto > 0 && motivo.isNotEmpty) {
+                 Navigator.pop(ctx);
+                 ManejadorErrores.mostrarMensajeExito(context, 'Registrando ingreso e informando a los usuarios...');
+                 bool exito = await finanzas.registrarIngresoExtra(monto, motivo, auth.usuarioActual!);
+                 if (exito && context.mounted) {
+                    ManejadorErrores.mostrarMensajeExito(context, '✅ Ingreso registrado y notificado con éxito.');
+                 } else if (context.mounted) {
+                    ManejadorErrores.mostrarErrorCritico(context, 'Error', 'No se pudo guardar.');
+                 }
+              } else {
+                 ManejadorErrores.mostrarErrorCritico(context, 'Inválido', 'Asegúrate de poner un monto mayor a 0 y una descripción.');
+              }
+            },
+            child: const Text('Ingresar Dinero'),
+          )
+        ]
+      )
     );
   }
 
