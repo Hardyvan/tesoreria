@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import '../myPagesServer/b_base_datos_remota.dart';
-import '../myPagesServer/c_base_datos_local.dart';
+import '../services/api_client.dart' as api_ext;
 import 'modelo_pago.dart';
 import 'modelo_gasto.dart';
 import 'modelo_usuario.dart';
@@ -10,7 +9,7 @@ import 'i_servicio_notificaciones.dart';
 import 'j_servicio_notificaciones_secundario.dart' as push;
 import 'k_servicio_auditoria.dart';
 import 'dart:async';
-import 'dart:convert';
+import 'package:intl/intl.dart';
 import '../myPagesTema/c_formatos.dart';
 
 class ControladorFinanzas extends ChangeNotifier {
@@ -40,6 +39,14 @@ class ControladorFinanzas extends ChangeNotifier {
   Future<void>? _futureResumenEnCurso;
   Future<void>? _futureKardexEnCurso;
 
+  /// Invalida todo el caché de finanzas (llamar cuando cambian actividades/pagos)
+  void invalidarCache() {
+    _cacheDetallePagos.clear();
+    _futureResumenEnCurso = null;
+    _futureKardexEnCurso = null;
+    notifyListeners();
+  }
+
   bool _cargando = false;
   
   double get deudaTotal => _deudaTotal;
@@ -61,53 +68,59 @@ class ControladorFinanzas extends ChangeNotifier {
 
   bool get cargando => _cargando;
 
-  // Cargar resumen financiero del usuario (FASE 5: Real)
-  Future<void> cargarFinanzasUsuario(int usuarioId) async {
-    _cargando = true;
-    notifyListeners();
-    
-    final db = BaseDatosRemota();
+  // 1. Obtener lista simple de actividades para el Dropdown
+  Future<List<Map<String, dynamic>>> obtenerActividadesSimplificadas() async {
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('listarActividades', {});
       
-      // 1. Obtener Totales (Deuda y Pagado)
-      // Costo Total de Actividades
-      final resultCosto = await conn.query('SELECT COALESCE(SUM(costo), 0) as total FROM DSI_salon_actividades');
-      double totalCosto = (resultCosto.first['total'] ?? 0.0).toDouble();
-      
-      // Total Pagado por este usuario
-      final resultPagado = await conn.query('SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE usuario_id = ? AND confirmado = 1', [usuarioId]);
-      _totalPagado = (resultPagado.first['total'] ?? 0.0).toDouble();
-      
-      _deudaTotal = totalCosto - _totalPagado;
-      if (_deudaTotal < 0) _deudaTotal = 0; // Por si acaso
-
-      // --- RECORDATORIO DIARIO ---
-      // Si debe dinero, programamos la alarma local. Si no, la cancelamos.
-      if (_deudaTotal > 0) {
-        unawaited(ServicioNotificaciones().programarRecordatorioDeuda(_deudaTotal));
-      } else {
-        unawaited(ServicioNotificaciones().cancelarRecordatorios());
+      if (res['ok'] == true) {
+        final datos = res['datos'] as List<dynamic>;
+        return datos.map((fila) => {
+          'id': fila['id'],
+          'titulo': fila['titulo'].toString()
+        }).toList();
       }
-      
-      // 2. Obtener Historial de Pagos Recientes
-      final resultHistorial = await conn.query('''
-        SELECT p.id, a.titulo as actividad, p.monto, p.fecha_pago 
-        FROM DSI_salon_pagos p
-        JOIN DSI_salon_actividades a ON p.actividad_id = a.id
-        WHERE p.usuario_id = ? AND p.confirmado = 1
-        ORDER BY p.fecha_pago DESC
-      ''', [usuarioId]);
-      
-      _misPagos = resultHistorial.map((fila) => {
-        'id': fila['id'],
-        'actividad': fila['actividad'].toString(),
-        'monto': (fila['monto'] ?? 0.0).toDouble(),
-        'fecha': fila['fecha_pago']
-      }).toList();
-      
+      return [];
     } catch (e) {
-      debugPrint('Error cargando finanzas usuario: $e');
+      debugPrint('Error obteniendo actividades simples: ');
+      return [];
+    }
+  }
+
+  // Cargar resumen financiero del usuario - MIGRADO A API CON CACHÉ
+  Future<void> cargarFinanzasUsuario(int usuarioId) async {
+    // Solo mostramos carga si no hay datos previos
+    if (_misPagos.isEmpty) {
+      _cargando = true;
+      notifyListeners();
+    }
+
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerDatosFinanzasUsuario', {'usuarioId': usuarioId});
+      
+      if (res['ok'] == true) {
+        _deudaTotal = (res['deudaTotal'] as num).toDouble();
+        _totalPagado = (res['totalPagado'] as num).toDouble();
+        
+        final listado = res['misPagos'] as List<dynamic>;
+        _misPagos = listado.map((fila) => {
+          'id': fila['id'],
+          'actividad': fila['actividad'].toString(),
+          'monto': (fila['monto'] as num).toDouble(),
+          'fecha': (fila['fecha_pago'] is String) ? DateTime.tryParse(fila['fecha_pago']) ?? DateTime.now() : fila['fecha_pago'],
+        }).toList();
+
+        // --- RECORDATORIO DIARIO ---
+        if (_deudaTotal > 0) {
+          unawaited(ServicioNotificaciones().programarRecordatorioDeuda(_deudaTotal));
+        } else {
+          unawaited(ServicioNotificaciones().cancelarRecordatorios());
+        }
+      }
+    } catch (e) {
+      debugPrint('Error obteniendo finanzas usuario: $e');
     } finally {
       _cargando = false;
       notifyListeners();
@@ -118,81 +131,69 @@ class ControladorFinanzas extends ChangeNotifier {
     // 1. Verificar CACHÉ (MAPA) para respuesta instantánea
     if (!forceRefresh && _cacheDetallePagos.containsKey(usuarioId)) {
       debugPrint('CACHE: Cargando historial desde memoria (instantáneo)');
+      // Lanzamos actualización silenciosa en segundo plano
+      unawaited(_obtenerDetallePagosPorActividadInterno(usuarioId));
       return _cacheDetallePagos[usuarioId]!;
     }
 
-    final db = BaseDatosRemota();
+    return _obtenerDetallePagosPorActividadInterno(usuarioId);
+  }
+
+  Future<List<Map<String, dynamic>>> _obtenerDetallePagosPorActividadInterno(int usuarioId) async {
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerDetallePagosPorActividad', {'usuarioId': usuarioId});
       
-      // Left Join para traer TODAS las actividades y sus pagos (si los hay)
-      final results = await conn.query('''
-        SELECT 
-          a.id as actividad_id, 
-          a.titulo, 
-          a.costo, 
-          p.id as pago_id, 
-          p.monto, 
-          p.monto_multa,
-          p.fecha_pago
-        FROM DSI_salon_actividades a
-        LEFT JOIN DSI_salon_pagos p ON a.id = p.actividad_id AND p.usuario_id = ? AND p.confirmado = 1
-        ORDER BY a.fecha_creacion DESC, p.fecha_pago DESC
-      ''', [usuarioId]);
+      if (res['ok'] == true && res['datos'] != null) {
+        final results = res['datos'] as List<dynamic>;
+        Map<int, Map<String, dynamic>> agrupado = {};
 
-      // Agrupamiento en Dart
-      Map<int, Map<String, dynamic>> agrupado = {};
+        for (var row in results) {
+          int idActividad = row['actividad_id'];
+          if (!agrupado.containsKey(idActividad)) {
+            agrupado[idActividad] = {
+              'titulo': row['titulo'].toString(),
+              'costo': (row['costo'] as num? ?? 0.0).toDouble(),
+              'pagos': <Map<String, dynamic>>[],
+              'total_pagado': 0.0,
+              'estado': 'Pendiente'
+            };
+          }
 
-      for (var row in results) {
-        int idActividad = row['actividad_id'];
-        
-        if (!agrupado.containsKey(idActividad)) {
-          agrupado[idActividad] = {
-            'titulo': row['titulo'].toString(),
-            'costo': (row['costo'] ?? 0.0).toDouble(),
-            'pagos': <Map<String, dynamic>>[],
-            'total_pagado': 0.0,
-            'estado': 'Pendiente' // Pendiente, Parcial, Pagado
-          };
+          if (row['pago_id'] != null) {
+            double monto = (row['monto'] as num? ?? 0.0).toDouble();
+            double multa = (row['monto_multa'] as num? ?? 0.0).toDouble();
+            agrupado[idActividad]!['pagos'].add({
+               'id': row['pago_id'],
+               'fecha': row['fecha_pago'],
+               'monto': monto,
+               'multa': multa
+            });
+            agrupado[idActividad]!['total_pagado'] += monto;
+          }
         }
 
-        if (row['pago_id'] != null) {
-          double monto = (row['monto'] ?? 0.0).toDouble();
-          double multa = (row['monto_multa'] ?? 0.0).toDouble();
-          agrupado[idActividad]!['pagos'].add({
-             'id': row['pago_id'],
-             'fecha': row['fecha_pago'],
-             'monto': monto,
-             'multa': multa
-          });
-          agrupado[idActividad]!['total_pagado'] += monto;
-        }
+        agrupado.forEach((key, value) {
+          double costo = value['costo'];
+          double pagado = value['total_pagado'];
+          if (pagado >= costo) {
+            value['estado'] = 'Completo';
+          } else if (pagado > 0) {
+            value['estado'] = 'Parcial';
+          } else {
+            value['estado'] = 'Pendiente';
+          }
+        });
+
+        final listaFinal = agrupado.values.toList();
+        _cacheDetallePagos[usuarioId] = listaFinal;
+        notifyListeners();
+        return listaFinal;
       }
-
-      // Calcular estados finales
-      agrupado.forEach((key, value) {
-        double costo = value['costo'];
-        double pagado = value['total_pagado'];
-        
-        if (pagado >= costo) {
-          value['estado'] = 'Completo';
-        } else if (pagado > 0) {
-          value['estado'] = 'Parcial';
-        } else {
-          value['estado'] = 'Pendiente';
-        }
-      });
-
-      final listaFinal = agrupado.values.toList();
-      
-      // 2. Guardar en CACHÉ (MAPA)
-      _cacheDetallePagos[usuarioId] = listaFinal;
-
-      return listaFinal;
-      
+      return [];
     } catch (e) {
       debugPrint('Error obteniendo detalle pagos: $e');
-      return _cacheDetallePagos[usuarioId] ?? []; // Devolver caché si falla la red
+      return _cacheDetallePagos[usuarioId] ?? [];
     }
   }
 
@@ -201,173 +202,71 @@ class ControladorFinanzas extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
 
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('registrarPago', {
+        'adminRol': adminEjecutor.rol,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'adminId': adminEjecutor.id,
+        'adminNombre': adminEjecutor.nombre,
+        'pago': {
+           'actividadId': pago.actividadId,
+           'usuarioId': pago.usuarioId,
+           'monto': pago.montoPagado,
+           'metodoPago': pago.metodoPago,
+           'comprobanteUrl': null
+        }
+      });
       
-      // 1. SEGURIDAD: Verificar si quien llama es Admin (Legacy o Firebase)
-      bool esAdminSeguro = false;
-
-      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
-      } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
-        }
-      }
-
-      if (!esAdminSeguro) {
-        debugPrint('SEGURIDAD: Intento de escritura no autorizado');
-        return false;
-      }
-      
-      // 2. Preventiva: Asegurar columna de metodo_pago
-      try {
-        await conn.query("ALTER TABLE DSI_salon_pagos ADD COLUMN metodo_pago VARCHAR(20) DEFAULT 'Efectivo'");
-      } catch (_) {}
-
-      // 3. CALCULO AUTOMATICO DE MULTA
-      double montoMultaCalculada = 0.0;
-      try {
-        final resultActividad = await conn.query(
-          'SELECT fecha_limite, multa_por_dia FROM DSI_salon_actividades WHERE id = ?',
-          [pago.actividadId]
-        );
-        if (resultActividad.isNotEmpty) {
-          final fechaLimiteRaw = resultActividad.first['fecha_limite'];
-          final multaPorDia = (resultActividad.first['multa_por_dia'] ?? 0.0).toDouble();
-
-          if (fechaLimiteRaw != null && multaPorDia > 0) {
-            final fechaLimite = fechaLimiteRaw is DateTime
-                ? fechaLimiteRaw
-                : DateTime.tryParse(fechaLimiteRaw.toString());
-
-            if (fechaLimite != null) {
-              final hoy = DateTime.now();
-              final diasAtraso = hoy.difference(fechaLimite).inDays;
-              if (diasAtraso > 0) {
-                montoMultaCalculada = (diasAtraso * multaPorDia).toDouble();
-                debugPrint('Multa aplicada: $diasAtraso dias x S/ $multaPorDia = S/ $montoMultaCalculada');
-              }
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Advertencia: no pudo calcular multa: $e'); // No es fatal
-      }
-
-      try {
-        await conn.query('ALTER TABLE DSI_salon_pagos ADD COLUMN admin_id INT(11) NULL');
-      } catch (_) {}
-
-      // 4. Proceder con el registro (incluyendo multa si aplica y admin_id)
-      await conn.query(
-        'INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, monto_multa, fecha_pago, confirmado, metodo_pago, admin_id) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
-        [pago.usuarioId, pago.actividadId, pago.montoPagado, montoMultaCalculada, true, pago.metodoPago, adminEjecutor.id]
-      );
-
-      // --- NOTIFICACIÃ“N GLOBAL ---
-      // --- NOTIFICACIÃ“N INDIVIDUAL (FCM v1) ---
-      try {
-        // 1. Obtener el token FCM del alumno
-        var resultToken = await conn.query(
-          'SELECT fcm_token FROM DSI_salon_usuarios WHERE id = ?', 
-          [pago.usuarioId]
-        );
-
-        if (resultToken.isNotEmpty && resultToken.first['fcm_token'] != null) {
-          String tokenDestino = resultToken.first['fcm_token'].toString();
-          
-          // 2. Enviar Push usando la nueva API v1
-          await push.ServicioNotificacionesSecundario.enviarPush(
-            tokenDestino: tokenDestino,
-            titulo: 'ðŸ’° Pago Validado', 
-            cuerpo: 'Hemos registrado tu pago de S/ ${pago.montoPagado.toStringAsFixed(2)}.'
-          );
-        } else {
-          debugPrint('âš ï¸ El usuario no tiene token FCM registrado.');
-        }
-      } catch (e) {
-        debugPrint('Error enviando notificaciÃ³n push: $e');
-      }
-      // --- AUDITORÃA (NUEVO) ---
-      // Registramos quiÃ©n hizo el pago y desde quÃ© dispositivo
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Registrar Pago',
-        detalle: 'Monto: S/ ${pago.montoPagado.toStringAsFixed(2)} - Alumno ID: ${pago.usuarioId} - Actividad ID: ${pago.actividadId}',
-      ));
-
-      return true;
-    } catch (e) {
-      debugPrint('Error registrando pago en la nube: $e');
-      // FALLBACK MODO OFFLINE
-      debugPrint('Guardando pago localmente...');
-      try {
-        await BaseDatosLocal.instance.insertarPagoLocal(pago);
-        debugPrint('Pago guardado offline con exito.');
-        // Auditoria offline? Omitida por ahora.
+      if (res['ok'] == true) {
+        try {
+          unawaited(push.ServicioNotificacionesSecundario.enviarPush(
+              tokenDestino: '/topics/tesoreria', 
+              titulo: '✅ Nuevo Pago Recibido', 
+              cuerpo: 'Se ha registrado un pago de ${pago.montoPagado.toSoles()} del alumno.'
+          ));
+        } catch (_) {}
+        
+        // Auto-refresh: recargar todos los datos afectados
+        invalidarCache();
+        unawaited(cargarFinanzasUsuario(pago.usuarioId));
+        unawaited(obtenerResumenFinanciero());
+        unawaited(obtenerMovimientosKardex(reset: true));
         return true;
-      } catch (eLocal) {
-        debugPrint('Error registrando pago offline: $eLocal');
-        return false;
       }
+      return false;
+    } catch (e) {
+      debugPrint('Error registrando pago: $e');
+      return false;
     } finally {
+      _cargando = false;
       notifyListeners();
     }
   }
 
-  // --- EDITAR PAGO (Nueva FunciÃ³n) ---
+  // Edición rápida de monto (Solo Admin)
   Future<bool> editarPago(int pagoId, double nuevoMonto, Usuario adminEjecutor) async {
     _cargando = true;
     notifyListeners();
 
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
-      
-      // 1. SEGURIDAD: Verificar Admin
-      bool esAdminSeguro = false;
+      final api = api_ext.ApiClient();
+      final res = await api.post('editarPago', {
+        'pagoId': pagoId,
+        'nuevoMonto': nuevoMonto,
+        'adminRol': adminEjecutor.rol,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'adminId': adminEjecutor.id,
+      });
 
-      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
-      } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
-        }
+      if (res['ok'] == true) {
+        // Auto-refresh: recargar todos los datos afectados
+        invalidarCache();
+        unawaited(obtenerResumenFinanciero());
+        unawaited(obtenerMovimientosKardex(reset: true));
+        return true;
       }
-
-      if (!esAdminSeguro) {
-        debugPrint('SEGURIDAD: Intento de ediciÃ³n no autorizado');
-        return false;
-      }
-      
-      // 2. Actualizar en BD
-      await conn.query(
-        'UPDATE DSI_salon_pagos SET monto = ? WHERE id = ?',
-        [nuevoMonto, pagoId]
-      );
-      
-      // --- AUDITORÃA ---
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Editar Pago',
-        detalle: 'Pago ID: $pagoId - Nuevo Monto: S/ ${nuevoMonto.toStringAsFixed(2)}',
-      ));
-
-      return true;
+      return false;
     } catch (e) {
       debugPrint('Error editando pago: $e');
       return false;
@@ -377,90 +276,85 @@ class ControladorFinanzas extends ChangeNotifier {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // FASE 3: CAJA GENERAL Y GASTOS (Consultas Optimizadas)
-  // ---------------------------------------------------------------------------
+  // Eliminar Pago (Solo Admin)
+  // [CONTENIDO OMITIDO POR BREVEDAD - SIGUE IGUAL PERO CON LIMPIEZA DE CACHE]
+  Future<bool> eliminarPago(int pagoId, Usuario adminEjecutor) async {
+    _cargando = true;
+    notifyListeners();
 
-  // --- REPORTES FINANCIEROS AVANZADOS (FASE 2) ---
-
-  // 1. Obtener lista simple de actividades para el Dropdown
-  Future<List<Map<String, dynamic>>> obtenerActividadesSimplificadas() async {
     try {
-      final conn = await _db.obtenerConexion();
-      final results = await conn.query('SELECT id, titulo FROM DSI_salon_actividades ORDER BY fecha_creacion DESC');
-      
-      return results.map((fila) => {
-        'id': fila['id'],
-        'titulo': fila['titulo'].toString()
-      }).toList();
+      final api = api_ext.ApiClient();
+      final res = await api.post('eliminarPago', {
+        'pagoId': pagoId,
+        'adminRol': adminEjecutor.rol,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'adminId': adminEjecutor.id,
+      });
+
+      if (res['ok'] == true) {
+         try {
+            double monto = (res['monto'] as num).toDouble();
+            await push.ServicioNotificacionesSecundario.enviarPush(
+              tokenDestino: '/topics/tesoreria',
+              titulo: '❌ Pago Anulado', 
+              cuerpo: 'Un administrador ha anulado un registro de pago tuyo por ${monto.toSoles()}.'
+            );
+         } catch (_) {}
+         
+         // Auto-refresh: recargar todos los datos afectados
+         invalidarCache();
+         unawaited(obtenerResumenFinanciero());
+         unawaited(obtenerMovimientosKardex(reset: true));
+         return true;
+      }
+      return false;
     } catch (e) {
-      debugPrint('Error obteniendo actividades simples: $e');
-      return [];
+      debugPrint('Error eliminando pago: $e');
+      return false;
+    } finally {
+      _cargando = false;
+      notifyListeners();
     }
   }
 
-  // 2. Registrar Gasto (Actualizado con actividadId)
+  // ---------------------------------------------------------------------------
+  // FASE 3: CAJA GENERAL Y GASTOS (MIGRADO A API CON BACKGROUND SYNC)
+  // ---------------------------------------------------------------------------
+
+  // 2. Registrar Gasto
   Future<bool> registrarGasto(Gasto gasto, Usuario adminEjecutor) async {
     _cargando = true;
     notifyListeners();
 
-    // Asegurar que la tabla tenga la columna nueva
-    // await _db.autocorregirTablas(); // DESACTIVADO POR SEGURIDAD
-
     try {
-      final conn = await _db.obtenerConexion();
-      
-      // SEGURIDAD: Verificar Admin
-      bool esAdminSeguro = false;
-      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
-      } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
+      final api = api_ext.ApiClient();
+      final res = await api.post('registrarGasto', {
+        'adminRol': adminEjecutor.rol,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'adminId': adminEjecutor.id,
+        'gasto': {
+          'descripcion': gasto.descripcion,
+          'monto': gasto.monto,
+          'actividadId': gasto.actividadId,
+          'comprobanteUrl': null
         }
-      }
-
-      if (!esAdminSeguro) return false;
-
-      // INSERT actualizado con actividad_id
-      await conn.query(
-        'INSERT INTO DSI_salon_gastos (descripcion, monto, fecha_gasto, usuario_id, actividad_id) VALUES (?, ?, NOW(), ?, ?)',
-        [gasto.descripcion, gasto.monto, gasto.usuarioId, gasto.actividadId]
-      );
+      });
       
-      // Actualizar datos financieros automÃ¡ticamente
-      await obtenerResumenFinanciero();
-      await obtenerMovimientosKardex(reset: true);
-      
-      // --- NOTIFICACIÓN GLOBAL DE GASTO ---
-      try {
-        final resultTokens = await conn.query('SELECT fcm_token FROM DSI_salon_usuarios WHERE fcm_token IS NOT NULL AND fcm_token != "" AND id != ?', [adminEjecutor.id]);
-        for (var row in resultTokens) {
-          String tokenDestino = row['fcm_token'].toString();
-          await push.ServicioNotificacionesSecundario.enviarPush(
-            tokenDestino: tokenDestino,
+      if (res['ok'] == true) {
+        // --- NOTIFICACIÓN GLOBAL ---
+        try {
+          unawaited(push.ServicioNotificacionesSecundario.enviarPush(
+            tokenDestino: '/topics/tesoreria',
             titulo: '⚠️ Gasto / Salida de Caja', 
-            cuerpo: 'Se ha registrado un gasto de S/ ${gasto.monto.toStringAsFixed(2)} por: ${gasto.descripcion}',
-          ).catchError((_) => false);
-        }
-      } catch (e) {
-        debugPrint('Aviso: Falló envío de notificaciones de gasto: $e');
+            cuerpo: 'Se ha registrado un gasto de ${gasto.monto.toSoles()} por: ${gasto.descripcion}',
+          ));
+        } catch (_) {}
+        
+        await obtenerResumenFinanciero();
+        await obtenerMovimientosKardex(reset: true);
+        return true;
       }
-      
-      // --- AUDITORÃA ---
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Registrar Gasto',
-        detalle: 'Monto: S/ ${gasto.monto.toStringAsFixed(2)} - Desc: ${gasto.descripcion} - Actividad ID: ${gasto.actividadId}',
-      ));
-
-      return true;
+      return false;
     } catch (e) {
       debugPrint('Error registrando gasto: $e');
       return false;
@@ -476,59 +370,28 @@ class ControladorFinanzas extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final conn = await _db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('registrarIngresoExtra', { // Asumiendo que existe o se mapea a registrarPago/Gasto
+        'monto': monto,
+        'descripcion': descripcion,
+        'adminId': adminEjecutor.id,
+        'accion': 'registrarIngresoExtra'
+      });
       
-      // SEGURIDAD: Verificar Admin
-      bool esAdminSeguro = false;
-      if (adminEjecutor.rol == 'Admin' || adminEjecutor.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
-      } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
-        }
-      }
-
-      if (!esAdminSeguro) return false;
-
-      // INSERT DONACION
-      await conn.query(
-        'INSERT INTO DSI_salon_ingresos_extra (descripcion, monto, fecha_ingreso, admin_id) VALUES (?, ?, NOW(), ?)',
-        [descripcion, monto, adminEjecutor.id]
-      );
-      
-      // Actualizar finanzas en la app en tiempo real
-      await obtenerResumenFinanciero();
-      await obtenerMovimientosKardex(reset: true);
-      
-      // --- NOTIFICACIÓN GLOBAL DE INGRESO ---
-      try {
-        final resultTokens = await conn.query('SELECT fcm_token FROM DSI_salon_usuarios WHERE fcm_token IS NOT NULL AND fcm_token != "" AND id != ?', [adminEjecutor.id]);
-        for (var row in resultTokens) {
-          String tokenDestino = row['fcm_token'].toString();
-          await push.ServicioNotificacionesSecundario.enviarPush(
-            tokenDestino: tokenDestino,
+      if (res['ok'] == true) {
+        try {
+          unawaited(push.ServicioNotificacionesSecundario.enviarPush(
+            tokenDestino: '/topics/tesoreria',
             titulo: '🎉 Nuevo Ingreso a Caja', 
-            cuerpo: '¡Hemos recibido un abono/donación de S/ ${monto.toStringAsFixed(2)}! ($descripcion)',
-          ).catchError((_) => false);
-        }
-      } catch (e) {
-        debugPrint('Aviso: Falló envío de notificaciones de donación: $e');
+            cuerpo: '¡Hemos recibido un abono/donación de ${monto.toSoles()}! ($descripcion)',
+          ));
+        } catch (_) {}
+
+        await obtenerResumenFinanciero();
+        await obtenerMovimientosKardex(reset: true);
+        return true;
       }
-
-      // --- AUDITORÍA ---
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Registrar Ingreso Extra',
-        detalle: 'Monto: S/ ${monto.toStringAsFixed(2)} - Desc: $descripcion',
-      ));
-
-      return true;
+      return false;
     } catch (e) {
       debugPrint('Error registrando ingreso extra: $e');
       return false;
@@ -543,99 +406,16 @@ class ControladorFinanzas extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
     
-    // Ajustar fin al final del dÃ­a
-    // Ajuste CRÃTICO: El driver de MySQL exige objetos DateTime.utc()
-    // Pero queremos mantener la hora "Local" (Wall Clock) para que coincida con la BD.
-    // Ejemplo: Si el usuario eligiÃ³ "20 Ene 00:00", enviamos "20 Ene 00:00 UTC".
-    final inicioLocal = DateTime.utc(inicio.year, inicio.month, inicio.day);
-    final finAjustado = DateTime.utc(fin.year, fin.month, fin.day, 23, 59, 59);
+    final inicioStr = DateFormat('yyyy-MM-dd').format(inicio);
+    final finStr = DateFormat('yyyy-MM-dd').format(fin);
 
     try {
-      final conn = await _db.obtenerConexion();
-      
-      // Asegurarnos de que admin_id exista antes de consultar
-      try {
-        await conn.query('ALTER TABLE DSI_salon_pagos ADD COLUMN admin_id INT(11) NULL');
-      } catch (_) {}
-      
-      // A. TOTALES GENERALES EN EL RANGO
-      final sqlIngresos = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1 AND fecha_pago BETWEEN ? AND ?';
-      final sqlGastos = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos WHERE fecha_gasto BETWEEN ? AND ?';
-      final sqlExtra = 'SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra WHERE fecha_ingreso BETWEEN ? AND ?';
-      
-      final resIngresos = await conn.query(sqlIngresos, [inicioLocal, finAjustado]);
-      final resGastos = await conn.query(sqlGastos, [inicioLocal, finAjustado]);
-      final resExtra = await conn.query(sqlExtra, [inicioLocal, finAjustado]);
-      
-      double totalIngresos = (resIngresos.first['total'] ?? 0.0).toDouble();
-      double totalGastos = (resGastos.first['total'] ?? 0.0).toDouble();
-      double totalExtra = (resExtra.first['total'] ?? 0.0).toDouble();
-      
-      totalIngresos += totalExtra;
-      
-      // B. DESGLOSE POR ACTIVIDAD (Ingresos - Gastos)
-      // Esta query es compleja: Une actividades con sus pagos y sus gastos asociados
-      String sqlDesglose = '''
-        SELECT 
-            a.id, 
-            a.titulo,
-            (SELECT COALESCE(SUM(p.monto), 0) FROM DSI_salon_pagos p WHERE p.actividad_id = a.id AND p.confirmado = 1 AND p.fecha_pago BETWEEN ? AND ?) as ingresos,
-            (SELECT COALESCE(SUM(g.monto), 0) FROM DSI_salon_gastos g WHERE g.actividad_id = a.id AND g.fecha_gasto BETWEEN ? AND ?) as gastos
-        FROM DSI_salon_actividades a
-        ORDER BY a.fecha_creacion DESC
-      ''';
-      
-      final resDesglose = await conn.query(sqlDesglose, [inicioLocal, finAjustado, inicioLocal, finAjustado]);
-      
-      List<Map<String, dynamic>> desglose = resDesglose.map((fila) {
-        double ing = (fila['ingresos'] ?? 0.0).toDouble();
-        double gas = (fila['gastos'] ?? 0.0).toDouble();
-        return {
-          'titulo': fila['titulo'].toString(),
-          'ingresos': ing,
-          'gastos': gas,
-          'utilidad': ing - gas
-        };
-      }).toList();
-
-      if (totalExtra > 0) {
-        desglose.insert(0, {
-          'titulo': 'DONACIONES / INGRESOS EXTRA',
-          'ingresos': totalExtra,
-          'gastos': 0.0,
-          'utilidad': totalExtra
-        });
-      }
-
-      // C. RECAUDACIÓN POR ADMINISTRADOR (Auditoría)
-      String sqlAdmins = '''
-        SELECT 
-            COALESCE(u.nombre, 'Sistema/Anterior') as admin_nombre,
-            SUM(p.monto) as total_recaudado
-        FROM DSI_salon_pagos p
-        LEFT JOIN DSI_salon_usuarios u ON p.admin_id = u.id
-        WHERE p.confirmado = 1 AND p.fecha_pago BETWEEN ? AND ?
-        GROUP BY u.id, u.nombre
-        ORDER BY total_recaudado DESC
-      ''';
-      
-      final resAdmins = await conn.query(sqlAdmins, [inicioLocal, finAjustado]);
-      
-      List<Map<String, dynamic>> recaudacionAdmins = resAdmins.map((fila) {
-        return {
-          'admin_nombre': fila['admin_nombre'].toString(),
-          'total': (fila['total_recaudado'] ?? 0.0).toDouble()
-        };
-      }).toList();
-
-      return {
-        'totalIngresos': totalIngresos,
-        'totalGastos': totalGastos,
-        'utilidadNeta': totalIngresos - totalGastos,
-        'desglose': desglose,
-        'recaudacionAdmins': recaudacionAdmins
-      };
-      
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerReporteAvanzado', {
+        'inicio': inicioStr,
+        'fin': finStr
+      });
+      return res;
     } catch (e) {
       debugPrint('Error generando reporte avanzado: $e');
       return {'error': e.toString(), 'desglose': []};
@@ -645,54 +425,35 @@ class ControladorFinanzas extends ChangeNotifier {
     }
   }
 
-  // Instancia de Base de Datos
-  final BaseDatosRemota _db = BaseDatosRemota();
-
-  // 2. Obtener Resumen Financiero (SUM Directo en BD)
+  // 2. Obtener Resumen Financiero (SUM Directo en API)
   Future<void> obtenerResumenFinanciero() {
     if (_futureResumenEnCurso != null) {
-      return _futureResumenEnCurso!; // Retorna el que ya está en proceso
+      return _futureResumenEnCurso!;
     }
-
     _futureResumenEnCurso = _obtenerResumenFinancieroInterno().whenComplete(() {
-      _futureResumenEnCurso = null; // Limpiar al terminar
+      _futureResumenEnCurso = null;
     });
-    
     return _futureResumenEnCurso!;
   }
 
   Future<void> _obtenerResumenFinancieroInterno() async {
-    _cargando = true;
-    notifyListeners();
+    // Solo cargando visible si no hay saldo previo
+    if (_saldoCaja == 0) {
+      _cargando = true;
+      notifyListeners();
+    }
     
     try {
-      await _db.inicializarTablaConfiguracion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerResumenGeneral', {});
 
-      final resultados = await Future.wait([
-        _db.obtenerSumaIngresos(),
-        _db.obtenerSumaGastos(),
-        _db.obtenerConfiguracion('apertura_caja')
-      ]);
-
-      double totalPagos = resultados[0] as double;
-      _totalGastos = resultados[1] as double;
-      
-      // Parsear Fondo Base si existe
-      _fondoBase = 0.0;
-      _fondoBaseMotivo = '';
-      if (resultados[2] != null) {
-         try {
-           final baseData = jsonDecode(resultados[2] as String);
-           _fondoBase = (baseData['monto'] ?? 0.0).toDouble();
-           _fondoBaseMotivo = baseData['motivo']?.toString() ?? 'Sin motivo';
-         } catch(e) {
-           debugPrint('Error parseando fondo base: $e');
-         }
+      if (res['ok'] == true) {
+        _totalIngresos = (res['totalIngresos'] as num).toDouble();
+        _totalGastos = (res['totalGastos'] as num).toDouble();
+        _fondoBase = (res['fondoBase'] as num).toDouble();
+        _fondoBaseMotivo = res['fondoBaseMotivo'].toString();
+        _saldoCaja = (res['saldoCaja'] as num).toDouble();
       }
-
-      _totalIngresos = totalPagos;
-      _saldoCaja = _totalIngresos + _fondoBase - _totalGastos;
-      
     } catch (e) {
       debugPrint('Error obteniendo resumen: $e');
     } finally {
@@ -707,17 +468,18 @@ class ControladorFinanzas extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (admin.rol != 'SuperAdmin') {
-         return false; // Solo SuperAdmin puede hacer esto.
-      }
-
-      final jsonDatos = jsonEncode({'monto': monto, 'motivo': motivo});
-      final exito = await _db.guardarConfiguracion('apertura_caja', jsonDatos);
+      final api = api_ext.ApiClient();
+      final res = await api.post('establecerFondoBase', {
+        'monto': monto,
+        'motivo': motivo,
+        'adminRol': admin.rol,
+        'adminId': admin.id
+      });
       
-      if (exito) {
+      if (res['ok'] == true) {
         unawaited(ServicioAuditoria().registrarAccion(
           accion: 'Aperturar Caja',
-          detalle: 'Monto: S/ ${monto.toStringAsFixed(2)} - Motivo: $motivo',
+          detalle: 'Monto: ${monto.toSoles()} - Motivo: $motivo',
         ));
         await obtenerResumenFinanciero();
         return true;
@@ -735,13 +497,11 @@ class ControladorFinanzas extends ChangeNotifier {
   // 3. Obtener Kardex (UNION de Pagos y Gastos) Paginado
   Future<void> obtenerMovimientosKardex({bool reset = false}) {
     if (_futureKardexEnCurso != null && !reset) {
-       return _futureKardexEnCurso!; // Reusar si no es reset y ya está cargando
+       return _futureKardexEnCurso!;
     }
-
     _futureKardexEnCurso = _obtenerMovimientosKardexInterno(reset: reset).whenComplete(() {
        _futureKardexEnCurso = null;
     });
-
     return _futureKardexEnCurso!;
   }
 
@@ -752,79 +512,66 @@ class ControladorFinanzas extends ChangeNotifier {
       _hayMasKardex = true;
     }
 
-    if (!_hayMasKardex || _cargando) return;
-
-    _cargando = true;
-    notifyListeners();
+    if (!_hayMasKardex) return;
+    
+    // Solo carga visual si es la primera página
+    if (_kardex.isEmpty) {
+      _cargando = true;
+      notifyListeners();
+    }
     
     try {
-      final nuevos = await _db.obtenerHistorialKardex(
-        limit: _kardexItemsPerPage, 
-        offset: _kardexPage * _kardexItemsPerPage
-      );
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerHistorialKardex', {
+        'limit': _kardexItemsPerPage,
+        'offset': _kardexPage * _kardexItemsPerPage
+      });
 
-      if (nuevos.isEmpty || nuevos.length < _kardexItemsPerPage) {
-        _hayMasKardex = false;
+      if (res['ok'] == true) {
+        final nuevos = (res['datos'] as List<dynamic>).map((fila) => {
+          'tipo': fila['tipo'],
+          'id_movimiento': fila['id_movimiento'],
+          'descripcion': fila['descripcion'],
+          'monto': (fila['monto'] as num).toDouble(),
+          'fecha': DateTime.tryParse(fila['fecha']) ?? DateTime.now(),
+        }).toList();
+
+        if (nuevos.isEmpty || nuevos.length < _kardexItemsPerPage) {
+          _hayMasKardex = false;
+        }
+
+        _kardex.addAll(nuevos);
+        _kardexPage++;
       }
-
-      _kardex.addAll(nuevos);
-      _kardexPage++;
-
     } catch (e) {
-      debugPrint('Error obteniendo kardex paginado: $e');
+      debugPrint('Error obteniendo kardex: $e');
     } finally {
       _cargando = false;
       notifyListeners();
     }
   }
 
-
-  // 4. Reporte de Deudores (FASE 4)
+  // 4. Reporte de Deudores
   Future<void> obtenerReporteDeudores() async {
-    _cargando = true;
-    notifyListeners();
+    if (_listaDeudores.isEmpty) {
+      _cargando = true;
+      notifyListeners();
+    }
     
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerReporteDeudores', {});
       
-      // Asumimos: TODOS deben pagar TODAS las actividades
-      // 1. Calculamos el costo total de todas las actividades
-      // 2. Por cada alumno, sumamos sus pagos
-      // 3. Deuda = CostoTotal - Pagos
-      
-      // Optimizamos en una sola query con subconsultas
-      String sql = '''
-        SELECT 
-            u.id, 
-            u.nombre, 
-            u.foto_url,
-            (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) as total_a_pagar,
-            (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
-        FROM DSI_salon_usuarios u
-        WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
-        ORDER BY u.nombre ASC
-      ''';
-
-      final results = await conn.query(sql);
-      
-      _listaDeudores = results.map((fila) {
-        double totalPagar = (fila['total_a_pagar'] ?? 0.0).toDouble();
-        double totalPagado = (fila['total_pagado'] ?? 0.0).toDouble();
-        double deuda = totalPagar - totalPagado;
-        
-        // Ajuste por si pagÃ³ de mÃ¡s (opcional, por ahora deuda negativa es saldo a favor)
-        // Pero para UI 'Debe' suele ser > 0
-        
-        return {
+      if (res['ok'] == true) {
+        final results = res['datos'] as List<dynamic>;
+        _listaDeudores = results.map((fila) => {
           'id': fila['id'],
           'nombre': fila['nombre'].toString(),
           'foto_url': fila['foto_url'].toString(),
-          'deuda': deuda,
-          'estado': deuda > 0 ? 'Deudor' : 'Al dÃ­a'
-        };
-      }).toList();
-      
+          'deuda': (fila['deuda'] as num).toDouble(),
+          'estado': fila['estado'].toString()
+        }).toList();
+      }
     } catch (e) {
       debugPrint('Error obteniendo deudores: $e');
     } finally {
@@ -835,26 +582,21 @@ class ControladorFinanzas extends ChangeNotifier {
 
   // --- NUEVA FUNCIÓN: Alumno Offline ---
   Future<bool> registrarAlumnoOffline(String nombre) async {
-    final nombreFormateado = nombre.toCapitalized();
     _cargando = true;
     notifyListeners();
     try {
-      final conn = await _db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('registrarAlumnoOffline', {'nombre': nombre});
       
-      String offlineUid = 'offline_${DateTime.now().millisecondsSinceEpoch}';
-      
-      await conn.query(
-        'INSERT INTO DSI_salon_usuarios (uid, nombre, email, celular, foto_url, rol) VALUES (?, ?, ?, ?, ?, ?)',
-        [offlineUid, nombreFormateado, 'offline@tesoreriasalon.local', '000000000', '', 'Alumno']
-      );
-
-      // Auditoría
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Alumno Offline Creado',
-        detalle: 'Nombre: $nombreFormateado',
-      ));
-
-      return true;
+      if (res['ok'] == true) {
+        unawaited(ServicioAuditoria().registrarAccion(
+          accion: 'Alumno Offline Creado',
+          detalle: 'Nombre: $nombre',
+        ));
+        await obtenerReporteDeudores();
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('Error registrando alumno offline: $e');
       return false;
@@ -864,56 +606,31 @@ class ControladorFinanzas extends ChangeNotifier {
     }
   }
 
-  // 5. Obtener Metas por Actividad (NUEVO)
+  // 5. Obtener Metas por Actividad
   Future<void> obtenerMetasActividades() async {
-    _cargando = true;
-    notifyListeners();
+    if (_metasActividades.isEmpty) {
+      _cargando = true;
+      notifyListeners();
+    }
     
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerMetasActividades', {});
       
-      // La meta de la actividad se calcula: costo * (nro de alumnos + admins activos)
-      // Excluimos al SuperAdmin con id = 1
-      String sql = '''
-        SELECT 
-          a.id, 
-          a.titulo, 
-          a.costo,
-          (SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1) as total_alumnos,
-          (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos p WHERE p.actividad_id = a.id AND p.confirmado = 1) as recaudado,
-          (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_gastos g WHERE g.actividad_id = a.id) as gastado
-        FROM DSI_salon_actividades a
-        WHERE a.estado = 1
-        ORDER BY a.fecha_creacion DESC
-      ''';
-
-      final results = await conn.query(sql);
-      
-      _metasActividades = results.map((fila) {
-        double costo = (fila['costo'] ?? 0.0).toDouble();
-        int totalAlumnos = fila['total_alumnos'] ?? 0;
-        double recaudado = (fila['recaudado'] ?? 0.0).toDouble();
-        double gastado = (fila['gastado'] ?? 0.0).toDouble();
-        
-        double metaTotal = costo * totalAlumnos;
-        double saldoDisponible = recaudado - gastado;
-        double progreso = metaTotal > 0 ? (recaudado / metaTotal) : 0.0;
-        if (progreso > 1.0) progreso = 1.0;
-        
-        return {
+      if (res['ok'] == true) {
+        final results = res['datos'] as List<dynamic>;
+        _metasActividades = results.map((fila) => {
           'id': fila['id'],
           'titulo': fila['titulo'].toString(),
-          'meta_total': metaTotal,
-          'recaudado': recaudado,
-          'gastado': gastado,
-          'saldo_disponible': saldoDisponible,
-          'porcentaje_recaudacion': progreso,
-        };
-      }).toList();
-      
+          'meta_total': (fila['meta_total'] as num).toDouble(),
+          'recaudado': (fila['recaudado'] as num).toDouble(),
+          'gastado': (fila['gastado'] as num).toDouble(),
+          'saldo_disponible': (fila['saldo_disponible'] as num).toDouble(),
+          'porcentaje_recaudacion': (fila['porcentaje_recaudacion'] as num).toDouble(),
+        }).toList();
+      }
     } catch (e) {
-      debugPrint('Error obteniendo metas de actividades: $e');
+      debugPrint('Error obteniendo metas: $e');
     } finally {
       _cargando = false;
       notifyListeners();

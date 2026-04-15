@@ -3,9 +3,6 @@ import 'package:intl/intl.dart';
 class AyudantesFormato {
   static const String _locale = 'es_PE';
 
-  static final NumberFormat _formatoSoles = NumberFormat.currency(
-      locale: _locale, symbol: 'S/ ', decimalDigits: 2);
-
   static final NumberFormat _formatoMiles = NumberFormat('#,###', _locale);
   static final NumberFormat _formatoCompacto = NumberFormat.compact(locale: _locale);
 
@@ -14,7 +11,11 @@ class AyudantesFormato {
   static final DateFormat _soloHora = DateFormat('hh:mm a', _locale);
   static final DateFormat _fechaCorta = DateFormat('dd/MM', _locale);
 
-  static String precio(double? monto) => _formatoSoles.format(monto ?? 0);
+  static String precio(double? monto) {
+    // Forzamos el símbolo al inicio manualmente para evitar variaciones por locale del sistema
+    final fmt = NumberFormat.currency(locale: _locale, symbol: '', decimalDigits: 2);
+    return 'S/ ${fmt.format(monto ?? 0).trim()}';
+  }
 
   static String numeroTicket(int numero, {int digitos = 4}) =>
       numero.toString().padLeft(digitos, '0');
@@ -44,19 +45,19 @@ class AyudantesFormato {
   }
 }
 
-extension DoubleExtension on double? {
+extension FormatoMoneda on double? {
   String toSoles() => AyudantesFormato.precio(this);
-  String toPorcentaje() => '\${(this ?? 0).toStringAsFixed(1)}%';
+  String toPorcentaje() => '${(this ?? 0).toStringAsFixed(1)}%';
   String toCompacto() => AyudantesFormato.numeroCompacto(this);
 }
 
-extension IntExtension on int? {
+extension FormatoEnteros on int? {
   String toTicket({int digitos = 4}) => AyudantesFormato.numeroTicket(this ?? 0, digitos: digitos);
   String toMiles() => AyudantesFormato.numero(this);
   String toCompacto() => AyudantesFormato.numeroCompacto(this);
 }
 
-extension DateTimeExtension on DateTime? {
+extension FormatoFechas on DateTime? {
   String toFechaUsuario() => AyudantesFormato.fecha(this);
   String toFechaHora() => AyudantesFormato.fecha(this, incluirHora: true);
 
@@ -73,7 +74,7 @@ extension DateTimeExtension on DateTime? {
   }
 }
 
-extension StringExtension on String {
+extension FormatoStrings on String {
   String toCapitalized() => AyudantesFormato.capitalizarTexto(this);
 
   double toSafeDouble() {
@@ -88,3 +89,4 @@ extension StringExtension on String {
     return int.tryParse(cleanString) ?? 0;
   }
 }
+

@@ -55,8 +55,8 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
           // Precargamos los datos que se mostrarán en el menú lateral para evitar lag
           final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
           
-          // 1. Precargar historial de pagos (para todos)
-          finanzas.obtenerDetallePagosPorActividad(auth.usuarioActual!.id);
+          // 1. Precargar historial de pagos (para todos) — forzamos refresco al iniciar
+          finanzas.obtenerDetallePagosPorActividad(auth.usuarioActual!.id, forceRefresh: true);
           finanzas.cargarFinanzasUsuario(auth.usuarioActual!.id);
           
           // 2. Precargar Reporte Financiero (Kardex global, para todos por política de transparencia)

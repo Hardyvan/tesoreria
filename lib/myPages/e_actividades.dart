@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../myPagesBack/b_logica_estado_financiero.dart';
 import '../../myPagesBack/modelo_gasto.dart';
 import '../myPagesTema/b_ui_kit.dart';
+import '../myPagesTema/c_formatos.dart';
 
 class GestionActividades extends StatefulWidget {
   const GestionActividades({super.key});
@@ -16,12 +17,11 @@ class GestionActividades extends StatefulWidget {
 }
 
 class _GestionActividadesState extends State<GestionActividades> {
-  late Future<void> _futureActividades;
 
   @override
   void initState() {
     super.initState();
-    _futureActividades = Future.delayed(Duration.zero, _cargarActividades);
+    Future.delayed(Duration.zero, _cargarActividades);
   }
 
   Future<void> _cargarActividades() async {
@@ -60,6 +60,9 @@ class _GestionActividadesState extends State<GestionActividades> {
                     controller: ctrlCosto,
                     decoration: const InputDecoration(labelText: 'Costo por Alumno', prefixText: 'S/ '),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                    ],
                     validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 16),
@@ -97,6 +100,9 @@ class _GestionActividadesState extends State<GestionActividades> {
                       controller: ctrlMulta,
                       decoration: const InputDecoration(labelText: 'Multa por día vencido', prefixText: 'S/ '),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                      ],
                     ),
                   ],
                 ],
@@ -123,6 +129,7 @@ class _GestionActividadesState extends State<GestionActividades> {
                     multaPorDia: multaNueva,
                   );
                   if (exito && context.mounted) {
+                    context.read<ControladorFinanzas>().invalidarCache();
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Actividad actualizada')));
                   } else if (context.mounted) {
@@ -159,6 +166,7 @@ class _GestionActividadesState extends State<GestionActividades> {
               
               if (!parentContext.mounted) return;
               if (error == null) {
+                parentContext.read<ControladorFinanzas>().invalidarCache();
                 ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('Actividad eliminada')));
               } else {
                 ScaffoldMessenger.of(parentContext).showSnackBar(SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red));
@@ -173,22 +181,20 @@ class _GestionActividadesState extends State<GestionActividades> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<void>(
-        future: _futureActividades,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return Consumer<ControladorActividades>(
-            builder: (context, ctrl, _) {
-              if (ctrl.actividades.isEmpty) {
-                return const Center(child: Text('No hay actividades registradas.'));
-              }
-          
-          return ListView.builder(
-            padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
-            itemCount: ctrl.actividades.length,
-            itemBuilder: (ctx, index) {
+    return Consumer<ControladorActividades>(
+      builder: (context, ctrl, _) {
+        if (ctrl.cargando && ctrl.actividades.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (ctrl.actividades.isEmpty) {
+          return const Center(child: Text('No hay actividades registradas.'));
+        }
+    
+        return ListView.builder(
+          padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
+          itemCount: ctrl.actividades.length,
+          itemBuilder: (ctx, index) {
               final actividad = ctrl.actividades[index];
               return Card(
                 elevation: 2,
@@ -204,10 +210,10 @@ class _GestionActividadesState extends State<GestionActividades> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Costo: S/ ${actividad.costo.toStringAsFixed(2)}'),
+                      Text('Costo: ${actividad.costo.toSoles()}'),
                       if (actividad.fechaLimite != null)
                         Text(
-                          '⚠️ Límite: ${actividad.fechaLimite!.day.toString().padLeft(2,'0')}/${actividad.fechaLimite!.month.toString().padLeft(2,'0')}/${actividad.fechaLimite!.year}  •  Multa: S/ ${actividad.multaPorDia.toStringAsFixed(2)}/día',
+                          '⚠️ Límite: ${actividad.fechaLimite!.day.toString().padLeft(2,'0')}/${actividad.fechaLimite!.month.toString().padLeft(2,'0')}/${actividad.fechaLimite!.year}  •  Multa: ${actividad.multaPorDia.toSoles()}/día',
                           style: const TextStyle(color: Colors.orange, fontSize: 12),
                         ),
                     ],
@@ -230,10 +236,8 @@ class _GestionActividadesState extends State<GestionActividades> {
               );
             },
           );
-         },
-        );
-       },
-        );
+        },
+      );
   }
 }
 
@@ -397,7 +401,6 @@ class _RegistroGastosState extends State<RegistroGastos> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Actividad
                   DropdownButtonFormField<int>(
                     decoration: const InputDecoration(
                       labelText: 'Asociar a Actividad (Opcional)',
@@ -405,13 +408,30 @@ class _RegistroGastosState extends State<RegistroGastos> {
                       helperText: 'Útil para reportes de utilidad por evento'
                     ),
                     isExpanded: true,
+                    borderRadius: BorderRadius.circular(16),
                     initialValue: _actividadSeleccionadaId,
                     items: _actividades.map((act) {
                       return DropdownMenuItem<int>(
                         value: act['id'],
-                        child: Text(
-                          act['titulo'].toString(),
-                          overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.event, size: 16, color: Theme.of(context).primaryColor),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                act['titulo'].toString(),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }).toList(),
@@ -466,15 +486,28 @@ class _CrearActividadState extends State<CrearActividad> {
     
     if (auth.usuarioActual == null) return;
 
-    final exito = await ctrl.crearActividad(
-      _ctrlTitulo.text, costo, auth.usuarioActual!,
-      fechaLimite: _fechaLimiteSeleccionada,
-      multaPorDia: multa,
-    );
-    
-    if (exito && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Actividad Creada')));
-      Navigator.pop(context); // Volver si se navegó aquí
+    try {
+      final exito = await ctrl.crearActividad(
+        _ctrlTitulo.text, costo, auth.usuarioActual!,
+        fechaLimite: _fechaLimiteSeleccionada,
+        multaPorDia: multa,
+      );
+      
+      if (mounted && exito) {
+        Provider.of<ControladorFinanzas>(context, listen: false).invalidarCache();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Actividad Creada')));
+        Navigator.pop(context); // Volver si se navegó aquí
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error DB: $e'), 
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          )
+        );
+      }
     }
   }
 
@@ -532,6 +565,9 @@ class _CrearActividadState extends State<CrearActividad> {
                 prefixText: 'S/ ',
                 controller: _ctrlCosto,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
               ),
               const SizedBox(height: 20),
               const Divider(),
@@ -569,6 +605,9 @@ class _CrearActividadState extends State<CrearActividad> {
                   prefixText: 'S/ ',
                   controller: _ctrlMulta,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                  ],
                 ),
               ],
               const SizedBox(height: 40),

@@ -10,6 +10,7 @@ import '../myMenu/d_historial_pagos.dart';
 import '../myPages/c_reportes.dart';
 import '../myPages/d_reportes_avanzados.dart';
 import '../myPages/g_portal_financiero.dart';
+import '../myPages/e_actividades.dart';
 
 class RutasApp {
   // Constantes de Rutas
@@ -38,6 +39,7 @@ class RutasApp {
       '/reportes_avanzados': (_) => const ReportesAvanzados(),
       auditoria: (_) => const AuditoriaAdmin(),
       portalFinanciero: (_) => const PortalFinanciero(),
+      '/crear_actividad': (_) => const CrearActividad(),
     };
   }
 }

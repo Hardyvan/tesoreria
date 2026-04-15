@@ -22,14 +22,13 @@ class ListaDeudores extends StatefulWidget {
 }
 
 class _ListaDeudoresState extends State<ListaDeudores> {
-  late Future<void> _futureDatos;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _futureDatos = Future.delayed(Duration.zero, _cargarDatos);
+    Future.delayed(Duration.zero, _cargarDatos);
   }
 
   @override
@@ -80,22 +79,13 @@ class _ListaDeudoresState extends State<ListaDeudores> {
             return palabrasBusqueda.every((palabra) => nombreCompleto.contains(palabra));
           }).toList();
 
-    return FutureBuilder<void>(
-        future: _futureDatos,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() {
-                _futureDatos = _cargarDatosForzado();
-              });
-              await _futureDatos;
-            },
-            child: ListView.builder(
-              // Padding extendido para evitar que el FAB tape el último elemento
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _cargarDatosForzado();
+      },
+      child: finanzas.cargando && finanzas.listaDeudores.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
               padding: const EdgeInsets.only(
                 top: DimensionesApp.paddingEstandar,
                 bottom: 80, 
@@ -134,11 +124,11 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                          prefixIcon: const Icon(Icons.search),
                          suffixIcon: _searchQuery.isNotEmpty 
                            ? IconButton(
-                               icon: const Icon(Icons.clear), 
-                               onPressed: () {
-                                 _searchCtrl.clear();
-                                 setState(() => _searchQuery = '');
-                               }
+                                icon: const Icon(Icons.clear), 
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _searchQuery = '');
+                                }
                              ) 
                            : null,
                          filled: true,
@@ -165,10 +155,9 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                     vertical: 8,
                   ),
                   child: TarjetaPremium(
-                    usaGradientePrimario: false, // <-- Card blanca y limpia
+                    usaGradientePrimario: false,
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                     onTap: !esAdmin ? null : () async {
-                      // Acción SOLO Admin: Registrar Pago para este alumno
                       await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -182,7 +171,6 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                     },
                     child: Row(
                       children: [
-                        // --- AVATAR CON COLORES PASTELES MODERNOS ---
                         AvatarUsuario(
                           nombre: alumno['nombre'],
                           fotoUrl: alumno['foto_url'],
@@ -206,9 +194,8 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              // Badge de estado moderno
                               BadgeEstado(
-                                texto: esDeudor ? 'Debe S/ ${montoDeuda.toStringAsFixed(2)}' : 'Al día',
+                                texto: esDeudor ? 'Debe ${montoDeuda.toSoles()}' : 'Al día',
                                 colorBase: esDeudor ? Colors.red : Colors.green,
                               ),
                             ],
@@ -235,8 +222,6 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                 );
               },
             ),
-          );
-        },
     );
   }
 
@@ -372,11 +357,18 @@ class _RegistroPagosState extends State<RegistroPagos> {
                       prefixIcon: Icon(Icons.person),
                     ),
                     isExpanded: true,
+                    borderRadius: BorderRadius.circular(16),
                     initialValue: _selectedUsuarioId,
                     items: usuarios.where((u) => u.rol != 'SuperAdmin').map((Usuario user) {
                       return DropdownMenuItem<int>(
                         value: user.id,
-                        child: Text(user.nombre, overflow: TextOverflow.ellipsis),
+                        child: Row(
+                          children: [
+                            AvatarUsuario(nombre: user.nombre, radius: 14),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(user.nombre, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500))),
+                          ],
+                        ),
                       );
                     }).toList(),
                     validator: (value) => value == null ? 'Por favor seleccione un alumno' : null,
@@ -393,11 +385,27 @@ class _RegistroPagosState extends State<RegistroPagos> {
                       prefixIcon: Icon(Icons.event_note),
                     ),
                     isExpanded: true,
+                    borderRadius: BorderRadius.circular(16),
                     initialValue: _selectedActividadId,
                     items: actividades.map((Actividad act) {
                       return DropdownMenuItem<int>(
                         value: act.id,
-                        child: Text('${act.titulo} (S/ ${act.costo})', overflow: TextOverflow.ellipsis),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.event, size: 16, color: Theme.of(context).primaryColor),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text('${act.titulo} (${act.costo.toSoles()})', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            ),
+                          ],
+                        ),
                       );
                     }).toList(),
                     validator: (value) => value == null ? 'Por favor seleccione una actividad' : null,
@@ -406,7 +414,7 @@ class _RegistroPagosState extends State<RegistroPagos> {
                         _selectedActividadId = val;
                         if (val != null) {
                            final act = actividades.firstWhere((a) => a.id == val);
-                           _montoController.text = act.costo.toString();
+                           _montoController.text = act.costo.toStringAsFixed(2);
                         }
                       });
                     },
@@ -435,7 +443,7 @@ class _RegistroPagosState extends State<RegistroPagos> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '⚠️ Pago tardío: $diasAtraso días × S/ ${actSel.multaPorDia.toStringAsFixed(2)} = Multa S/ ${montoMulta.toStringAsFixed(2)}\nSe añadirá automáticamente al registrar.',
+                                '⚠️ Pago tardío: $diasAtraso días × ${actSel.multaPorDia.toSoles()} = Multa ${montoMulta.toSoles()}\nSe añadirá automáticamente al registrar.',
                                 style: const TextStyle(color: Colors.deepOrange, fontSize: 12, height: 1.4),
                               ),
                             ),
@@ -479,10 +487,11 @@ class _RegistroPagosState extends State<RegistroPagos> {
                       labelText: 'Método de Pago',
                       prefixIcon: Icon(Icons.wallet),
                     ),
+                    borderRadius: BorderRadius.circular(16),
                     initialValue: _metodoPagoSeleccionado,
                     items: const [
-                      DropdownMenuItem(value: 'Efectivo', child: Text('💵 Efectivo')),
-                      DropdownMenuItem(value: 'Yape', child: Text('📱 Yape / Transferencia')),
+                      DropdownMenuItem(value: 'Efectivo', child: Text('💵  Efectivo', style: TextStyle(fontWeight: FontWeight.w500))),
+                      DropdownMenuItem(value: 'Yape', child: Text('📱  Yape / Transferencia', style: TextStyle(fontWeight: FontWeight.w500))),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _metodoPagoSeleccionado = val);
@@ -531,7 +540,7 @@ class _EditarPagoState extends State<EditarPago> {
   @override
   void initState() {
     super.initState();
-    _montoCtrl = TextEditingController(text: widget.pago['monto'].toString());
+    _montoCtrl = TextEditingController(text: (widget.pago['monto'] as num).toDouble().toStringAsFixed(2));
   }
 
   @override
@@ -547,6 +556,9 @@ class _EditarPagoState extends State<EditarPago> {
           TextField(
             controller: _montoCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
             decoration: const InputDecoration(
               labelText: 'Nuevo Monto',
               border: OutlineInputBorder(),
@@ -555,25 +567,78 @@ class _EditarPagoState extends State<EditarPago> {
           ),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
         ValueListenableBuilder<bool>(
           valueListenable: _guardando,
           builder: (context, guardando, child) {
-            return ElevatedButton(
-              onPressed: guardando ? null : _guardarCambios,
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
-              child: guardando 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Guardar', style: TextStyle(color: Colors.white)),
+            return TextButton.icon(
+              onPressed: guardando ? null : _eliminarPago,
+              icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+              label: const Text('Anular', style: TextStyle(color: Colors.red)),
             );
           }
         ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: _guardando,
+              builder: (context, guardando, child) {
+                return ElevatedButton(
+                  onPressed: guardando ? null : _guardarCambios,
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+                  child: guardando 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Guardar', style: TextStyle(color: Colors.white)),
+                );
+              }
+            ),
+          ],
+        )
       ],
     );
+  }
+
+  Future<void> _eliminarPago() async {
+    final auth = context.read<ControladorAuth>();
+    final finanzas = context.read<ControladorFinanzas>();
+
+    if (auth.usuarioActual == null) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Anular registro de pago?'),
+        content: const Text('Esta acción eliminará el registro monetario del sistema permanentemente.\n\nSe enviará una notificación push instantánea al alumno informándole que este pago fue anulado de su estado de cuenta.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mantener Pago')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('Sí, Anular Pago', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+          ),
+        ],
+      )
+    );
+
+    if (confirmar != true) return;
+
+    _guardando.value = true;
+    final exito = await finanzas.eliminarPago(widget.pago['id'], auth.usuarioActual!);
+
+    if (mounted) {
+      _guardando.value = false;
+      if (exito) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago anulado. Notificación enviada al alumno.'), backgroundColor: Colors.green));
+         Navigator.pop(context, true); // true actualiza la tabla inferior
+      } else {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hubo un error al intentar anular el registro.'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _guardarCambios() async {

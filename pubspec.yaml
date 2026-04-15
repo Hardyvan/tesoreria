@@ -46,9 +46,6 @@ dependencies:
   # Preferencias compartidas (Para recordar usuario)
   shared_preferences: ^2.2.2
 
-  # Conexión a Base de Datos MySQL (Directa)
-  mysql1: ^0.20.0
-
   # Base de Datos Local (Offline)
   sqflite: ^2.3.0
   path: ^1.8.3

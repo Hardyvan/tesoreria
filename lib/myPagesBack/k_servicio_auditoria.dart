@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../myPagesServer/b_base_datos_remota.dart';
+import '../services/api_client.dart' as api_ext;
+import 'package:intl/intl.dart';
 
 class ServicioAuditoria {
   static final ServicioAuditoria _instancia = ServicioAuditoria._internal();
@@ -11,38 +12,29 @@ class ServicioAuditoria {
 
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
-  /// Registra una acción sensible en la base de datos de auditoría
+  /// Registra una acción sensible en la base de datos de auditoría (MIGRADO A API)
   Future<void> registrarAccion({
     required String accion, 
     required String detalle,
-    int? usuarioId, // ID del admin en MySQL (si se tiene)
+    int? usuarioId, 
   }) async {
     try {
-      // 1. Obtener información del dispositivo
       String infoDispositivo = await _obtenerNombreDispositivo();
-      
-      // 2. Obtener ID del Admin (si no se pasó)
       int adminId = usuarioId ?? await _obtenerIdAdminActual();
       
-      if (adminId == -1) {
-        debugPrint('AUDITORÍA: No se pudo identificar al admin. Acción no registrada.');
-        return;
-      }
+      if (adminId == -1) return;
 
-      // 3. Insertar en BD
-      final db = BaseDatosRemota();
-      final conn = await db.obtenerConexion();
-
-      await conn.query(
-        'INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, ?, ?, ?, NOW())',
-        [adminId, accion, detalle, infoDispositivo]
-      );
+      final api = api_ext.ApiClient();
+      await api.post('registrarAccion', {
+        'adminId': adminId,
+        'accionLog': accion,
+        'detalle': detalle,
+        'dispositivo': infoDispositivo
+      });
       
-      debugPrint('AUDITORÍA: Acción registrada ($accion) desde $infoDispositivo');
-
+      debugPrint('AUDITORÍA: Acción registrada ($accion) vía API');
     } catch (e) {
-      debugPrint('ERROR AUDITORÍA: $e');
-      // Fallo silencioso para no interrumpir el flujo principal
+      debugPrint('ERROR AUDITORÍA API: $e');
     }
   }
 
@@ -73,100 +65,94 @@ class ServicioAuditoria {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return -1; // No logueado
 
-      final db = BaseDatosRemota();
-      final conn = await db.obtenerConexion();
-      var result = await conn.query('SELECT id FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerIdAdminActual', {'uid': uid});
       
-      if (result.isNotEmpty) {
-        return result.first['id'];
+      if (res['ok'] == true && res['id'] != null) {
+        return res['id'] as int;
       }
       return -1;
     } catch (e) {
+      debugPrint('Error obteniendo ID admin via API: $e');
       return -1;
     }
   }
 
-  // --- SOLO PARA SUPER ADMIN ---
+  // --- SOLO PARA SUPER ADMIN (MIGRADO A API) ---
   Future<List<Map<String, dynamic>>> obtenerLogsAuditoria() async {
     try {
-      final db = BaseDatosRemota();
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerLogsAuditoria');
       
-      // Join para ver el nombre del admin
-      final results = await conn.query('''
-        SELECT a.id, u.nombre as admin_nombre, u.rol, a.accion, a.detalle, a.dispositivo, a.fecha
-        FROM DSI_salon_auditoria a
-        JOIN DSI_salon_usuarios u ON a.admin_id = u.id
-        ORDER BY a.fecha DESC
-        LIMIT 100
-      ''');
-
-      return results.map((fila) => {
-        'id': fila['id'],
-        'admin': fila['admin_nombre'].toString(),
-        'rol': fila['rol'].toString(),
-        'accion': fila['accion'].toString(),
-        'detalle': fila['detalle'].toString(),
-        'dispositivo': fila['dispositivo'].toString(),
-        'fecha': fila['fecha']
-      }).toList();
-
+      if (res['ok'] == true && res['datos'] != null) {
+        final results = res['datos'] as List<dynamic>;
+        return results.map((fila) => {
+          'id': fila['id'],
+          'admin': fila['admin_nombre'].toString(),
+          'rol': fila['rol'].toString(),
+          'accion': fila['accion'].toString(),
+          'detalle': fila['detalle'].toString(),
+          'dispositivo': fila['dispositivo'].toString(),
+          'fecha': (fila['fecha'] is String) ? DateTime.tryParse(fila['fecha']) ?? DateTime.now() : fila['fecha']
+        }).toList();
+      }
+      return [];
     } catch (e) {
-      debugPrint('Error obteniendo logs: $e');
+      debugPrint('Error obteniendo logs API: $e');
       return [];
     }
   }
 
-  /// Obtiene el resumen de dinero recaudado por cada admin en una fecha específica
+  /// Obtiene el resumen de dinero recaudado (MIGRADO A API)
   Future<List<Map<String, dynamic>>> obtenerResumenCaja(DateTime fecha) async {
     try {
-      final db = BaseDatosRemota();
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final fechaStr = DateFormat('yyyy-MM-dd').format(fecha);
+      final res = await api.post('obtenerResumenCaja', {'fecha': fechaStr});
       
-      // Ajustar rango del día
-      final inicio = DateTime(fecha.year, fecha.month, fecha.day, 0, 0, 0);
-      final fin = DateTime(fecha.year, fecha.month, fecha.day, 23, 59, 59);
+      if (res['ok'] == true && res['datos'] != null) {
+        final results = res['datos'] as List<dynamic>;
+        Map<String, double> totales = {};
 
-      // Traer solo logs de pagos del día
-      final results = await conn.query('''
-        SELECT u.nombre as admin_nombre, a.detalle
-        FROM DSI_salon_auditoria a
-        JOIN DSI_salon_usuarios u ON a.admin_id = u.id
-        WHERE a.accion = 'Registrar Pago' 
-          AND a.fecha BETWEEN ? AND ?
-      ''', [inicio, fin]);
-
-      // Agrupar en Memoria (DART) para no complicar SQL parsing de texto
-      Map<String, double> totales = {};
-
-      for (var row in results) {
-        String admin = row['admin_nombre'].toString();
-        String detalle = row['detalle'].toString();
-        
-        try {
-          final parteMonto = detalle.split('S/ ')[1].split(' -')[0];
-          double monto = double.parse(parteMonto);
+        for (var row in results) {
+          String admin = row['admin_nombre'].toString();
+          String detalle = row['detalle'].toString();
           
-          if (!totales.containsKey(admin)) totales[admin] = 0.0;
-          totales[admin] = totales[admin]! + monto;
-        } catch (e) {
-          debugPrint('Error parseando monto auditoría: $e');
+          try {
+            if (detalle.contains('S/ ')) {
+              final parteMonto = detalle.split('S/ ')[1].split(' ')[0];
+              double monto = double.parse(parteMonto.replaceAll(',', ''));
+              if (!totales.containsKey(admin)) totales[admin] = 0.0;
+              totales[admin] = totales[admin]! + monto;
+            }
+          } catch (e) {
+            debugPrint('Error parseando monto: $e');
+          }
         }
+
+        final lista = totales.entries.map((e) => {'admin': e.key, 'total': e.value}).toList();
+        lista.sort((a, b) => (b['total'] as double).compareTo(a['total'] as double));
+        return lista;
       }
-
-      // Convertir a lista ordenada
-      final lista = totales.entries.map((e) => {
-        'admin': e.key,
-        'total': e.value
-      }).toList();
-      
-      lista.sort((a, b) => (b['total'] as double).compareTo(a['total'] as double));
-      
-      return lista;
-
-    } catch (e) {
-      debugPrint('Error resumen caja: $e');
       return [];
+    } catch (e) {
+      debugPrint('Error resumen caja API: $e');
+      return [];
+    }
+  }
+
+  /// Vacía todo el historial de auditoría (SOLO SUPERADMIN)
+  Future<bool> vaciarHistorial(String adminRol, int adminId) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('vaciarAuditoria', {
+        'adminRol': adminRol,
+        'adminId': adminId
+      });
+      return res['ok'] == true;
+    } catch (e) {
+      debugPrint('Error vaciando historial: $e');
+      return false;
     }
   }
 }

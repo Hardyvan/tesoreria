@@ -447,10 +447,48 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
   }
 
   void _cargarDatos() {
-    setState(() {
-      _futureLogs = ServicioAuditoria().obtenerLogsAuditoria();
-      _futureCaja = ServicioAuditoria().obtenerResumenCaja(DateTime.now());
-    });
+    if (mounted) {
+      setState(() {
+        _futureLogs = ServicioAuditoria().obtenerLogsAuditoria();
+        _futureCaja = ServicioAuditoria().obtenerResumenCaja(DateTime.now());
+      });
+    }
+  }
+
+  Future<void> _confirmarVaciado(ControladorAuth auth) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Vaciar todo el historial?'),
+        content: const Text('Esta acción eliminará todos los registros de auditoría permanentemente. Solo quedará registro de este vaciado.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true), 
+            style: TextButton.styleFrom(foregroundColor: ColoresApp.error),
+            child: const Text('VACIAR TODO'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      final id = auth.usuarioActual?.id ?? 0;
+
+      
+      final exito = await ServicioAuditoria().vaciarHistorial('SuperAdmin', id);
+      
+      if (!mounted) return;
+
+      if (exito) {
+        messenger.showSnackBar(const SnackBar(content: Text('Historial vaciado')));
+        _cargarDatos();
+      } else {
+        messenger.showSnackBar(const SnackBar(content: Text('Error al vaciar historial'), backgroundColor: ColoresApp.error));
+      }
+    }
   }
 
   @override
@@ -472,6 +510,13 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
         title: const Text('Panel de Auditoría'),
         centerTitle: true,
         actions: [
+          // BOTÓN VACIAR (Solo SuperAdmin)
+          if (auth.usuarioActual?.rol == 'SuperAdmin')
+            IconButton(
+              tooltip: 'Vaciar Historial',
+              icon: const Icon(Icons.delete_sweep_rounded, color: ColoresApp.error),
+              onPressed: () => _confirmarVaciado(auth),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _cargarDatos,
@@ -508,7 +553,7 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(item['admin'], style: const TextStyle(fontWeight: FontWeight.w500)),
-                              Text("S/ ${(item['total'] as double).toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text((item['total'] as double).toSoles(), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ],
                           ),
                         )),
@@ -517,7 +562,7 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('TOTAL RECAUDADO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                            Text('S/ ${totalDia.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
+                            Text(totalDia.toSoles(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
                           ],
                         )
                       ],
@@ -567,6 +612,7 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
     );
   }
 }
+
 
 class _TarjetaLog extends StatelessWidget {
   final Map<String, dynamic> log;

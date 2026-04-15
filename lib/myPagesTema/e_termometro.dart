@@ -52,8 +52,8 @@ class TermometroActividades extends StatelessWidget {
     bool enDeficit = saldoDisponible < 0;
 
     return Container(
-      width: 310,
-      margin: EdgeInsets.only(right: isLast ? 0 : 20, bottom: 12, top: 12),
+      width: MediaQuery.of(context).size.width - (DimensionesApp.paddingEstandar * 2),
+      margin: EdgeInsets.only(right: isLast ? 0 : 16, bottom: 12, top: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),

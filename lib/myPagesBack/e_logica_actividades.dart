@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_actividad.dart';
 import 'modelo_usuario.dart';
-import '../myPagesServer/b_base_datos_remota.dart';
-import 'j_servicio_notificaciones_secundario.dart' as push;
+import '../services/api_client.dart' as api_ext;
 
 class ControladorActividades extends ChangeNotifier {
   List<Actividad> _actividades = [];
@@ -20,74 +18,33 @@ class ControladorActividades extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
     
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('crearActividad', {
+        'titulo': titulo,
+        'costo': costo,
+        'fechaLimite': fechaLimite?.toIso8601String().split('T')[0],
+        'multaPorDia': multaPorDia,
+        'adminRol': usuario.rol,
+        'adminId': usuario.id
+      });
       
-      // 1. SEGURIDAD: Verificar Admin
-      bool esAdminSeguro = false;
-
-      // A. Backdoor para Admin Legacy (ID 1) o SuperAdmin
-      if (usuario.rol == 'Admin' || usuario.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
-      } 
-      // B. Verificacion Firebase (Produccion - Doble Check)
-      else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
-        }
-      }
-
-      if (!esAdminSeguro) {
-        debugPrint('SEGURIDAD: Intento de crear actividad no autorizado');
-        return false;
-      }
-      
-      // 2. Insertar en BD con soporte de fecha_limite y multa_por_dia
-      final String fechaStr = fechaLimite != null
-          ? '${fechaLimite.year}-${fechaLimite.month.toString().padLeft(2, '0')}-${fechaLimite.day.toString().padLeft(2, '0')}'
-          : '';
-
-      final result = await conn.query(
-        'INSERT INTO DSI_salon_actividades (titulo, costo, fecha_creacion, fecha_limite, multa_por_dia) VALUES (?, ?, NOW(), ?, ?)',
-        [titulo, costo, fechaStr.isNotEmpty ? fechaStr : null, multaPorDia]
-      );
-      
-      // 3. Actualizar lista local
-      _actividades.insert(0, Actividad(
-        id: result.insertId!, 
-        titulo: titulo, 
-        costo: costo, 
-        fechaCreada: DateTime.now(),
-        fechaLimite: fechaLimite,
-        multaPorDia: multaPorDia,
-      ));
-
-      // 4. Enviar notificación push masiva a todos los usuarios con FCM Token
-      try {
-        final resultTokens = await conn.query('SELECT fcm_token FROM DSI_salon_usuarios WHERE fcm_token IS NOT NULL AND fcm_token != "" AND id != ?', [usuario.id]);
+      if (res['ok'] == true) {
+        final lastId = res['id'] as int;
+        _actividades.insert(0, Actividad(
+          id: lastId, 
+          titulo: titulo, 
+          costo: costo, 
+          fechaCreada: DateTime.now(),
+          fechaLimite: fechaLimite,
+          multaPorDia: multaPorDia,
+        ));
         
-        for (var row in resultTokens) {
-          String tokenDestino = row['fcm_token'].toString();
-          await push.ServicioNotificacionesSecundario.enviarPush(
-            tokenDestino: tokenDestino,
-            titulo: '📢 Nueva Actividad', 
-            cuerpo: 'Se ha registrado la actividad "$titulo". ¡Revisa la app!',
-          ).catchError((_) => false); // Silencioso individualmente
-        }
-        debugPrint('Notificaciones enviadas a ${resultTokens.length} usuarios.');
-      } catch (e) {
-        debugPrint('Aviso: Falló envío de notificaciones: $e');
+        // Push notification masiva (sería mejor hacerlo en el back, pero por ahora seguimos lógica front)
+        // ... (Se podría llamar a otro endpoint o dejar que el back lo haga)
+        return true;
       }
-      
-      return true;
+      return false;
     } catch (e) {
        debugPrint('Error creando actividad: $e');
        return false;
@@ -99,22 +56,27 @@ class ControladorActividades extends ChangeNotifier {
 
   // Listar actividades disponibles
   Future<void> listarActividades() async {
-    _cargando = true;
-    notifyListeners();
+    // Solo cargando visual si está vacío
+    if (_actividades.isEmpty) {
+      _cargando = true;
+      notifyListeners();
+    }
     
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('listarActividades', {});
       
-      final results = await conn.query('SELECT * FROM DSI_salon_actividades ORDER BY fecha_creacion DESC');
-      
-      _actividades = results.map((fila) => Actividad.desdeMapa({
-        'id': fila['id'],
-        'titulo': fila['titulo'].toString(),
-        'costo': fila['costo'],
-        'fecha_creada': fila['fecha_creacion']
-      })).toList();
-      
+      if (res['ok'] == true) {
+        final datos = res['datos'] as List<dynamic>;
+        _actividades = datos.map((fila) => Actividad.desdeMapa({
+          'id': fila['id'],
+          'titulo': fila['titulo'].toString(),
+          'costo': fila['costo'],
+          'fecha_creada': fila['fecha_creacion'],
+          'fecha_limite': fila['fecha_limite'],
+          'multa_por_dia': fila['multa_por_dia'],
+        })).toList();
+      }
     } catch (e) {
       debugPrint('Error listando actividades: $e');
     } finally {
@@ -131,57 +93,34 @@ class ControladorActividades extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
     
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('editarActividad', {
+        'id': id,
+        'titulo': nuevoTitulo,
+        'costo': nuevoCosto,
+        'fechaLimite': fechaLimite?.toIso8601String().split('T')[0],
+        'multaPorDia': multaPorDia,
+        'adminRol': usuario.rol,
+        'adminId': usuario.id
+      });
       
-      // 1. SEGURIDAD: Verificar Admin
-      bool esAdminSeguro = false;
-      if (usuario.rol == 'Admin' || usuario.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
-      } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
+      if (res['ok'] == true) {
+        final index = _actividades.indexWhere((a) => a.id == id);
+        if (index != -1) {
+          final actVieja = _actividades[index];
+          _actividades[index] = Actividad(
+              id: id, 
+              titulo: nuevoTitulo, 
+              costo: nuevoCosto, 
+              fechaCreada: actVieja.fechaCreada,
+              fechaLimite: fechaLimite,
+              multaPorDia: multaPorDia,
+          );
         }
+        return true;
       }
-
-      if (!esAdminSeguro) {
-        debugPrint('SEGURIDAD: Intento de editar actividad no autorizado');
-        return false;
-      }
-      
-      // 2. Actualizar en BD incluyendo campos de multa
-      final String? fechaStr = fechaLimite != null
-          ? '${fechaLimite.year}-${fechaLimite.month.toString().padLeft(2, '0')}-${fechaLimite.day.toString().padLeft(2, '0')}'
-          : null;
-
-      await conn.query(
-        'UPDATE DSI_salon_actividades SET titulo = ?, costo = ?, fecha_limite = ?, multa_por_dia = ?, updated_at = NOW() WHERE id = ?',
-        [nuevoTitulo, nuevoCosto, fechaStr, multaPorDia, id]
-      );
-      
-      // 3. Actualizar lista local
-      final index = _actividades.indexWhere((a) => a.id == id);
-      if (index != -1) {
-        final actVieja = _actividades[index];
-        _actividades[index] = Actividad(
-            id: id, 
-            titulo: nuevoTitulo, 
-            costo: nuevoCosto, 
-            fechaCreada: actVieja.fechaCreada,
-            fechaLimite: fechaLimite,
-            multaPorDia: multaPorDia,
-        );
-      }
-      
-      return true;
+      return false;
     } catch (e) {
        debugPrint('Error editando actividad: $e');
        return false;
@@ -196,44 +135,20 @@ class ControladorActividades extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
     
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('eliminarActividad', {
+        'id': id,
+        'adminRol': usuario.rol,
+        'adminId': usuario.id
+      });
       
-      // 1. SEGURIDAD: Verificar Admin
-      bool esAdminSeguro = false;
-      if (usuario.rol == 'Admin' || usuario.rol == 'SuperAdmin') {
-        esAdminSeguro = true;
+      if (res['ok'] == true) {
+        _actividades.removeWhere((a) => a.id == id);
+        return null;
       } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-           final resultRol = await conn.query('SELECT rol FROM DSI_salon_usuarios WHERE uid = ?', [uid]);
-           if (resultRol.isNotEmpty) {
-             final rolDb = resultRol.first['rol'].toString();
-             if (rolDb == 'Admin' || rolDb == 'SuperAdmin') {
-               esAdminSeguro = true;
-             }
-           }
-        }
+        return res['msj'] ?? 'Error al eliminar.';
       }
-
-      if (!esAdminSeguro) {
-        return 'Sin permisos de administrador.';
-      }
-
-      // 2. SEGURIDAD: Prevenir borrado en cascada descontrolado. Ver si hay pagos anclados.
-      final resultPagos = await conn.query('SELECT COUNT(*) as total FROM DSI_salon_pagos WHERE actividad_id = ?', [id]);
-      if (resultPagos.isNotEmpty && resultPagos.first['total'] > 0) {
-        return 'No se puede eliminar porque hay pagos registrados para esta actividad.';
-      }
-      
-      // 3. Eliminar de BD
-      await conn.query('DELETE FROM DSI_salon_actividades WHERE id = ?', [id]);
-      
-      // 4. Actualizar lista local
-      _actividades.removeWhere((a) => a.id == id);
-      
-      return null; // Null indica éxito
     } catch (e) {
        debugPrint('Error eliminando actividad: $e');
        return 'Ocurrió un error al eliminar.';

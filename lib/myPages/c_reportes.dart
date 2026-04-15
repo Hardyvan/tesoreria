@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart'; 
@@ -31,17 +32,10 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final finanzas = context.read<ControladorFinanzas>();
-        if (finanzas.kardex.isEmpty) {
-          setState(() {
-            _futureCarga = _cargarDatos(reset: true);
-          });
-        } else {
-           // Datos ya en memoria, le damos un Future completado para evitar reload
-          setState(() {
-             _futureCarga = Future.value();
-          });
-        }
+        // Lanzamos carga inicial (si está vacío, mostrará bloqueante)
+        // Pero siempre refresca en segundo plano.
+        _futureCarga = _cargarDatos(reset: true);
+        setState(() {});
       }
     });
 
@@ -371,6 +365,9 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
              TextField(
                controller: ctrlMonto,
                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+               inputFormatters: [
+                 FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+               ],
                decoration: const InputDecoration(
                  labelText: 'Monto Total (S/)', 
                  prefixIcon: Padding(

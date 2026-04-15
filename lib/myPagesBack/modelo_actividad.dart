@@ -16,13 +16,22 @@ class Actividad {
   });
 
   factory Actividad.desdeMapa(Map<String, dynamic> mapa) {
+    // Parseo seguro de fecha (API devuelve String, mysql1 devolvía DateTime)
+    DateTime fechaCreacion = DateTime.now();
+    final rawFecha = mapa['fecha_creacion'] ?? mapa['fecha_creada'];
+    if (rawFecha is DateTime) {
+      fechaCreacion = rawFecha;
+    } else if (rawFecha != null) {
+      fechaCreacion = DateTime.tryParse(rawFecha.toString()) ?? DateTime.now();
+    }
+
     return Actividad(
-      id: mapa['id'] ?? 0,
-      titulo: mapa['titulo'] ?? '',
-      costo: (mapa['costo'] ?? 0.0).toDouble(),
-      fechaCreada: mapa['fecha_creacion'] ?? mapa['fecha_creada'] ?? DateTime.now(),
+      id: mapa['id'] is int ? mapa['id'] : int.tryParse(mapa['id']?.toString() ?? '0') ?? 0,
+      titulo: mapa['titulo']?.toString() ?? '',
+      costo: (mapa['costo'] is num) ? (mapa['costo'] as num).toDouble() : double.tryParse(mapa['costo']?.toString() ?? '0') ?? 0.0,
+      fechaCreada: fechaCreacion,
       fechaLimite: mapa['fecha_limite'] != null ? DateTime.tryParse(mapa['fecha_limite'].toString()) : null,
-      multaPorDia: (mapa['multa_por_dia'] ?? 0.0).toDouble(),
+      multaPorDia: (mapa['multa_por_dia'] is num) ? (mapa['multa_por_dia'] as num).toDouble() : double.tryParse(mapa['multa_por_dia']?.toString() ?? '0') ?? 0.0,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart'; // REQUIRED FOR DYNAMIC CHARTS
@@ -82,7 +83,10 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
             ),
             const SizedBox(height: 16),
             if (fn.cargando && fn.listaDeudores.isEmpty)
-              const Center(child: CircularProgressIndicator())
+              const Center(child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(),
+              ))
             else if (fn.listaDeudores.isNotEmpty)
               _construirGraficoAportes(alDia, conDeuda),
             
@@ -258,6 +262,9 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
             TextField(
               controller: ctrlMonto,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Monto Total (S/)', 
                 prefixIcon: Padding(

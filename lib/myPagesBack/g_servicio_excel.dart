@@ -4,26 +4,22 @@ import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
-
-import '../myPagesServer/b_base_datos_remota.dart';
+import '../services/api_client.dart' as api_ext;
 
 class ServicioExcel {
   
   /// Genera y comparte el Cierre Contable en Excel
   static Future<bool> exportarYCompartir(BuildContext context) async {
     try {
-      final db = BaseDatosRemota();
-      final conn = await db.obtenerConexion();
-      
-      try {
-        await conn.query('ALTER TABLE DSI_salon_pagos ADD COLUMN admin_id INT(11) NULL');
-      } catch (_) {}
-      
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerDatosExcel', {});
+
+      if (res['ok'] != true) {
+        throw Exception('El servidor rechazó la descarga de datos.');
+      }
+
       // Inicializar Excel
       var excel = Excel.createExcel();
-      
-      // Configurar Formatos
-      final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
       
       // -----------------------------------------------------
       // 1. PESTAÑA: DEUDORES (ESTADO DE ALUMNOS)
@@ -45,29 +41,16 @@ class ServicioExcel {
         TextCellValue('Estado')
       ]);
 
-      String sqlDeudores = '''
-        SELECT 
-            u.id, 
-            u.nombre, 
-            u.rol,
-            u.celular,
-            (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) as total_a_pagar,
-            (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
-        FROM DSI_salon_usuarios u
-        WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
-        ORDER BY (total_a_pagar - total_pagado) DESC
-      ''';
-      
-      var resDeudores = await conn.query(sqlDeudores);
-      for (var row in resDeudores) {
-        double totalPagar = (row['total_a_pagar'] ?? 0.0).toDouble();
-        double totalPagado = (row['total_pagado'] ?? 0.0).toDouble();
+      final deudoresLista = List<Map<String, dynamic>>.from(res['deudores'] ?? []);
+      for (var row in deudoresLista) {
+        double totalPagar = double.tryParse(row['total_a_pagar']?.toString() ?? '0') ?? 0.0;
+        double totalPagado = double.tryParse(row['total_pagado']?.toString() ?? '0') ?? 0.0;
         double deuda = totalPagar - totalPagado;
         
         sheetAlumnos.appendRow([
-          IntCellValue(row['id']),
-          TextCellValue(row['nombre'].toString()),
-          TextCellValue(row['rol'].toString()),
+          IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
+          TextCellValue(row['nombre']?.toString() ?? ''),
+          TextCellValue(row['rol']?.toString() ?? ''),
           TextCellValue(row['celular']?.toString() ?? ''),
           DoubleCellValue(deuda),
           TextCellValue(deuda > 0 ? 'Deudor' : 'Al día'),
@@ -87,27 +70,15 @@ class ServicioExcel {
         TextCellValue('Fecha de Pago')
       ]);
 
-      String sqlPagos = '''
-        SELECT 
-          p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.fecha_pago,
-          admin.nombre as recaudador
-        FROM DSI_salon_pagos p
-        JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
-        JOIN DSI_salon_actividades a ON p.actividad_id = a.id
-        LEFT JOIN DSI_salon_usuarios admin ON p.admin_id = admin.id
-        WHERE p.confirmado = 1
-        ORDER BY p.fecha_pago DESC
-      ''';
-      
-      var resPagos = await conn.query(sqlPagos);
-      for (var row in resPagos) {
+      final pagosLista = List<Map<String, dynamic>>.from(res['pagos'] ?? []);
+      for (var row in pagosLista) {
         sheetPagos.appendRow([
-          IntCellValue(row['id']),
-          TextCellValue(row['alumno'].toString()),
-          TextCellValue(row['actividad'].toString()),
-          DoubleCellValue((row['monto'] ?? 0.0).toDouble()),
+          IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
+          TextCellValue(row['alumno']?.toString() ?? ''),
+          TextCellValue(row['actividad']?.toString() ?? ''),
+          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
           TextCellValue(row['recaudador']?.toString() ?? 'Sistema (Anterior)'),
-          TextCellValue(row['fecha_pago'] != null ? dateFormat.format(row['fecha_pago'] as DateTime) : ''),
+          TextCellValue(row['fecha_pago']?.toString() ?? ''),
         ]);
       }
 
@@ -124,24 +95,15 @@ class ServicioExcel {
         TextCellValue('Fecha de Gasto')
       ]);
 
-      String sqlGastos = '''
-        SELECT 
-          g.id, g.descripcion, a.titulo as actividad, u.nombre as responsable, g.monto, g.fecha_gasto
-        FROM DSI_salon_gastos g
-        LEFT JOIN DSI_salon_actividades a ON g.actividad_id = a.id
-        LEFT JOIN DSI_salon_usuarios u ON g.usuario_id = u.id
-        ORDER BY g.fecha_gasto DESC
-      ''';
-      
-      var resGastos = await conn.query(sqlGastos);
-      for (var row in resGastos) {
+      final gastosLista = List<Map<String, dynamic>>.from(res['gastos'] ?? []);
+      for (var row in gastosLista) {
         sheetGastos.appendRow([
-          IntCellValue(row['id']),
-          TextCellValue(row['descripcion'].toString()),
+          IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
+          TextCellValue(row['descripcion']?.toString() ?? ''),
           TextCellValue(row['actividad']?.toString() ?? 'Gasto General'),
           TextCellValue(row['responsable']?.toString() ?? 'Sistema'),
-          DoubleCellValue((row['monto'] ?? 0.0).toDouble()),
-          TextCellValue(row['fecha_gasto'] != null ? dateFormat.format(row['fecha_gasto'] as DateTime) : ''),
+          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
+          TextCellValue(row['fecha_gasto']?.toString() ?? ''),
         ]);
       }
 
@@ -157,22 +119,14 @@ class ServicioExcel {
         TextCellValue('Fecha de Registro')
       ]);
 
-      String sqlExtras = '''
-        SELECT 
-          i.id, i.descripcion, i.monto, i.fecha_ingreso, u.nombre as responsable
-        FROM DSI_salon_ingresos_extra i
-        LEFT JOIN DSI_salon_usuarios u ON i.admin_id = u.id
-        ORDER BY i.fecha_ingreso DESC
-      ''';
-      
-      var resExtras = await conn.query(sqlExtras);
-      for (var row in resExtras) {
+      final extrasLista = List<Map<String, dynamic>>.from(res['extras'] ?? []);
+      for (var row in extrasLista) {
         sheetExtras.appendRow([
-          IntCellValue(row['id']),
-          TextCellValue(row['descripcion'].toString()),
-          DoubleCellValue((row['monto'] ?? 0.0).toDouble()),
+          IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
+          TextCellValue(row['descripcion']?.toString() ?? ''),
+          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
           TextCellValue(row['responsable']?.toString() ?? 'Sistema'),
-          TextCellValue(row['fecha_ingreso'] != null ? dateFormat.format(row['fecha_ingreso'] as DateTime) : ''),
+          TextCellValue(row['fecha_ingreso']?.toString() ?? ''),
         ]);
       }
 

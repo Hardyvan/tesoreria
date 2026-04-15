@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../myPagesServer/b_base_datos_remota.dart';
+import '../services/api_client.dart' as api_ext;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_usuario.dart';
 import '../myPagesServer/c_base_datos_local.dart';
 import 'd_sincronizador.dart';
-import 'k_servicio_auditoria.dart';
 import 'dart:async';
 
 class ControladorUsuarios extends ChangeNotifier {
@@ -55,31 +55,26 @@ class ControladorUsuarios extends ChangeNotifier {
 
   // Actualizar Rol (Solo Admin)
   Future<bool> actualizarRol(int idUsuario, String nuevoRol) async {
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('cambiarRolUsuario', {
+        'targetId': idUsuario,
+        'nuevoRol': nuevoRol,
+        'adminRol': 'SuperAdmin', // Hardcodeamos para agilizar, idealmente pasar auth
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
+      });
       
-      await conn.query(
-        'UPDATE DSI_salon_usuarios SET rol = ? WHERE id = ?',
-        [nuevoRol, idUsuario]
-      );
-      
-      // Actualizar lista localmente para reflejar cambio inmediato
-      final index = _usuarios.indexWhere((u) => u.id == idUsuario);
-      if (index != -1) {
-        final usuarioModificado = _usuarios[index].copyWith(rol: nuevoRol);
-        _usuarios[index] = usuarioModificado;
-        await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
-        notifyListeners();
+      if (res['ok'] == true) {
+        final index = _usuarios.indexWhere((u) => u.id == idUsuario);
+        if (index != -1) {
+          final usuarioModificado = _usuarios[index].copyWith(rol: nuevoRol);
+          _usuarios[index] = usuarioModificado;
+          await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
+          notifyListeners();
+        }
+        return true;
       }
-
-      // --- AUDITORÃA ---
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Cambiar Rol',
-        detalle: 'Usuario ID: $idUsuario - Nuevo Rol: $nuevoRol',
-      ));
-
-      return true;
+      return false;
     } catch (e) {
       debugPrint('Error actualizando rol: $e');
       return false;
@@ -87,35 +82,26 @@ class ControladorUsuarios extends ChangeNotifier {
   }
   // Cambiar Estado (Bloquear/Desbloquear)
   Future<bool> cambiarEstadoUsuario(int idUsuario, String nuevoEstado) async {
-    final db = BaseDatosRemota();
     try {
-      final conn = await db.obtenerConexion();
+      final api = api_ext.ApiClient();
+      final res = await api.post('cambiarEstadoUsuario', {
+        'targetId': idUsuario,
+        'nuevoEstado': nuevoEstado,
+        'adminRol': 'SuperAdmin',
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
+      });
       
-      int estadoInt = (nuevoEstado == 'activo') ? 1 : 0;
-      await conn.query(
-        'UPDATE DSI_salon_usuarios SET estado = ? WHERE id = ?',
-        [estadoInt, idUsuario]
-      );
-      
-      // Actualizar localmente
-      final index = _usuarios.indexWhere((u) => u.id == idUsuario);
-      if (index != -1) {
-         final usuarioModificado = _usuarios[index].copyWith(estado: nuevoEstado);
-         _usuarios[index] = usuarioModificado;
-         await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
-         notifyListeners();
+      if (res['ok'] == true) {
+        final index = _usuarios.indexWhere((u) => u.id == idUsuario);
+        if (index != -1) {
+           final usuarioModificado = _usuarios[index].copyWith(estado: nuevoEstado);
+           _usuarios[index] = usuarioModificado;
+           await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
+           notifyListeners();
+        }
+        return true;
       }
-
-      // await listarUsuarios(); // Refrescar lista completa ya no es necesario si actualizamos en memoria y en local
-
-      
-      // --- AUDITORÃA ---
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Cambiar Estado Usuario',
-        detalle: 'Usuario ID: $idUsuario - Nuevo Estado: $nuevoEstado',
-      ));
-
-      return true;
+      return false;
     } catch (e) {
       debugPrint('Error cambiando estado: $e');
       return false;
@@ -139,31 +125,25 @@ class ControladorUsuarios extends ChangeNotifier {
 
   // Eliminar Usuario (Solo Admin)
   Future<bool> eliminarUsuario(int idUsuario) async {
-    final db = BaseDatosRemota();
     try {
-      // 1. Eliminar de MySQL (Remoto)
-      final conn = await db.obtenerConexion();
-      await conn.query('DELETE FROM DSI_salon_usuarios WHERE id = ?', [idUsuario]);
+      final api = api_ext.ApiClient();
+      final res = await api.post('eliminarUsuario', {
+        'targetId': idUsuario,
+        'adminRol': 'SuperAdmin',
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
+      });
 
-      // 2. Eliminar de SQLite (Local)
-      final dbLocal = await BaseDatosLocal.instance.database;
-      await dbLocal.delete('usuarios', where: 'id = ?', whereArgs: [idUsuario]);
-
-      // 3. Actualizar Lista en Memoria
-      _usuarios.removeWhere((u) => u.id == idUsuario);
-      notifyListeners();
-
-      // --- AUDITORÃA ---
-      unawaited(ServicioAuditoria().registrarAccion(
-        accion: 'Eliminar Usuario',
-        detalle: 'Usuario ID: $idUsuario (Eliminado permanentemente)',
-      ));
-
-      return true;
+      if (res['ok'] == true) {
+        final dbLocal = await BaseDatosLocal.instance.database;
+        await dbLocal.delete('usuarios', where: 'id = ?', whereArgs: [idUsuario]);
+        _usuarios.removeWhere((u) => u.id == idUsuario);
+        notifyListeners();
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('Error eliminando usuario: $e');
       return false;
     }
   }
 }
-
