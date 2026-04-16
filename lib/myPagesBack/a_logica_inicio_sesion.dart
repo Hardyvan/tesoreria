@@ -117,6 +117,28 @@ class ControladorAuth extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // RECUPERACION DE CONTRASEÑA
+  // ---------------------------------------------------------------------------
+  Future<String?> enviarCorreoRecuperacion(String correo) async {
+    _cargando = true;
+    notifyListeners();
+
+    try {
+      if (correo.trim().isEmpty) return 'Por favor, ingresa tu correo electrónico.';
+      await _authService.enviarCorreoRecuperacion(correo);
+      return null; // OK
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') return 'No hay ningún usuario registrado con este correo.';
+      return 'Error al enviar recuperación: ${e.message}';
+    } catch (e) {
+      return 'Error interno: $e';
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // INICIO DE SESION GOOGLE
   // ---------------------------------------------------------------------------
   Future<String?> ingresarConGoogle() async {

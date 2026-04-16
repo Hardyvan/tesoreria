@@ -31,6 +31,11 @@ class ServicioAutenticacion {
     await user.sendEmailVerification();
   }
 
+  Future<void> enviarCorreoRecuperacion(String email) async {
+    await _auth.setLanguageCode('es'); // Correo en español
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
   Future<UserCredential?> iniciarSesionConGoogle() async {
     final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
     

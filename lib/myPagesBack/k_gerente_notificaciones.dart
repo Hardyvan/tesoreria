@@ -29,7 +29,7 @@ class GerenteNotificaciones {
     tz.initializeTimeZones();
 
     try {
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings = AndroidInitializationSettings('ic_notification');
       const iosSettings = DarwinInitializationSettings();
       const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
 
@@ -69,6 +69,7 @@ class GerenteNotificaciones {
             importance: Importance.max,
             priority: Priority.high,
             color: Color(0xFF003366),
+            icon: 'ic_notification',
           ),
         ),
       );

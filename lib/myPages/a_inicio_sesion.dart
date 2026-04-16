@@ -97,6 +97,23 @@ class _InicioSesionState extends State<InicioSesion> {
                       setStateDialog(() => recordarLocal = val!);
                     },
                   ),
+                  
+                  // OLVIDÉ MI CONTRASEÑA
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _mostrarRecuperarPassword(usuarioCtrl.text);
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(fontSize: 13)),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -144,6 +161,72 @@ class _InicioSesionState extends State<InicioSesion> {
           );
         }
       ),
+    );
+  }
+
+  void _mostrarRecuperarPassword(String correoRecomendado) {
+    final correoCtrl = TextEditingController(text: correoRecomendado);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Recuperar contraseña'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Ingresa tu correo electrónico y te enviaremos un enlace seguro para restablecer tu contraseña.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                CampoTextoPersonalizado(
+                  controller: correoCtrl,
+                  label: 'Correo Electrónico',
+                  prefixIcon: Icons.email,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                     if (v == null || v.isEmpty) return 'El correo es obligatorio';
+                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Correo inválido';
+                     return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext);
+                  final auth = Provider.of<ControladorAuth>(context, listen: false);
+                  final error = await auth.enviarCorreoRecuperacion(correoCtrl.text);
+
+                  if (!mounted) return;
+                  if (error == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Revisa tu bandeja de entrada o SPAM.'), backgroundColor: ColoresApp.exito, duration: Duration(seconds: 4)),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(error), backgroundColor: ColoresApp.error),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white),
+              child: const Text('Enviar Enlace'),
+            ),
+          ],
+        );
+      },
     );
   }
 
