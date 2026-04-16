@@ -5,8 +5,7 @@ import '../services/api_client.dart' as api_ext;
 import 'modelo_pago.dart';
 import 'modelo_gasto.dart';
 import 'modelo_usuario.dart';
-import 'i_servicio_notificaciones.dart';
-import 'j_servicio_notificaciones_secundario.dart' as push;
+import 'k_gerente_notificaciones.dart';
 import 'k_servicio_auditoria.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
@@ -114,9 +113,9 @@ class ControladorFinanzas extends ChangeNotifier {
 
         // --- RECORDATORIO DIARIO ---
         if (_deudaTotal > 0) {
-          unawaited(ServicioNotificaciones().programarRecordatorioDeuda(_deudaTotal));
+          unawaited(GerenteNotificaciones().programarRecordatorioDeuda(_deudaTotal));
         } else {
-          unawaited(ServicioNotificaciones().cancelarRecordatorios());
+          unawaited(GerenteNotificaciones().cancelarRecordatorios());
         }
       }
     } catch (e) {
@@ -220,7 +219,7 @@ class ControladorFinanzas extends ChangeNotifier {
       
       if (res['ok'] == true) {
         try {
-          unawaited(push.ServicioNotificacionesSecundario.enviarPush(
+          unawaited(GerenteNotificaciones.enviarPush(
               tokenDestino: '/topics/tesoreria', 
               titulo: '✅ Nuevo Pago Recibido', 
               cuerpo: 'Se ha registrado un pago de ${pago.montoPagado.toSoles()} del alumno.'
@@ -294,7 +293,7 @@ class ControladorFinanzas extends ChangeNotifier {
       if (res['ok'] == true) {
          try {
             double monto = (res['monto'] as num).toDouble();
-            await push.ServicioNotificacionesSecundario.enviarPush(
+            await GerenteNotificaciones.enviarPush(
               tokenDestino: '/topics/tesoreria',
               titulo: '❌ Pago Anulado', 
               cuerpo: 'Un administrador ha anulado un registro de pago tuyo por ${monto.toSoles()}.'
@@ -310,6 +309,81 @@ class ControladorFinanzas extends ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint('Error eliminando pago: $e');
+      return false;
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // EDICIÓN / ELIMINACIÓN UNIVERSAL (KARDEX)
+  // ---------------------------------------------------------------------------
+
+  Future<bool> editarMovimiento(String tipo, int movId, double nuevoMonto, Usuario adminEjecutor) async {
+    if (tipo == 'I') {
+      return editarPago(movId, nuevoMonto, adminEjecutor);
+    }
+    
+    _cargando = true;
+    notifyListeners();
+
+    try {
+      final api = api_ext.ApiClient();
+      final endpoint = tipo == 'E' ? 'editarGasto' : 'editarIngresoExtra';
+      final paramId = tipo == 'E' ? 'gastoId' : 'ingresoId';
+
+      final res = await api.post(endpoint, {
+        paramId: movId,
+        'nuevoMonto': nuevoMonto,
+        'adminRol': adminEjecutor.rol,
+        'adminId': adminEjecutor.id,
+      });
+
+      if (res['ok'] == true) {
+        invalidarCache();
+        unawaited(obtenerResumenFinanciero());
+        unawaited(obtenerMovimientosKardex(reset: true));
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error editando movimiento extra: $e');
+      return false;
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> eliminarMovimiento(String tipo, int movId, Usuario adminEjecutor) async {
+    if (tipo == 'I') {
+      return eliminarPago(movId, adminEjecutor);
+    }
+
+    _cargando = true;
+    notifyListeners();
+
+    try {
+      final api = api_ext.ApiClient();
+      final endpoint = tipo == 'E' ? 'eliminarGasto' : 'eliminarIngresoExtra';
+      final paramId = tipo == 'E' ? 'gastoId' : 'ingresoId';
+
+      final res = await api.post(endpoint, {
+        paramId: movId,
+        'adminRol': adminEjecutor.rol,
+        'adminId': adminEjecutor.id,
+      });
+
+      if (res['ok'] == true) {
+        invalidarCache();
+        unawaited(obtenerResumenFinanciero());
+        unawaited(obtenerMovimientosKardex(reset: true));
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error eliminando movimiento extra: $e');
       return false;
     } finally {
       _cargando = false;
@@ -343,7 +417,7 @@ class ControladorFinanzas extends ChangeNotifier {
       if (res['ok'] == true) {
         // --- NOTIFICACIÓN GLOBAL ---
         try {
-          unawaited(push.ServicioNotificacionesSecundario.enviarPush(
+          unawaited(GerenteNotificaciones.enviarPush(
             tokenDestino: '/topics/tesoreria',
             titulo: '⚠️ Gasto / Salida de Caja', 
             cuerpo: 'Se ha registrado un gasto de ${gasto.monto.toSoles()} por: ${gasto.descripcion}',
@@ -380,7 +454,7 @@ class ControladorFinanzas extends ChangeNotifier {
       
       if (res['ok'] == true) {
         try {
-          unawaited(push.ServicioNotificacionesSecundario.enviarPush(
+          unawaited(GerenteNotificaciones.enviarPush(
             tokenDestino: '/topics/tesoreria',
             titulo: '🎉 Nuevo Ingreso a Caja', 
             cuerpo: '¡Hemos recibido un abono/donación de ${monto.toSoles()}! ($descripcion)',

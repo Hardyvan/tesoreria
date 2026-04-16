@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'modelo_actividad.dart';
 import 'modelo_usuario.dart';
+import '../myPagesTema/c_formatos.dart';
 import '../services/api_client.dart' as api_ext;
+import 'k_gerente_notificaciones.dart';
 
 class ControladorActividades extends ChangeNotifier {
   List<Actividad> _actividades = [];
@@ -40,8 +43,15 @@ class ControladorActividades extends ChangeNotifier {
           multaPorDia: multaPorDia,
         ));
         
-        // Push notification masiva (sería mejor hacerlo en el back, pero por ahora seguimos lógica front)
-        // ... (Se podría llamar a otro endpoint o dejar que el back lo haga)
+        // Push notification masiva a todos los usuarios del aula
+        try {
+           unawaited(GerenteNotificaciones.enviarPush(
+              tokenDestino: '/topics/tesoreria',
+              titulo: '📢 Nueva Actividad Creada',
+              cuerpo: 'El administrador ha registrado "$titulo" (Costo: ${costo.toSoles()}). ¡Revisa tu estado de cuenta!',
+           ));
+        } catch (_) {}
+        
         return true;
       }
       return false;

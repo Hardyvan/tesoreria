@@ -177,9 +177,9 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
   Widget _construirBalanceGeneral() {
     if (_datosReporte.isEmpty) return const SizedBox();
 
-    final ingresos = _datosReporte['totalIngresos'] ?? 0.0;
-    final gastos = _datosReporte['totalGastos'] ?? 0.0;
-    final utilidad = _datosReporte['utilidadNeta'] ?? 0.0;
+    final double ingresos = (_datosReporte['totalIngresos'] as num?)?.toDouble() ?? 0.0;
+    final double gastos = (_datosReporte['totalGastos'] as num?)?.toDouble() ?? 0.0;
+    final double utilidad = (_datosReporte['utilidadNeta'] as num?)?.toDouble() ?? 0.0;
     
     // Cálculo simple para gráfica de barras
     final double maxVal = ingresos > gastos ? ingresos : gastos;

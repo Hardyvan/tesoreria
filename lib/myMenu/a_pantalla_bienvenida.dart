@@ -7,7 +7,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import '../myPagesBack/a_logica_inicio_sesion.dart';
 import 'c_menu_principal.dart';
 import '../myPages/a_inicio_sesion.dart';
-import '../myPagesBack/i_servicio_notificaciones.dart';
+import '../myPagesBack/k_gerente_notificaciones.dart';
 
 class PantallaBienvenida extends StatefulWidget {
   const PantallaBienvenida({super.key});
@@ -59,7 +59,7 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
       final auth = Provider.of<ControladorAuth>(context, listen: false);
       
       // Iniciamos notificaciones en segundo plano (Fire and forget, no bloquea UI)
-      unawaited(ServicioNotificaciones().inicializar());
+      unawaited(GerenteNotificaciones().inicializar());
       
       await Future.wait([
         _controlador.forward().orCancel,

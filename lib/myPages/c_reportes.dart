@@ -517,7 +517,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
         color: Colors.transparent, // Asegura que el InkWell muestre el efecto Ripple
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: (!esAdmin || !esIngreso) ? null : () async {
+          onTap: !esAdmin ? null : () async {
             final resultado = await showDialog<bool>(
               context: context, 
               builder: (_) => EditarPago(pago: mov)
@@ -571,7 +571,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                         fontSize: 15
                       ),
                     ),
-                    if (esAdmin && esIngreso) ...[
+                    if (esAdmin) ...[
                       const SizedBox(height: 4),
                       Text('Editar', style: GoogleFonts.inter(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600)),
                     ]

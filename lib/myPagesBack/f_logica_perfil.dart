@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart' as api_ext;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_usuario.dart';
-import '../myPagesServer/c_base_datos_local.dart';
+import '../myPagesLocal/c_base_datos_local.dart';
 import 'd_sincronizador.dart';
 import 'dart:async';
 

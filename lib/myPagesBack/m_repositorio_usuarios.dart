@@ -2,7 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'modelo_usuario.dart';
 import '../services/api_client.dart' as api_ext;
-import '../myPagesServer/c_base_datos_local.dart';
+import '../myPagesLocal/c_base_datos_local.dart';
 
 /// Repositorio exclusivo para operaciones con la Base de Datos Remota (vía API), Local y Storage.
 class RepositorioUsuarios {

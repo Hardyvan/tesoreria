@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import '../myPagesServer/c_base_datos_local.dart';
+import '../myPagesLocal/c_base_datos_local.dart';
 import 'modelo_usuario.dart';
 import '../services/api_client.dart' as api_ext;
 
@@ -54,55 +54,10 @@ class Sincronizador {
     }
   }
 
-  // 2. SUBIR CAMBIOS PENDIENTES (SQLite -> API)
+  // 2. SUBIR CAMBIOS PENDIENTES (OBSOLETO - API FIRST)
   Future<void> subirCambios() async {
-    try {
-      final pendientes = await _dbLocal.obtenerNoSincronizados();
-      final pagosPendientes = await _dbLocal.obtenerPagosNoSincronizados();
-
-      if (pendientes.isNotEmpty || pagosPendientes.isNotEmpty) {
-        final api = api_ext.ApiClient();
-        
-        final listUsers = pendientes.map((u) => {
-          'id': u.id,
-          'celular': u.celular,
-          'direccion': u.direccion,
-          'edad': u.edad,
-          'sexo': u.sexo,
-          'updatedAt': u.updatedAt?.toIso8601String()
-        }).toList();
-
-        final listPagos = pagosPendientes.map((p) => {
-          'usuarioId': p.usuarioId,
-          'actividadId': p.actividadId,
-          'montoPagado': p.montoPagado,
-          'fechaPago': p.fechaPago.toIso8601String(),
-          'metodoPago': p.metodoPago,
-          'confirmado': p.confirmado
-        }).toList();
-
-        final res = await api.post('sincronizarLoteOffline', {
-          'usuarios': listUsers,
-          'pagos': listPagos
-        });
-
-        if (res['ok'] == true) {
-          for (var user in pendientes) {
-             await _dbLocal.marcarSincronizado(user.id);
-          }
-          for (var pago in pagosPendientes) {
-             await _dbLocal.marcarPagoSincronizado(pago.id, 0); 
-          }
-          debugPrint('✅ Todos los cambios pendientes fueron subidos y marcados.');
-        } else {
-          debugPrint('❌ El API rechazó la subida por lotes.');
-        }
-      } else {
-        debugPrint('✅ No hay cambios pendientes por subir.');
-      }
-    } catch (e) {
-      debugPrint('❌ Error subiendo cambios: $e');
-    }
+    debugPrint('⚠️ La subida por lotes ha sido deshabilitada para forzar consistencia de datos (Online-First).');
+    // Para asegurar integridad, toda transacción de dinero y rol debe ocurrir con Internet activo.
   }
 
   // 3. SINCRONIZACIÓN COMPLETA

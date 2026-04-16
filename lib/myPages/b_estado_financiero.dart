@@ -545,8 +545,11 @@ class _EditarPagoState extends State<EditarPago> {
 
   @override
   Widget build(BuildContext context) {
+    String tipoMov = widget.pago['tipo'] ?? 'I';
+    String etiqTipo = tipoMov == 'I' ? 'Pago' : (tipoMov == 'E' ? 'Gasto' : 'Ingreso Extra');
+
     return AlertDialog(
-      title: const Text('Editar Pago'),
+      title: Text('Editar $etiqTipo'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,16 +613,23 @@ class _EditarPagoState extends State<EditarPago> {
 
     if (auth.usuarioActual == null) return;
 
+    String tipoMov = widget.pago['tipo'] ?? 'I';
+    String etiqTipo = tipoMov == 'I' ? 'Pago' : (tipoMov == 'E' ? 'Gasto' : 'Ingreso Extra');
+
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('¿Anular registro de pago?'),
-        content: const Text('Esta acción eliminará el registro monetario del sistema permanentemente.\n\nSe enviará una notificación push instantánea al alumno informándole que este pago fue anulado de su estado de cuenta.'),
+        title: Text('¿Anular registro de $etiqTipo?'),
+        content: Text(
+          tipoMov == 'I' 
+            ? 'Esta acción eliminará el registro monetario del sistema permanentemente.\n\nSe enviará una notificación push instantánea al alumno informándole que este pago fue anulado de su estado de cuenta.'
+            : 'Esta acción eliminará el registro de este $etiqTipo del balance financiero y se guardará el rastro en el registro de auditoría. ¿Continuar?'
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mantener Pago')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mantener')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text('Sí, Anular Pago', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+            child: Text('Sí, Anular $etiqTipo', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
           ),
         ],
       )
@@ -628,12 +638,13 @@ class _EditarPagoState extends State<EditarPago> {
     if (confirmar != true) return;
 
     _guardando.value = true;
-    final exito = await finanzas.eliminarPago(widget.pago['id'], auth.usuarioActual!);
+    int pagoId = int.tryParse((widget.pago['id_movimiento'] ?? widget.pago['id']).toString()) ?? 0;
+    final exito = await finanzas.eliminarMovimiento(tipoMov, pagoId, auth.usuarioActual!);
 
     if (mounted) {
       _guardando.value = false;
       if (exito) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago anulado. Notificación enviada al alumno.'), backgroundColor: Colors.green));
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$etiqTipo anulado correctamente.'), backgroundColor: Colors.green));
          Navigator.pop(context, true); // true actualiza la tabla inferior
       } else {
          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hubo un error al intentar anular el registro.'), backgroundColor: Colors.red));
@@ -661,7 +672,9 @@ class _EditarPagoState extends State<EditarPago> {
        return;
     }
 
-    final exito = await finanzas.editarPago(widget.pago['id'], nuevoMonto, auth.usuarioActual!);
+    int pagoId = int.tryParse((widget.pago['id_movimiento'] ?? widget.pago['id']).toString()) ?? 0;
+    String tipoMov = widget.pago['tipo'] ?? 'I';
+    final exito = await finanzas.editarMovimiento(tipoMov, pagoId, nuevoMonto, auth.usuarioActual!);
 
     if (mounted) {
       _guardando.value = false;

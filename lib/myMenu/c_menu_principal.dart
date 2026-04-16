@@ -182,19 +182,19 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                 Navigator.pushNamed(context, '/reportes');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Reportes Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Gráficas y estadísticas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+              iconColor: Theme.of(context).primaryColor,
+              textColor: Theme.of(context).primaryColor,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/reportes_avanzados');
+              },
+            ),
             if (auth.usuarioActual?.rol == 'SuperAdmin' || auth.usuarioActual?.rol == 'Admin') ...[
               const Divider(),
-              ListTile(
-                leading: const Icon(Icons.bar_chart),
-                title: const Text('Reportes Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Gráficas y estadísticas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
-                iconColor: Theme.of(context).primaryColor,
-                textColor: Theme.of(context).primaryColor,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/reportes_avanzados');
-                },
-              ),
               if (auth.usuarioActual?.rol == 'SuperAdmin')
                 ListTile(
                   leading: Icon(Icons.security, color: Theme.of(context).colorScheme.error),
