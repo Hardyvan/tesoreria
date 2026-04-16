@@ -12,8 +12,8 @@ class AyudantesFormato {
   static final DateFormat _fechaCorta = DateFormat('dd/MM', _locale);
 
   static String precio(double? monto) {
-    // Forzamos el símbolo al inicio manualmente para evitar variaciones por locale del sistema
-    final fmt = NumberFormat.currency(locale: _locale, symbol: '', decimalDigits: 2);
+    // Usamos 'en_US' localmente aquí para forzar el PUNTO en decimales y COMA en miles
+    final fmt = NumberFormat.currency(locale: 'en_US', symbol: '', decimalDigits: 2);
     return 'S/ ${fmt.format(monto ?? 0).trim()}';
   }
 

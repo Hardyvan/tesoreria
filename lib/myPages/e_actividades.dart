@@ -213,8 +213,16 @@ class _GestionActividadesState extends State<GestionActividades> {
                       Text('Costo: ${actividad.costo.toSoles()}'),
                       if (actividad.fechaLimite != null)
                         Text(
-                          '⚠️ Límite: ${actividad.fechaLimite!.day.toString().padLeft(2,'0')}/${actividad.fechaLimite!.month.toString().padLeft(2,'0')}/${actividad.fechaLimite!.year}  •  Multa: ${actividad.multaPorDia.toSoles()}/día',
-                          style: const TextStyle(color: Colors.orange, fontSize: 12),
+                          '⚠️ Límite: ${actividad.fechaLimite!.day.toString().padLeft(2,'0')}/${actividad.fechaLimite!.month.toString().padLeft(2,'0')}/${actividad.fechaLimite!.year}',
+                          style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      if (actividad.fechaLimite != null && actividad.multaPorDia > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            'Multa: ${actividad.multaPorDia.toSoles()}/día',
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
                         ),
                     ],
                   ),

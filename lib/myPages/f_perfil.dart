@@ -10,6 +10,7 @@ import 'dart:async';
 import '../myPagesTema/c_formatos.dart';
 import '../myPagesBack/f_logica_perfil.dart';
 import '../myPagesBack/modelo_usuario.dart';
+import '../myPagesBack/b_logica_estado_financiero.dart';
 
 class PerfilUsuario extends StatelessWidget {
   const PerfilUsuario({super.key});
@@ -468,6 +469,11 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
         title: const Text('Gestión de Usuarios'),
         centerTitle: true,
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _mostrarDialogoCrearAlumno(context),
+        icon: const Icon(Icons.person_add),
+        label: const Text('Crear Manual'),
+      ),
       body: FutureBuilder<void>(
         future: _futureUsuarios,
         builder: (context, snapshot) {
@@ -513,6 +519,53 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
           );
         },
       ),
+    );
+  }
+
+  void _mostrarDialogoCrearAlumno(BuildContext context) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Crear Alumno Offline'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            labelText: 'Nombre Completo',
+            hintText: 'Ej. Juan Pérez',
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (ctrl.text.trim().isEmpty) return;
+              Navigator.pop(dialogCtx);
+              
+              final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
+              final exito = await finanzas.registrarAlumnoOffline(ctrl.text.trim());
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(exito ? 'Alumno registrado correctamente' : 'Error al crear alumno (Verifica internet)'),
+                    backgroundColor: exito ? Colors.green : Colors.red,
+                  )
+                );
+                if (exito) {
+                   // Refrescar lista visual
+                   Provider.of<ControladorUsuarios>(context, listen: false).listarUsuarios();
+                }
+              }
+            },
+            child: const Text('Crear Alumno'),
+          ),
+        ],
+      )
     );
   }
 }

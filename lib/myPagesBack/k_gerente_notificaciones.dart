@@ -40,7 +40,7 @@ class GerenteNotificaciones {
 
     try {
       await _fcm.requestPermission(alert: true, badge: true, sound: true);
-      await _fcm.subscribeToTopic('general');
+      await _fcm.subscribeToTopic('tesoreria');
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         _mostrarNotificacionLocal(message);
