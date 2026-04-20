@@ -8,8 +8,8 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
-  // Ruta hacia el nuevo gateway
-  String get _gatewayUrl => dotenv.env['API_GATEWAY_URL'] ?? 'https://api.insoft.com.pe/pollito/upload/api_tesoreria/gateway.php';
+  // Ruta hacia el router central (refactorizado)
+  String get _gatewayUrl => dotenv.env['API_GATEWAY_URL'] ?? 'https://api.insoft.com.pe/pollito/upload/api_tesoreria/index.php';
   
   final String _secretKey = 'Insoft2026_SecureKey';
 

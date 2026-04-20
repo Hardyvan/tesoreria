@@ -1,23 +1,48 @@
+# =============================================
+# CONFIGURACIÓN DEL SERVIDOR - TESORERÍA API
+# =============================================
+
 # Evitar redirect 301 de DirectorySlash
 DirectorySlash Off
 
-# CORS para Flutter
-<IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
-    Header set Access-Control-Allow-Headers "Authorization, Content-Type"
-</IfModule>
-
-# Preflight OPTIONS
-RewriteEngine On
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ $1 [R=200,L]
-
-# Ocultar listado de directorio
+# Ocultar listado de directorios
 Options -Indexes
 
-# Bloquear acceso a archivos sensibles de configuración
-<FilesMatch "^\.env|config\.ini$">
+# =============================================
+# BLOQUEAR ACCESO A ARCHIVOS Y CARPETAS SENSIBLES
+# =============================================
+
+# Bloquea .env, .gitignore, logs, gateway.php, db.php, etc.
+<FilesMatch "(^\.env$|^\.env\..*|^\.gitignore$|^\.git$|\.log$|gateway\.php$|db\.php$)">
     Order allow,deny
     Deny from all
 </FilesMatch>
+
+# Bloquea acceso directo a carpetas internas
+RewriteEngine On
+RewriteRule ^config/ - [F,L]
+RewriteRule ^middleware/ - [F,L]
+RewriteRule ^routes/ - [F,L]
+
+# =============================================
+# CORS PARA FLUTTER
+# =============================================
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept"
+</IfModule>
+
+# Manejo de preflight OPTIONS
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# =============================================
+# REDIRECCIÓN A ROUTER CENTRAL (index.php)
+# =============================================
+
+# Si no es un archivo real y no es un directorio real...
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+# ...redirigir todo a index.php
+RewriteRule ^(.*)$ index.php [QSA,L]

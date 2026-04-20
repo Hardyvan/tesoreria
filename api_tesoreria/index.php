@@ -1,129 +1,140 @@
 <?php
-// BÚNKER DE SEGURIDAD - API DE SUBIDA
+/**
+ * Router Central - Tesorería API
+ * Punto de entrada único para Lógica y Subidas
+ */
+
 header('Content-Type: application/json; charset=utf-8');
 
-// 1. VERIFICAR LLAVE DE SEGURIDAD (API KEY)
-$secret_key = "Insoft2026_SecureKey";
-$headers = apache_request_headers();
+// 1. Configuración CORS Profesional
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Authorization, Content-Type, Accept");
 
-$auth_header = isset($headers['Authorization']) ? $headers['Authorization'] : 
-              (isset($headers['authorization']) ? $headers['authorization'] : '');
-
-if ($auth_header !== "Bearer " . $secret_key) {
-    http_response_code(401);
-    echo json_encode(['ok' => false, 'msj' => 'Acceso denegado. Credenciales inválidas.']);
+// Preflight OPTIONS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit;
 }
 
-// 2. CONFIGURACIÓN DE SUBIDA
-$target_dir = "uploads/";
-if (!is_dir($target_dir)) {
-    mkdir($target_dir, 0755, true);
-    
-    // Auto-generador del .htaccess de seguridad en la carpeta uploads
-    $htaccess_path = $target_dir . ".htaccess";
-    if (!file_exists($htaccess_path)) {
-        $htaccess_content = "php_flag engine 0\n" .
-                            "RemoveHandler .phtml .php .php3 .php4 .php5 .php6 .phps .cgi .exe .pl .asp .aspx .shtml .shtm .fcgi .fpl .jsp .htm .html .wml\n" .
-                            "AddType application/x-httpd-php-source .phtml .php .php3 .php4 .php5 .php6 .phps .cgi .exe .pl .asp .aspx .shtml .shtm .fcgi .fpl .jsp .htm .html .wml\n" .
-                            "Options -Indexes -ExecCGI\n";
-        file_put_contents($htaccess_path, $htaccess_content);
-    }
+// 2. Cargar dependencias core
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/middleware/auth.php';
+
+// 3. Verificar seguridad (API Key)
+verificarSeguridadAPI();
+
+// 4. Leer datos (JSON o FORM-DATA)
+$data = json_decode(file_get_contents('php://input'), true);
+if (!$data) {
+    $data = $_POST;
 }
 
-// 3. RECIBIR EL ARCHIVO
-if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+// 5. Determinar la acción
+$accion = $data['accion'] ?? null;
+
+// Soporte para subida de archivos (el antiguo index.php de Tesorería se llamaba sin 'accion')
+if (!$accion && isset($_FILES['archivo'])) {
+    $accion = 'subir_archivo';
+}
+
+if (!$accion) {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'msj' => 'No se recibió ningún archivo o hubo un error en la transmisión.']);
+    echo json_encode(['ok' => false, 'msj' => 'Acción no especificada en Tesorería.']);
     exit;
 }
 
-$file = $_FILES['archivo'];
+// 6. Obtener conexión a BD
+$pdo = getDBConnection();
 
-// 4. VALIDACIÓN ESTRICTA DE SEGURIDAD (Lista Blanca y finfo)
-$max_size = 15 * 1024 * 1024; // 15 MB limit
-if ($file['size'] > $max_size) {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'msj' => 'El archivo supera el límite máximo permitido (15MB).']);
-    exit;
+// 7. PARCHE GLOBAL DE SEGURIDAD (Recuperación de adminRol)
+// Garantiza que el backend use el Rol real de la BD si el APK falla al enviarlo.
+$adminId = 0; $adminRol = '';
+if (isset($data['adminUid']) && !empty($data['adminUid'])) {
+    $stmtRol = $pdo->prepare("SELECT id, rol FROM DSI_salon_usuarios WHERE uid = ?");
+    $stmtRol->execute([$data['adminUid']]);
+    $rowRol = $stmtRol->fetch();
+    if ($rowRol) { $adminRol = $rowRol['rol']; $adminId = (int)$rowRol['id']; }
+} elseif (isset($data['adminId']) && (int)$data['adminId'] > 0) {
+    $stmtRol = $pdo->prepare("SELECT id, rol FROM DSI_salon_usuarios WHERE id = ?");
+    $stmtRol->execute([(int)$data['adminId']]);
+    $rowRol = $stmtRol->fetch();
+    if ($rowRol) { $adminRol = $rowRol['rol']; $adminId = (int)$data['adminId']; }
 }
 
-// Lista Blanca Estricta de Extensiones (en minúsculas)
-$allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4', 'mp3', 'mpeg'];
-$file_info = pathinfo($file['name']);
-$extension = isset($file_info['extension']) ? strtolower($file_info['extension']) : '';
-
-if (!in_array($extension, $allowed_extensions, true)) {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'msj' => 'Tipo de archivo no permitido.']);
-    exit;
-}
-
-// Validación de Tipo MIME con finfo (Lectura de bytes a bajo nivel)
-// Requiere que la extensión 'fileinfo' esté habilitada en el servidor (normalmente lo está)
-if (function_exists('finfo_open')) {
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime_type = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
-} else {
-    // Fallback básico si finfo no está disponible (menos seguro pero necesario en algunos Hostings)
-    $mime_type = mime_content_type($file['tmp_name']);
-}
-
-$allowed_mime_types = [
-    'image/jpeg', 
-    'image/png', 
-    'image/webp', 
-    'application/pdf', 
-    'video/mp4', 
-    'audio/mpeg'
-];
-
-if (!in_array($mime_type, $allowed_mime_types, true)) {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'msj' => 'El contenido interno del archivo no coincide con un formato seguro.']);
-    exit;
-}
-
-// Correlación de extensión y MIME tipo (Evita un PDF oculto como JPG)
-$valid_mime_ext = false;
-if (strpos($mime_type, 'image/') === 0 && in_array($extension, ['jpg', 'jpeg', 'png', 'webp'])) $valid_mime_ext = true;
-if ($mime_type === 'application/pdf' && $extension === 'pdf') $valid_mime_ext = true;
-if ($mime_type === 'video/mp4' && $extension === 'mp4') $valid_mime_ext = true;
-if (strpos($mime_type, 'audio/') === 0 && in_array($extension, ['mp3', 'mpeg'])) $valid_mime_ext = true;
-
-if (!$valid_mime_ext) {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'msj' => 'Inconsistencia entre extensión y contenido del archivo.']);
-    exit;
-}
-
-// 5. GENERAR NOMBRE SEGURO Y ÚNICO
-// Evitar Traversal Path (../) o Null Byte (%00)
+// 8. Enrutamiento modular
 try {
-    $clean_name = bin2hex(random_bytes(16)) . '_' . time() . '.' . $extension;
+    switch ($accion) {
+        // Finanzas y Reportes
+        case 'obtenerResumenGeneral':
+        case 'obtenerHistorialKardex':
+        case 'obtenerMetasActividades':
+        case 'obtenerReporteAvanzado':
+        case 'obtenerReporteDeudores':
+        case 'obtenerDatosExcel':
+        case 'establecerFondoBase':
+            require_once __DIR__ . '/routes/finanzas.php';
+            break;
+
+        // Pagos
+        case 'registrarPago':
+        case 'editarPago':
+        case 'eliminarPago':
+        case 'obtenerDatosFinanzasUsuario':
+        case 'obtenerDetallePagosPorActividad':
+            require_once __DIR__ . '/routes/pagos.php';
+            break;
+
+        // Actividades
+        case 'listarActividades':
+        case 'crearActividad':
+        case 'editarActividad':
+        case 'eliminarActividad':
+        case 'obtenerActividadesSimplificadas':
+            require_once __DIR__ . '/routes/actividades.php';
+            break;
+
+        // Gastos
+        case 'registrarGasto':
+        case 'editarGasto':
+        case 'eliminarGasto':
+        case 'editarIngresoExtra':
+        case 'eliminarIngresoExtra':
+            require_once __DIR__ . '/routes/gastos.php';
+            break;
+
+        // Usuarios
+        case 'sincronizarUsuarioBD':
+        case 'guardarPerfilCompletado':
+        case 'listarUsuariosCompleto':
+        case 'cambiarRolUsuario':
+        case 'eliminarUsuario':
+        case 'actualizarElementoUsuario':
+        case 'sincronizarLoteOffline':
+            require_once __DIR__ . '/routes/usuarios.php';
+            break;
+
+        // Mantenimiento y Sistema
+        case 'ping':
+        case 'debug_schema':
+        case 'registrarAccion':
+        case 'obtenerLogsAuditoria':
+        case 'vaciarAuditoria':
+        case 'obtenerResumenCaja':
+            require_once __DIR__ . '/routes/mantenimiento.php';
+            break;
+
+        // Subida de archivos
+        case 'subir_archivo':
+            require_once __DIR__ . '/routes/uploads.php';
+            break;
+
+        default:
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'msj' => "Acción desconocida en Tesorería: '$accion'"]);
+            break;
+    }
 } catch (Exception $e) {
-    $clean_name = md5(uniqid(rand(), true)) . '_' . time() . '.' . $extension;
-}
-$target_path = $target_dir . $clean_name;
-
-// 6. MOVER ARCHIVO FÍSICAMENTE AL SERVIDOR
-if (move_uploaded_file($file['tmp_name'], $target_path)) {
-    // Generar la URL final absoluta para que Flutter la pueda leer directamente
-    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
-    $host = $_SERVER['HTTP_HOST'];
-    $dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
-    
-    $file_url = $protocol . "://" . $host . $dir . "/" . $target_dir . $clean_name;
-
-    echo json_encode([
-        'ok' => true, 
-        'msj' => 'Archivo subido y blindado exitosamente.',
-        'url' => $file_url,
-        'filename' => $clean_name
-    ]);
-} else {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'msj' => 'Error de escritura en el disco del servidor.']);
+    echo json_encode(['ok' => false, 'msj' => 'Error Interno Tesorería: ' . $e->getMessage()]);
 }
-?>
