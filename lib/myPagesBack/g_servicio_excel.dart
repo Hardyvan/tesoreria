@@ -37,6 +37,7 @@ class ServicioExcel {
         TextCellValue('Nombre'), 
         TextCellValue('Rol'), 
         TextCellValue('Celular'), 
+        TextCellValue('Total Pagado (S/)'), 
         TextCellValue('Deuda Total (S/)'), 
         TextCellValue('Estado')
       ]);
@@ -52,6 +53,7 @@ class ServicioExcel {
           TextCellValue(row['nombre']?.toString() ?? ''),
           TextCellValue(row['rol']?.toString() ?? ''),
           TextCellValue(row['celular']?.toString() ?? ''),
+          DoubleCellValue(totalPagado),
           DoubleCellValue(deuda),
           TextCellValue(deuda > 0 ? 'Deudor' : 'Al día'),
         ]);
@@ -65,7 +67,9 @@ class ServicioExcel {
         TextCellValue('ID Pago'), 
         TextCellValue('Alumno'), 
         TextCellValue('Actividad'), 
+        TextCellValue('Método de Pago'), 
         TextCellValue('Monto Pagado (S/)'), 
+        TextCellValue('Mora Pagada (S/)'), 
         TextCellValue('Recaudador / Cajero'),
         TextCellValue('Fecha de Pago')
       ]);
@@ -76,7 +80,9 @@ class ServicioExcel {
           IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
           TextCellValue(row['alumno']?.toString() ?? ''),
           TextCellValue(row['actividad']?.toString() ?? ''),
+          TextCellValue(row['metodo_pago']?.toString() ?? 'Efectivo'),
           DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
+          DoubleCellValue(double.tryParse(row['monto_multa']?.toString() ?? '0') ?? 0.0),
           TextCellValue(row['recaudador']?.toString() ?? 'Sistema (Anterior)'),
           TextCellValue(row['fecha_pago']?.toString() ?? ''),
         ]);
@@ -92,6 +98,7 @@ class ServicioExcel {
         TextCellValue('Actividad Imputada'), 
         TextCellValue('Responsable (Registrado por)'),
         TextCellValue('Monto Gastado (S/)'), 
+        TextCellValue('Tiene Comprobante?'),
         TextCellValue('Fecha de Gasto')
       ]);
 
@@ -103,6 +110,7 @@ class ServicioExcel {
           TextCellValue(row['actividad']?.toString() ?? 'Gasto General'),
           TextCellValue(row['responsable']?.toString() ?? 'Sistema'),
           DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
+          TextCellValue((row['comprobante_url'] != null && row['comprobante_url'].toString().trim().isNotEmpty) ? 'Sí' : 'No'),
           TextCellValue(row['fecha_gasto']?.toString() ?? ''),
         ]);
       }

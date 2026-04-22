@@ -26,6 +26,7 @@ class ReporteFinanciero extends StatefulWidget {
 class _ReporteFinancieroState extends State<ReporteFinanciero> {
   Future<void>? _futureCarga;
   final ScrollController _scrollController = ScrollController();
+  int _seccionTocada = -1;
 
   @override
   void initState() {
@@ -198,7 +199,15 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withAlpha(200),
+            const Color(0xFF1E3C72),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         boxShadow: [
           BoxShadow(
@@ -254,8 +263,8 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            'S/ ${finanzas.saldoCaja.toStringAsFixed(2)}',
+          _ContadorAnimado(
+            valorFinal: finanzas.saldoCaja,
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 36,
@@ -282,11 +291,11 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      'S/ ${finanzas.totalIngresos.toStringAsFixed(2)}',
+                    _ContadorAnimado(
+                      valorFinal: finanzas.totalIngresos,
                       style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    if (finanzas.fondoBase > 0) ...[
+                    if (finanzas.fondoBase > 0 || finanzas.fondoBaseMotivo.isNotEmpty) ...[
                        const SizedBox(height: 12),
                        Row(
                          children: [
@@ -300,8 +309,8 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                          ],
                        ),
                        const SizedBox(height: 4),
-                       Text(
-                         'S/ ${finanzas.fondoBase.toStringAsFixed(2)}',
+                       _ContadorAnimado(
+                         valorFinal: finanzas.fondoBase,
                          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                        ),
                        Text(
@@ -333,8 +342,8 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        'S/ ${finanzas.totalGastos.toStringAsFixed(2)}',
+                      _ContadorAnimado(
+                        valorFinal: finanzas.totalGastos,
                         style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ],
@@ -437,25 +446,40 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
             height: 200,
             child: PieChart(
               PieChartData(
+                pieTouchData: PieTouchData(
+                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                    setState(() {
+                      if (!event.isInterestedForInteractions ||
+                          pieTouchResponse == null ||
+                          pieTouchResponse.touchedSection == null) {
+                        _seccionTocada = -1;
+                        return;
+                      }
+                      _seccionTocada = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                    });
+                  },
+                ),
                 sectionsSpace: 2,
                 centerSpaceRadius: 40,
                 sections: [
                   PieChartSectionData(
                     color: Colors.greenAccent.shade700,
                     value: finanzas.totalIngresos,
-                    title: 'Ingresos',
-                    radius: 50,
+                    title: _seccionTocada == 0 ? 'S/${finanzas.totalIngresos.toStringAsFixed(0)}' : 'Ingresos',
+                    radius: _seccionTocada == 0 ? 60.0 : 50.0,
                     titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   PieChartSectionData(
                     color: Colors.redAccent.shade700,
                     value: finanzas.totalGastos,
-                    title: 'Gastos',
-                    radius: 50,
+                    title: _seccionTocada == 1 ? 'S/${finanzas.totalGastos.toStringAsFixed(0)}' : 'Gastos',
+                    radius: _seccionTocada == 1 ? 60.0 : 50.0,
                     titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ],
               ),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeInOutBack,
             ),
           ),
         ],
@@ -582,6 +606,24 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ContadorAnimado extends StatelessWidget {
+  final double valorFinal;
+  final TextStyle style;
+  const _ContadorAnimado({required this.valorFinal, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: valorFinal),
+      duration: const Duration(milliseconds: 1500),
+      curve: Curves.easeOutQuart,
+      builder: (context, val, _) {
+        return Text('S/ ${val.toStringAsFixed(2)}', style: style);
+      },
     );
   }
 }

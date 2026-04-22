@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_client.dart' as api_ext;
 import 'modelo_pago.dart';
@@ -166,7 +166,8 @@ class ControladorFinanzas extends ChangeNotifier {
                'id': row['pago_id'],
                'fecha': row['fecha_pago'],
                'monto': monto,
-               'multa': multa
+               'multa': multa,
+               'metodo_pago': row['metodo_pago'] ?? 'Efectivo'
             });
             agrupado[idActividad]!['total_pagado'] += monto;
           }
@@ -218,12 +219,22 @@ class ControladorFinanzas extends ChangeNotifier {
       });
       
       if (res['ok'] == true) {
+        unawaited(HapticFeedback.lightImpact());
         try {
-          unawaited(GerenteNotificaciones.enviarPush(
-              tokenDestino: '/topics/tesoreria', 
-              titulo: '✅ Nuevo Pago Recibido', 
-              cuerpo: 'Se ha registrado un pago de ${pago.montoPagado.toSoles()} del alumno.'
-          ));
+          final tokenUsuario = res['fcmTokenUsuario'];
+          if (tokenUsuario != null && tokenUsuario.toString().isNotEmpty) {
+            unawaited(GerenteNotificaciones.enviarPush(
+                tokenDestino: tokenUsuario.toString(), 
+                titulo: '✅ Pago Registrado', 
+                cuerpo: 'Se ha registrado tu abono de ${pago.montoPagado.toSoles()}.'
+            ));
+          } else {
+            unawaited(GerenteNotificaciones.enviarPush(
+                tokenDestino: '/topics/tesoreria', 
+                titulo: '✅ Nuevo Pago Recibido', 
+                cuerpo: 'Se ha registrado un pago de ${pago.montoPagado.toSoles()} del alumno.'
+            ));
+          }
         } catch (_) {}
         
         // Auto-refresh: recargar todos los datos afectados
@@ -415,6 +426,7 @@ class ControladorFinanzas extends ChangeNotifier {
       });
       
       if (res['ok'] == true) {
+        unawaited(HapticFeedback.lightImpact());
         // --- NOTIFICACIÓN GLOBAL ---
         try {
           unawaited(GerenteNotificaciones.enviarPush(
@@ -551,10 +563,20 @@ class ControladorFinanzas extends ChangeNotifier {
       });
       
       if (res['ok'] == true) {
+        unawaited(HapticFeedback.lightImpact());
         unawaited(ServicioAuditoria().registrarAccion(
           accion: 'Aperturar Caja',
           detalle: 'Monto: ${monto.toSoles()} - Motivo: $motivo',
         ));
+        
+        try {
+          unawaited(GerenteNotificaciones.enviarPush(
+              tokenDestino: '/topics/tesoreria', 
+              titulo: '🏦 Caja Aperturada', 
+              cuerpo: 'La caja se ha inicializado con S/ ${monto.toStringAsFixed(2)}. Detalle: $motivo'
+          ));
+        } catch (_) {}
+
         await obtenerResumenFinanciero();
         return true;
       }

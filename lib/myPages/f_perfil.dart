@@ -558,7 +558,7 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
                 );
                 if (exito) {
                    // Refrescar lista visual
-                   Provider.of<ControladorUsuarios>(context, listen: false).listarUsuarios();
+                   unawaited(Provider.of<ControladorUsuarios>(context, listen: false).listarUsuarios());
                 }
               }
             },

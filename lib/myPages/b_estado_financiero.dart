@@ -8,6 +8,8 @@ import '../myPagesTema/e_termometro.dart';
 import '../myPagesTema/c_formatos.dart'; // Import Added
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../myPagesBack/f_logica_perfil.dart';
 import '../../myPagesBack/e_logica_actividades.dart';
 import '../../myPagesBack/modelo_usuario.dart';
@@ -201,6 +203,26 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                             ],
                           ),
                         ),
+                        if (esDeudor && esAdmin)
+                          IconButton(
+                            icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.green, size: 28),
+                            onPressed: () async {
+                               final telefono = alumno['celular']?.toString() ?? '';
+                               if (telefono.isEmpty || telefono.length < 9) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El alumno no tiene un número válido registrado.')));
+                                  return;
+                               }
+                               final numero = telefono.startsWith('51') ? telefono : '51$telefono';
+                               final mensaje = 'Hola ${alumno['nombre']}, te escribe la tesorería del salón. Recuerda que tienes un saldo pendiente de ${montoDeuda.toSoles()}. Por favor, regulariza tu pago lo antes posible.';
+                               final uri = Uri.parse('whatsapp://send?phone=$numero&text=${Uri.encodeComponent(mensaje)}');
+                               if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                               } else {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
+                               }
+                            },
+                          ),
                         if (esAdmin) 
                           Container(
                             padding: const EdgeInsets.all(8),
@@ -443,7 +465,7 @@ class _RegistroPagosState extends State<RegistroPagos> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '⚠️ Pago tardío: $diasAtraso días × ${actSel.multaPorDia.toSoles()} = Multa ${montoMulta.toSoles()}\nSe añadirá automáticamente al registrar.',
+                                '⚠️ Pago tardío: $diasAtraso días × ${actSel.multaPorDia.toSoles()} = Mora ${montoMulta.toSoles()}\nSe añadirá automáticamente al registrar.',
                                 style: const TextStyle(color: Colors.deepOrange, fontSize: 12, height: 1.4),
                               ),
                             ),

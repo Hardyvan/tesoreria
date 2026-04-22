@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // 1. VERIFICAR LLAVE DE SEGURIDAD (API KEY)
-$secret_key = "Insoft2026_SecureKey";
+$secret_key = $_ENV['API_SECRET_KEY'] ?? "Insoft2026_SecureKey";
 $headers = apache_request_headers();
 $auth_header = isset($headers['Authorization']) ? $headers['Authorization'] : (isset($headers['authorization']) ? $headers['authorization'] : '');
 
@@ -182,7 +182,7 @@ try {
             $stmt = $pdo->prepare("
                 SELECT 
                   a.id as actividad_id, a.titulo, a.costo, 
-                  p.id as pago_id, p.monto, p.monto_multa, p.fecha_pago
+                  p.id as pago_id, p.monto, p.monto_multa, p.fecha_pago, p.metodo_pago
                 FROM DSI_salon_actividades a
                 LEFT JOIN DSI_salon_pagos p ON a.id = p.actividad_id AND p.usuario_id = :uid AND p.confirmado = 1
                 ORDER BY a.fecha_creacion DESC, p.fecha_pago DESC
@@ -257,7 +257,13 @@ try {
                 $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, 'Flutter API', NOW())");
                 $stmtAud->execute([$adminId, "Cobro S/ $monto al usuario_id $usuarioId"]);
                 
-                echo json_encode(['ok' => true, 'msj' => 'Pago guardado', 'pagoId' => $pagoIdInsertado, 'montoAsignado' => $monto, 'esMultaCero' => ($montoMultaCalculada == 0)]);
+                // Obtener FCM Token del usuario receptor
+                $stmtToken = $pdo->prepare("SELECT fcm_token FROM DSI_salon_usuarios WHERE id = ?");
+                $stmtToken->execute([$usuarioId]);
+                $tokenRow = $stmtToken->fetch();
+                $fcmToken = $tokenRow ? $tokenRow['fcm_token'] : null;
+                
+                echo json_encode(['ok' => true, 'msj' => 'Pago guardado', 'pagoId' => $pagoIdInsertado, 'montoAsignado' => $monto, 'esMultaCero' => ($montoMultaCalculada == 0), 'fcmTokenUsuario' => $fcmToken]);
             } else {
                 echo json_encode(['ok' => false, 'msj' => 'Error al guardar en base de datos.']);
             }
@@ -882,7 +888,7 @@ try {
 
             $sqlPagos = "
                 SELECT 
-                  p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.fecha_pago,
+                  p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.monto_multa, p.metodo_pago, p.fecha_pago,
                   admin.nombre as recaudador
                 FROM DSI_salon_pagos p
                 JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
@@ -895,7 +901,7 @@ try {
 
             $sqlGastos = "
                 SELECT 
-                  g.id, g.descripcion, a.titulo as actividad, u.nombre as responsable, g.monto, g.fecha_gasto
+                  g.id, g.descripcion, a.titulo as actividad, u.nombre as responsable, g.monto, g.fecha_gasto, g.comprobante_url
                 FROM DSI_salon_gastos g
                 LEFT JOIN DSI_salon_actividades a ON g.actividad_id = a.id
                 LEFT JOIN DSI_salon_usuarios u ON g.admin_id = u.id

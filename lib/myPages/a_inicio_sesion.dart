@@ -243,7 +243,7 @@ class _InicioSesionState extends State<InicioSesion> {
             children: [
               // 1. LOGO DE LA APP
               Image.asset(
-                'assets/logo/DSI.png',
+                'assets/logo/noti.png',
                 height: 100,
                 // Si la imagen DSI.png es rectangular ancha, usa un ancho también en lugar de height: 100
                 // Para redonder bordes si fuera necesario, envolver en ClipRRect.

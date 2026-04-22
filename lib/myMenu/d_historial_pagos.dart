@@ -289,7 +289,27 @@ class _VistaDetalleHistorialUsuarioState extends State<_VistaDetalleHistorialUsu
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(dateFormat.format(DateTime.tryParse(p['fecha'].toString()) ?? DateTime.now())),
+                                    Row(
+                                      children: [
+                                        Text(dateFormat.format(DateTime.tryParse(p['fecha'].toString()) ?? DateTime.now())),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: p['metodo_pago'] == 'Yape' ? const Color(0xFF742284).withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            p['metodo_pago']?.toString() ?? 'Efectivo',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: p['metodo_pago'] == 'Yape' ? const Color(0xFF742284) : Colors.green,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                     Text(currencyFormat.format(p['monto']),
                                         style: const TextStyle(fontWeight: FontWeight.w500)),
                                   ],

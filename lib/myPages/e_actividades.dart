@@ -69,7 +69,7 @@ class _GestionActividadesState extends State<GestionActividades> {
                   const Divider(),
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Multa por Atraso (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                    child: Text('Mora por Atraso (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
                   const SizedBox(height: 8),
                   // Selector de Fecha Límite
                   InkWell(
@@ -98,7 +98,7 @@ class _GestionActividadesState extends State<GestionActividades> {
                     const SizedBox(height: 10),
                     TextFormField(
                       controller: ctrlMulta,
-                      decoration: const InputDecoration(labelText: 'Multa por día vencido', prefixText: 'S/ '),
+                      decoration: const InputDecoration(labelText: 'Mora por día vencido', prefixText: 'S/ '),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
@@ -220,7 +220,7 @@ class _GestionActividadesState extends State<GestionActividades> {
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
-                            'Multa: ${actividad.multaPorDia.toSoles()}/día',
+                            'Mora: ${actividad.multaPorDia.toSoles()}/día',
                             style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -581,7 +581,7 @@ class _CrearActividadState extends State<CrearActividad> {
               const Divider(),
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Multa por Atraso (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                child: Text('Mora por Atraso (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
               const SizedBox(height: 12),
               // Selector de Fecha
               InkWell(
@@ -609,7 +609,7 @@ class _CrearActividadState extends State<CrearActividad> {
               if (_fechaLimiteSeleccionada != null) ...[  
                 const SizedBox(height: 20),
                 CampoTextoPersonalizado(
-                  label: 'Multa por día vencido',
+                  label: 'Mora por día vencido',
                   prefixText: 'S/ ',
                   controller: _ctrlMulta,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
