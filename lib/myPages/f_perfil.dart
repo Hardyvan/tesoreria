@@ -622,6 +622,14 @@ class _TarjetaUsuario extends StatelessWidget {
                       color: theme.hintColor,
                     ),
                   ),
+                  if (usuario.celular.isNotEmpty)
+                    Text(
+                      'Cel: ${usuario.celular}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   const SizedBox(height: 4),
                   // CHIP DE ROL
                   Container(

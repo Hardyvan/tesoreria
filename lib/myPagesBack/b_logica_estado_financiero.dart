@@ -198,7 +198,7 @@ class ControladorFinanzas extends ChangeNotifier {
   }
 
   // Registrar un nuevo pago (Solo Admin)
-  Future<bool> registrarPago(Pago pago, Usuario adminEjecutor) async {
+  Future<bool> registrarPago(Pago pago, Usuario adminEjecutor, {String? nombreAlumno}) async {
     _cargando = true;
     notifyListeners();
 
@@ -222,17 +222,19 @@ class ControladorFinanzas extends ChangeNotifier {
         unawaited(HapticFeedback.lightImpact());
         try {
           final tokenUsuario = res['fcmTokenUsuario'];
+          final etiquetaAlumno = nombreAlumno ?? 'un alumno';
+          
           if (tokenUsuario != null && tokenUsuario.toString().isNotEmpty) {
             unawaited(GerenteNotificaciones.enviarPush(
                 tokenDestino: tokenUsuario.toString(), 
                 titulo: '✅ Pago Registrado', 
-                cuerpo: 'Se ha registrado tu abono de ${pago.montoPagado.toSoles()}.'
+                cuerpo: 'Hola ${etiquetaAlumno.toFirstName()}, se ha registrado tu abono de ${pago.montoPagado.toSoles()}.'
             ));
           } else {
             unawaited(GerenteNotificaciones.enviarPush(
                 tokenDestino: '/topics/tesoreria', 
                 titulo: '✅ Nuevo Pago Recibido', 
-                cuerpo: 'Se ha registrado un pago de ${pago.montoPagado.toSoles()} del alumno.'
+                cuerpo: 'Se ha registrado un pago de ${pago.montoPagado.toSoles()} de: ${etiquetaAlumno.toFirstName()}.'
             ));
           }
         } catch (_) {}
@@ -349,6 +351,7 @@ class ControladorFinanzas extends ChangeNotifier {
         'nuevoMonto': nuevoMonto,
         'adminRol': adminEjecutor.rol,
         'adminId': adminEjecutor.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
 
       if (res['ok'] == true) {
@@ -384,6 +387,7 @@ class ControladorFinanzas extends ChangeNotifier {
         paramId: movId,
         'adminRol': adminEjecutor.rol,
         'adminId': adminEjecutor.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
 
       if (res['ok'] == true) {
@@ -432,7 +436,7 @@ class ControladorFinanzas extends ChangeNotifier {
           unawaited(GerenteNotificaciones.enviarPush(
             tokenDestino: '/topics/tesoreria',
             titulo: '⚠️ Gasto / Salida de Caja', 
-            cuerpo: 'Se ha registrado un gasto de ${gasto.monto.toSoles()} por: ${gasto.descripcion}',
+            cuerpo: 'Se ha registrado un gasto de ${gasto.monto.toSoles()} por: ${gasto.descripcion} (Registrado por ${adminEjecutor.nombre.toFirstName()})',
           ));
         } catch (_) {}
         
@@ -451,16 +455,18 @@ class ControladorFinanzas extends ChangeNotifier {
   }
 
   // --- REGISTRAR INGRESO EXTRA / DONACION ---
-  Future<bool> registrarIngresoExtra(double monto, String descripcion, Usuario adminEjecutor) async {
+  Future<Map<String, dynamic>> registrarIngresoExtra(double monto, String descripcion, Usuario adminEjecutor) async {
     _cargando = true;
     notifyListeners();
 
     try {
       final api = api_ext.ApiClient();
-      final res = await api.post('registrarIngresoExtra', { // Asumiendo que existe o se mapea a registrarPago/Gasto
+      final res = await api.post('registrarIngresoExtra', { 
         'monto': monto,
         'descripcion': descripcion,
         'adminId': adminEjecutor.id,
+        'adminRol': adminEjecutor.rol,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
         'accion': 'registrarIngresoExtra'
       });
       
@@ -469,18 +475,18 @@ class ControladorFinanzas extends ChangeNotifier {
           unawaited(GerenteNotificaciones.enviarPush(
             tokenDestino: '/topics/tesoreria',
             titulo: '🎉 Nuevo Ingreso a Caja', 
-            cuerpo: '¡Hemos recibido un abono/donación de ${monto.toSoles()}! ($descripcion)',
+            cuerpo: '¡Se ha añadido a la caja ${monto.toSoles()}! ($descripcion) - Registrado por ${adminEjecutor.nombre.toFirstName()}',
           ));
         } catch (_) {}
 
         await obtenerResumenFinanciero();
         await obtenerMovimientosKardex(reset: true);
-        return true;
+        return {'ok': true};
       }
-      return false;
+      return {'ok': false, 'msj': res['msj'] ?? 'Error desconocido'};
     } catch (e) {
       debugPrint('Error registrando ingreso extra: $e');
-      return false;
+      return {'ok': false, 'msj': e.toString()};
     } finally {
       _cargando = false;
       notifyListeners();
@@ -532,13 +538,15 @@ class ControladorFinanzas extends ChangeNotifier {
     try {
       final api = api_ext.ApiClient();
       final res = await api.post('obtenerResumenGeneral', {});
+      debugPrint('🔍 RESUMEN SERVIDOR: ${res.toString()}');
 
-      if (res['ok'] == true) {
-        _totalIngresos = (res['totalIngresos'] as num).toDouble();
-        _totalGastos = (res['totalGastos'] as num).toDouble();
-        _fondoBase = (res['fondoBase'] as num).toDouble();
-        _fondoBaseMotivo = res['fondoBaseMotivo'].toString();
-        _saldoCaja = (res['saldoCaja'] as num).toDouble();
+      if (res['ok'] == true && res['resumen'] != null) {
+        final resumen = res['resumen'];
+        _totalIngresos = (resumen['totalIngresos'] as num).toDouble();
+        _totalGastos = (resumen['totalGastos'] as num).toDouble();
+        _fondoBase = (resumen['fondoBase'] as num).toDouble();
+        _fondoBaseMotivo = resumen['fondoBaseMotivo']?.toString() ?? '';
+        _saldoCaja = (resumen['saldoCaja'] as num).toDouble();
       }
     } catch (e) {
       debugPrint('Error obteniendo resumen: $e');
@@ -559,7 +567,8 @@ class ControladorFinanzas extends ChangeNotifier {
         'monto': monto,
         'motivo': motivo,
         'adminRol': admin.rol,
-        'adminId': admin.id
+        'adminId': admin.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
       
       if (res['ok'] == true) {
@@ -573,7 +582,7 @@ class ControladorFinanzas extends ChangeNotifier {
           unawaited(GerenteNotificaciones.enviarPush(
               tokenDestino: '/topics/tesoreria', 
               titulo: '🏦 Caja Aperturada', 
-              cuerpo: 'La caja se ha inicializado con S/ ${monto.toStringAsFixed(2)}. Detalle: $motivo'
+              cuerpo: 'La caja se ha inicializado con S/ ${monto.toStringAsFixed(2)} por ${admin.nombre.toFirstName()}. Detalle: $motivo'
           ));
         } catch (_) {}
 
@@ -732,5 +741,38 @@ class ControladorFinanzas extends ChangeNotifier {
       notifyListeners();
     }
   }
+  
+
+  Future<bool> editarFondoBase(double nuevoMonto) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('editarFondoBase', {'nuevoMonto': nuevoMonto});
+      if (res['ok'] == true) {
+        await obtenerResumenFinanciero();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error editarFondoBase: $e');
+      return false;
+    }
+  }
+
+  Future<bool> vaciarFondoBase() async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('vaciarFondoBase', {});
+      if (res['ok'] == true) {
+        await obtenerResumenFinanciero();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error vaciarFondoBase: $e');
+      return false;
+    }
+  }
 }
+
+
 

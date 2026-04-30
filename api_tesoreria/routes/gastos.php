@@ -4,6 +4,22 @@
  */
 
 switch ($accion) {
+    case 'registrarIngresoExtra':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { 
+            echo json_encode(['ok' => false, 'msj' => "No autorizado. Tu rol actual es: '$adminRol'"]); 
+            exit; 
+        }
+        $stmt = $pdo->prepare("INSERT INTO DSI_salon_ingresos_extra (descripcion, monto, fecha_ingreso, admin_id) VALUES (?, ?, NOW(), ?)");
+        if ($stmt->execute([$data['descripcion'], $data['monto'], $adminId])) {
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Ingreso Extra', ?, 'Flutter API', NOW())");
+            $stmtAud->execute([$adminId, "Ingreso Extra S/ " . $data['monto'] . ": " . $data['descripcion']]);
+            echo json_encode(['ok' => true]);
+        } else { 
+            $err = $stmt->errorInfo();
+            echo json_encode(['ok' => false, 'msj' => 'Error BD: ' . $err[2]]); 
+        }
+        break;
+
     case 'registrarGasto':
         if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') {
             http_response_code(403);

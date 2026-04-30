@@ -77,6 +77,11 @@ extension FormatoFechas on DateTime? {
 extension FormatoStrings on String {
   String toCapitalized() => AyudantesFormato.capitalizarTexto(this);
 
+  String toFirstName() {
+    if (trim().isEmpty) return '';
+    return trim().split(' ').first.toCapitalized();
+  }
+
   double toSafeDouble() {
     if (trim().isEmpty) return 0.0;
     final cleanString = replaceAll(RegExp(r'[^0-9\.-]'), '');

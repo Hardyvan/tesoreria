@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -17,6 +18,12 @@ class ApiClient {
     try {
       final Map<String, dynamic> body = payload ?? {};
       body['accion'] = accion;
+
+      // Inyectar UID de Firebase automáticamente si hay sesión activa
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && !body.containsKey('adminUid')) {
+        body['adminUid'] = currentUser.uid;
+      }
 
       final response = await http.post(
         Uri.parse(_gatewayUrl),

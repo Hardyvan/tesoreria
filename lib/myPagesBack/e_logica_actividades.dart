@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'modelo_actividad.dart';
 import 'modelo_usuario.dart';
 import '../myPagesTema/c_formatos.dart';
@@ -29,7 +30,8 @@ class ControladorActividades extends ChangeNotifier {
         'fechaLimite': fechaLimite?.toIso8601String().split('T')[0],
         'multaPorDia': multaPorDia,
         'adminRol': usuario.rol,
-        'adminId': usuario.id
+        'adminId': usuario.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
       
       if (res['ok'] == true) {
@@ -48,7 +50,7 @@ class ControladorActividades extends ChangeNotifier {
            unawaited(GerenteNotificaciones.enviarPush(
               tokenDestino: '/topics/tesoreria',
               titulo: '📢 Nueva Actividad Creada',
-              cuerpo: 'El administrador ha registrado "$titulo" (Costo: ${costo.toSoles()}). ¡Revisa tu estado de cuenta!',
+              cuerpo: 'El administrador ${usuario.nombre.toFirstName()} ha registrado "$titulo" (Costo: ${costo.toSoles()}). ¡Revisa tu estado de cuenta!',
            ));
         } catch (_) {}
         
@@ -112,7 +114,8 @@ class ControladorActividades extends ChangeNotifier {
         'fechaLimite': fechaLimite?.toIso8601String().split('T')[0],
         'multaPorDia': multaPorDia,
         'adminRol': usuario.rol,
-        'adminId': usuario.id
+        'adminId': usuario.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
       
       if (res['ok'] == true) {
@@ -150,7 +153,8 @@ class ControladorActividades extends ChangeNotifier {
       final res = await api.post('eliminarActividad', {
         'id': id,
         'adminRol': usuario.rol,
-        'adminId': usuario.id
+        'adminId': usuario.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
       
       if (res['ok'] == true) {

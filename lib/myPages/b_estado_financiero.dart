@@ -320,7 +320,12 @@ class _RegistroPagosState extends State<RegistroPagos> {
       return;
     }
 
-    final exito = await context.read<ControladorFinanzas>().registrarPago(pago, auth.usuarioActual!);
+    final usuarios = context.read<ControladorUsuarios>().usuarios;
+    final nombreAlumno = usuarios.firstWhere(
+      (u) => u.id == _selectedUsuarioId,
+      orElse: () => Usuario(id: 0, nombre: 'Alumno', celular: '', email: '', fotoUrl: '', rol: ''),
+    ).nombre;
+    final exito = await context.read<ControladorFinanzas>().registrarPago(pago, auth.usuarioActual!, nombreAlumno: nombreAlumno);
 
     if (mounted) {
       _isLoading.value = false;

@@ -1,4 +1,4 @@
-package pe.insoft.dsi
+package pe.insoft.tesoreria.dsi
 
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity

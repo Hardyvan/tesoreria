@@ -49,6 +49,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:311039555974:android:49a07fa47a15f90d6e1407",
+        "android_client_info": {
+          "package_name": "pe.insoft.tesoreria.dsi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBR4Y5ThpoqppLIDTcTQPZQ9RkTsQtjHaM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

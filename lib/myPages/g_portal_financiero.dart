@@ -292,11 +292,11 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
               if (monto != null && monto > 0 && motivo.isNotEmpty) {
                  Navigator.pop(ctx);
                  ManejadorErrores.mostrarMensajeExito(context, 'Registrando ingreso e informando a los usuarios...');
-                 bool exito = await finanzas.registrarIngresoExtra(monto, motivo, auth.usuarioActual!);
-                 if (exito && context.mounted) {
+                 final resultado = await finanzas.registrarIngresoExtra(monto, motivo, auth.usuarioActual!);
+                 if (resultado['ok'] == true && context.mounted) {
                     ManejadorErrores.mostrarMensajeExito(context, '✅ Ingreso registrado y notificado con éxito.');
                  } else if (context.mounted) {
-                    ManejadorErrores.mostrarErrorCritico(context, 'Error', 'No se pudo guardar.');
+                    ManejadorErrores.mostrarErrorCritico(context, 'Error', resultado['msj'] ?? 'No se pudo guardar.');
                  }
               } else {
                  ManejadorErrores.mostrarErrorCritico(context, 'Inválido', 'Asegúrate de poner un monto mayor a 0 y una descripción.');

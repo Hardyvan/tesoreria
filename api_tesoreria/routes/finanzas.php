@@ -5,6 +5,7 @@
 
 switch ($accion) {
     case 'obtenerResumenGeneral':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $stmtI = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1");
         $pagos = (float)$stmtI->fetch()['total'];
         
@@ -14,22 +15,27 @@ switch ($accion) {
         $stmtG = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos");
         $gastos = (float)$stmtG->fetch()['total'];
         
-        $stmtF = $pdo->query("SELECT monto, motivo FROM DSI_salon_fondo_base LIMIT 1");
-        $fondo = $stmtF->fetch();
-        $montoFondo = $fondo ? (float)$fondo['monto'] : 0.0;
-        $motivoFondo = $fondo ? $fondo['motivo'] : '';
+        $stmtF = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_fondo_base");
+        $montoFondo = (float)$stmtF->fetch()['total'];
+        
+        // El motivo ya no es único, así que devolvemos un resumen o el último
+        $stmtFL = $pdo->query("SELECT motivo FROM DSI_salon_fondo_base ORDER BY id DESC LIMIT 1");
+        $motivoFondo = $stmtFL->fetch()['motivo'] ?? '';
         
         echo json_encode([
-            'ok' => true, 
-            'totalIngresos' => $pagos + $extras,
-            'totalGastos' => $gastos,
-            'fondoBase' => $montoFondo,
-            'fondoBaseMotivo' => $motivoFondo,
-            'saldoCaja' => ($pagos + $extras + $montoFondo) - $gastos
+            'ok' => true,
+            'resumen' => [
+                'totalIngresos' => $pagos + $extras,
+                'totalGastos'   => $gastos,
+                'fondoBase'     => $montoFondo,
+                'fondoBaseMotivo' => $motivoFondo,
+                'saldoCaja'     => ($pagos + $extras + $montoFondo) - $gastos
+            ]
         ]);
         break;
 
     case 'obtenerHistorialKardex':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $limit = isset($data['limit']) ? (int)$data['limit'] : 20;
         $offset = isset($data['offset']) ? (int)$data['offset'] : 0;
         
@@ -47,7 +53,7 @@ switch ($accion) {
 
             UNION ALL
 
-            SELECT 'D' AS tipo, i.id AS id_movimiento, i.descripcion AS descripcion, i.monto AS monto, i.fecha_ingreso AS fecha
+            SELECT 'X' AS tipo, i.id AS id_movimiento, i.descripcion AS descripcion, i.monto AS monto, i.fecha_ingreso AS fecha
             FROM DSI_salon_ingresos_extra i
 
             ORDER BY fecha DESC
@@ -66,11 +72,13 @@ switch ($accion) {
         break;
 
     case 'obtenerReporteDeudores':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $sql = "
             SELECT 
                 u.id, 
                 u.nombre, 
                 u.foto_url,
+                u.celular,
                 (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) as total_a_pagar,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
             FROM DSI_salon_usuarios u
@@ -134,6 +142,7 @@ switch ($accion) {
         break;
 
     case 'obtenerReporteAvanzado':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $inicio = $data['inicio'];
         $fin = $data['fin'];
         $inicioFull = $inicio . ' 00:00:00';
@@ -198,6 +207,8 @@ switch ($accion) {
         break;
 
     case 'obtenerDatosExcel':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
+        // 1. Deudores
         $sqlDeudores = "
             SELECT 
                 u.id, u.nombre, u.rol, u.celular,
@@ -208,8 +219,9 @@ switch ($accion) {
         ";
         $resDeudores = $pdo->query($sqlDeudores)->fetchAll();
 
+        // 2. Pagos
         $sqlPagos = "
-            SELECT p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.fecha_pago, admin.nombre as recaudador
+            SELECT p.id, u.nombre as alumno, a.titulo as actividad, p.monto, p.monto_multa, p.metodo_pago, p.fecha_pago, admin.nombre as recaudador
             FROM DSI_salon_pagos p
             JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
             JOIN DSI_salon_actividades a ON p.actividad_id = a.id
@@ -218,8 +230,9 @@ switch ($accion) {
         ";
         $resPagos = $pdo->query($sqlPagos)->fetchAll();
 
+        // 3. Gastos
         $sqlGastos = "
-            SELECT g.id, g.descripcion, a.titulo as actividad, u.nombre as responsable, g.monto, g.fecha_gasto
+            SELECT g.id, g.descripcion, a.titulo as actividad, u.nombre as responsable, g.monto, g.fecha_gasto, g.comprobante_url
             FROM DSI_salon_gastos g
             LEFT JOIN DSI_salon_actividades a ON g.actividad_id = a.id
             LEFT JOIN DSI_salon_usuarios u ON g.admin_id = u.id
@@ -227,6 +240,7 @@ switch ($accion) {
         ";
         $resGastos = $pdo->query($sqlGastos)->fetchAll();
 
+        // 4. Extras
         $sqlExtras = "
             SELECT i.id, i.descripcion, i.monto, i.fecha_ingreso, u.nombre as responsable
             FROM DSI_salon_ingresos_extra i
@@ -234,18 +248,67 @@ switch ($accion) {
             ORDER BY i.fecha_ingreso DESC
         ";
         $resExtras = $pdo->query($sqlExtras)->fetchAll();
+        
+        // 5. Fondo Base (Historial completo para el reporte)
+        $sqlFondo = "SELECT monto, motivo, fecha_apertura FROM DSI_salon_fondo_base ORDER BY fecha_apertura DESC";
+        $resFondo = $pdo->query($sqlFondo)->fetchAll();
 
-        echo json_encode([ 'ok' => true, 'deudores' => $resDeudores, 'pagos' => $resPagos, 'gastos' => $resGastos, 'extras' => $resExtras ]);
+        // 6. Resumen General
+        $stmtI = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1");
+        $pagos = (float)$stmtI->fetch()['total'];
+        $stmtE = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra");
+        $extras = (float)$stmtE->fetch()['total'];
+        $stmtG = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos");
+        $gastos = (float)$stmtG->fetch()['total'];
+        $stmtF = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_fondo_base");
+        $montoFondo = (float)($stmtF->fetch()['total'] ?? 0);
+
+        echo json_encode([ 
+            'ok' => true, 
+            'deudores' => $resDeudores, 
+            'pagos' => $resPagos, 
+            'gastos' => $resGastos, 
+            'extras' => $resExtras,
+            'fondo_base' => $resFondo,
+            'resumen' => [
+                'totalIngresos' => $pagos + $extras,
+                'totalGastos' => $gastos,
+                'fondoBase' => $montoFondo,
+                'fondoBaseMotivo' => !empty($resFondo) ? ($resFondo[count($resFondo)-1]['motivo'] ?? '') : '',
+                'saldoCaja' => ($pagos + $extras + $montoFondo) - $gastos
+            ]
+        ]);
         break;
 
     case 'establecerFondoBase':
-        if ($adminRol !== 'SuperAdmin') { echo json_encode(['ok' => false]); exit;}
+        if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit;}
         $monto = (float)$data['monto'];
         $motivo = $data['motivo'];
-        $pdo->query("DELETE FROM DSI_salon_fondo_base");
+        
         $stmt = $pdo->prepare("INSERT INTO DSI_salon_fondo_base (monto, motivo, fecha_apertura) VALUES (?, ?, NOW())");
-        $stmt->execute([$monto, $motivo]);
+        if ($stmt->execute([$monto, $motivo])) {
+            echo json_encode(['ok' => true]);
+        } else {
+            $err = $stmt->errorInfo();
+            echo json_encode(['ok' => false, 'msj' => 'Error BD: ' . $err[2]]);
+        }
+        break;
+
+    case 'vaciarFondoBase':
+        if ($adminRol !== 'SuperAdmin') { echo json_encode(['ok' => false, 'msj' => 'Solo SuperAdmin']); exit;}
+        $pdo->query("DELETE FROM DSI_salon_fondo_base");
         echo json_encode(['ok' => true]);
+        break;
+
+    case 'editarFondoBase':
+        if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit;}
+        $nuevoMonto = (float)$data['nuevoMonto'];
+        // Para simplificar, si editamos el fondo base, reseteamos y ponemos el nuevo monto total
+        $pdo->query("DELETE FROM DSI_salon_fondo_base");
+        $stmt = $pdo->prepare("INSERT INTO DSI_salon_fondo_base (monto, motivo, fecha_apertura) VALUES (?, 'Apertura Corregida', NOW())");
+        if ($stmt->execute([$nuevoMonto])) {
+            echo json_encode(['ok' => true]);
+        } else { echo json_encode(['ok' => false]); }
         break;
 
     default:

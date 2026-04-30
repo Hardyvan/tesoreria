@@ -9,6 +9,7 @@ switch ($accion) {
         break;
 
     case 'debug_schema':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); exit; }
         $tables = ['DSI_salon_gastos', 'DSI_salon_ingresos_extra', 'DSI_salon_actividades', 'DSI_salon_pagos'];
         $res = [];
         foreach($tables as $t) {
@@ -18,6 +19,21 @@ switch ($accion) {
         echo json_encode(['ok' => true, 'schema' => $res]);
         break;
 
+    case 'verificar_estado_usuarios':
+        // SOLO PARA DIAGNÓSTICO TEMPORAL
+        $stmtCount = $pdo->query("SELECT COUNT(*) as total FROM DSI_salon_usuarios");
+        $total = $stmtCount->fetch()['total'];
+
+        $stmtUltimos = $pdo->query("SELECT nombre, email, rol, fecha_registro FROM DSI_salon_usuarios ORDER BY fecha_registro DESC LIMIT 5");
+        $ultimos = $stmtUltimos->fetchAll();
+
+        echo json_encode([
+            'ok' => true,
+            'total_usuarios' => $total,
+            'ultimos_registros' => $ultimos
+        ]);
+        break;
+
     case 'registrarAccion':
         $stmt = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, ?, ?, ?, NOW())");
         $out = $stmt->execute([(int)$data['adminId'], $data['accionLog'], $data['detalle'], $data['dispositivo']]);
@@ -25,6 +41,7 @@ switch ($accion) {
         break;
 
     case 'obtenerLogsAuditoria':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); exit; }
         $stmt = $pdo->query("
             SELECT a.id, u.nombre as admin_nombre, u.rol, a.accion, a.detalle, a.dispositivo, a.fecha
             FROM DSI_salon_auditoria a
@@ -47,6 +64,7 @@ switch ($accion) {
         break;
 
     case 'obtenerResumenCaja':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); exit; }
         $fecha = $data['fecha'];
         $stmt = $pdo->prepare("
             SELECT u.nombre as admin_nombre, a.detalle

@@ -33,7 +33,23 @@ if (!$data) {
 // 5. Determinar la acción
 $accion = $data['accion'] ?? null;
 
-// Soporte para subida de archivos (el antiguo index.php de Tesorería se llamaba sin 'accion')
+// Asegurar existencia de tabla de Fondo Base (Failsafe)
+$pdo = getDBConnection();
+$pdo->exec("CREATE TABLE IF NOT EXISTS DSI_salon_fondo_base (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    monto DECIMAL(10,2) NOT NULL,
+    motivo VARCHAR(255),
+    fecha_apertura DATETIME DEFAULT CURRENT_TIMESTAMP
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS DSI_salon_ingresos_extra (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    descripcion VARCHAR(255) NOT NULL,
+    monto DECIMAL(10,2) NOT NULL,
+    fecha_ingreso DATETIME DEFAULT CURRENT_TIMESTAMP,
+    admin_id INT
+)");
+
 if (!$accion && isset($_FILES['archivo'])) {
     $accion = 'subir_archivo';
 }
@@ -73,6 +89,8 @@ try {
         case 'obtenerReporteDeudores':
         case 'obtenerDatosExcel':
         case 'establecerFondoBase':
+        case 'vaciarFondoBase':
+        case 'editarFondoBase':
             require_once __DIR__ . '/routes/finanzas.php';
             break;
 
@@ -94,10 +112,11 @@ try {
             require_once __DIR__ . '/routes/actividades.php';
             break;
 
-        // Gastos
+        // Gastos e Ingresos Extra
         case 'registrarGasto':
         case 'editarGasto':
         case 'eliminarGasto':
+        case 'registrarIngresoExtra':
         case 'editarIngresoExtra':
         case 'eliminarIngresoExtra':
             require_once __DIR__ . '/routes/gastos.php';

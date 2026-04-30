@@ -83,6 +83,7 @@ switch ($accion) {
         break;
 
     case 'listarUsuariosCompleto':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $stmt = $pdo->query("SELECT id, nombre, celular, email, foto_url, rol, direccion, edad, sexo, estado, updated_at FROM DSI_salon_usuarios");
         echo json_encode(['ok' => true, 'datos' => $stmt->fetchAll()]);
         break;
@@ -109,6 +110,10 @@ switch ($accion) {
 
     case 'actualizarElementoUsuario':
         $id = (int)$data['id'];
+        // Seguridad: Solo el dueño del perfil o un admin puede editar
+        if ($id !== $adminId && $adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') {
+            http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No puedes editar este perfil']); exit;
+        }
         if (isset($data['celular'])) $pdo->prepare("UPDATE DSI_salon_usuarios SET celular = ? WHERE id = ?")->execute([$data['celular'], $id]);
         if (isset($data['fotoUrl'])) $pdo->prepare("UPDATE DSI_salon_usuarios SET foto_url = ? WHERE id = ?")->execute([$data['fotoUrl'], $id]);
         if (isset($data['fcmToken'])) $pdo->prepare("UPDATE DSI_salon_usuarios SET fcm_token = ? WHERE id = ?")->execute([$data['fcmToken'], $id]);

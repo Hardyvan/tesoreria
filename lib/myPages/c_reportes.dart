@@ -393,27 +393,55 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
              ),
            ],
          ),
-         actions: [
-           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-           ElevatedButton(
-             onPressed: () async {
-               Navigator.pop(ctx);
-               double? monto = double.tryParse(ctrlMonto.text);
-               if (monto != null) {
-                  final usr = context.read<ControladorAuth>().usuarioActual;
-                  if (usr != null) {
-                     ManejadorErrores.mostrarMensajeExito(context, 'Guardando configuración...');
-                     bool exito = await finanzas.establecerFondoBase(monto, ctrlMotivo.text.trim(), usr);
-                     if (exito && context.mounted) {
-                        ManejadorErrores.mostrarMensajeExito(context, 'Fondo base establecido correctamente.');
-                     }
+          actions: [
+            if (finanzas.fondoBase > 0)
+              TextButton(
+                onPressed: () async {
+                  final confirmar = await showDialog<bool>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: const Text('¿Resetear Caja?'),
+                      content: const Text('Esto borrará todo el dinero base registrado actualmente. ¿Continuar?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')),
+                        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Sí, borrar')),
+                      ],
+                    )
+                  );
+                  if (confirmar == true && context.mounted) {
+                    Navigator.pop(ctx);
+                    await finanzas.vaciarFondoBase();
+                    if (context.mounted) ManejadorErrores.mostrarMensajeExito(context, 'Caja reseteada a S/ 0.00');
                   }
-               } else {
-                 if (context.mounted) ManejadorErrores.mostrarErrorCritico(context, 'Inválido', 'Ingrese un importe válido.');
-               }
-             },
-             child: const Text('Guardar Fondo'),
-           )
+                }, 
+                child: const Text('Limpiar Caja', style: TextStyle(color: Colors.red))
+              ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                double? monto = double.tryParse(ctrlMonto.text);
+                if (monto != null) {
+                   final usr = context.read<ControladorAuth>().usuarioActual;
+                   if (usr != null) {
+                      ManejadorErrores.mostrarMensajeExito(context, 'Guardando configuración...');
+                      bool exito = false;
+                      if (finanzas.fondoBase > 0) {
+                        exito = await finanzas.editarFondoBase(monto);
+                      } else {
+                        exito = await finanzas.establecerFondoBase(monto, ctrlMotivo.text.trim(), usr);
+                      }
+                      
+                      if (exito && context.mounted) {
+                         ManejadorErrores.mostrarMensajeExito(context, 'Fondo base actualizado correctamente.');
+                      }
+                   }
+                } else {
+                  if (context.mounted) ManejadorErrores.mostrarErrorCritico(context, 'Inválido', 'Ingrese un importe válido.');
+                }
+              },
+              child: Text(finanzas.fondoBase > 0 ? 'Actualizar Fondo' : 'Guardar Fondo'),
+            )
          ]
        )
      );
@@ -520,8 +548,15 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
 
   Widget _buildMovimientoItem(Map<String, dynamic> mov, bool esAdmin, DateFormat dateFormat, NumberFormat currencyFormat) {
     final esIngreso = mov['tipo'] == 'I';
-    final colorFondoIcono = esIngreso ? ColoresApp.exito.withValues(alpha: 0.1) : ColoresApp.error.withValues(alpha: 0.1);
-    final colorIcono = esIngreso ? ColoresApp.exito : ColoresApp.error;
+    final esExtra  = mov['tipo'] == 'X';
+    final esPositivo = esIngreso || esExtra;
+
+    final colorIcono = esIngreso
+        ? ColoresApp.exito
+        : esExtra
+            ? Colors.teal
+            : ColoresApp.error;
+    final colorFondoIcono = colorIcono.withValues(alpha: 0.1);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -562,7 +597,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    esIngreso ? Icons.arrow_downward : Icons.arrow_upward, 
+                    esPositivo ? Icons.arrow_downward : Icons.arrow_upward, 
                     color: colorIcono,
                     size: 20
                   ),
@@ -588,7 +623,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${esIngreso ? "+" : "-"} ${currencyFormat.format(mov['monto'])}',
+                      '${esPositivo ? "+" : "-"} ${currencyFormat.format(mov['monto'])}',
                       style: GoogleFonts.inter(
                         color: colorIcono,
                         fontWeight: FontWeight.bold,
