@@ -5,6 +5,8 @@ class Actividad {
   final DateTime fechaCreada;
   final DateTime? fechaLimite;
   final double multaPorDia;
+  final bool requiereAsistencia;
+  final double multaInasistencia;
 
   Actividad({
     required this.id,
@@ -13,6 +15,8 @@ class Actividad {
     required this.fechaCreada,
     this.fechaLimite,
     this.multaPorDia = 0.0,
+    this.requiereAsistencia = false,
+    this.multaInasistencia = 0.0,
   });
 
   factory Actividad.desdeMapa(Map<String, dynamic> mapa) {
@@ -32,6 +36,8 @@ class Actividad {
       fechaCreada: fechaCreacion,
       fechaLimite: mapa['fecha_limite'] != null ? DateTime.tryParse(mapa['fecha_limite'].toString()) : null,
       multaPorDia: (mapa['multa_por_dia'] is num) ? (mapa['multa_por_dia'] as num).toDouble() : double.tryParse(mapa['multa_por_dia']?.toString() ?? '0') ?? 0.0,
+      requiereAsistencia: mapa['requiere_asistencia'] == 1 || mapa['requiere_asistencia'] == true || mapa['requiere_asistencia'] == '1',
+      multaInasistencia: (mapa['multa_inasistencia'] is num) ? (mapa['multa_inasistencia'] as num).toDouble() : double.tryParse(mapa['multa_inasistencia']?.toString() ?? '0') ?? 0.0,
     );
   }
 }

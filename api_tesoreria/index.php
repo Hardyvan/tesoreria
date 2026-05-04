@@ -50,6 +50,25 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS DSI_salon_ingresos_extra (
     admin_id INT
 )");
 
+try {
+    $pdo->exec("ALTER TABLE DSI_salon_actividades ADD COLUMN requiere_asistencia TINYINT(1) DEFAULT 0;");
+    $pdo->exec("ALTER TABLE DSI_salon_actividades ADD COLUMN multa_inasistencia DECIMAL(10,2) DEFAULT 0.00;");
+} catch (Exception $e) {}
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS DSI_salon_asistencias (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        actividad_id INT NOT NULL,
+        usuario_id INT NOT NULL,
+        estado VARCHAR(20) NOT NULL COMMENT 'asistio, falto, permiso',
+        monto_multa DECIMAL(10,2) DEFAULT 0.00,
+        fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_actividad_usuario (actividad_id, usuario_id),
+        FOREIGN KEY (actividad_id) REFERENCES DSI_salon_actividades(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES DSI_salon_usuarios(id) ON DELETE CASCADE
+    )");
+} catch (Exception $e) {}
+
 if (!$accion && isset($_FILES['archivo'])) {
     $accion = 'subir_archivo';
 }

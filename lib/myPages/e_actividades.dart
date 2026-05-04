@@ -35,7 +35,9 @@ class _GestionActividadesState extends State<GestionActividades> {
     final ctrlTitulo = TextEditingController(text: actividad.titulo);
     final ctrlCosto = TextEditingController(text: actividad.costo.toString());
     final ctrlMulta = TextEditingController(text: actividad.multaPorDia > 0 ? actividad.multaPorDia.toString() : '');
+    final ctrlMultaInasistencia = TextEditingController(text: actividad.multaInasistencia > 0 ? actividad.multaInasistencia.toString() : '');
     DateTime? fechaLimiteSeleccionada = actividad.fechaLimite;
+    bool requiereAsistencia = actividad.requiereAsistencia;
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -105,6 +107,24 @@ class _GestionActividadesState extends State<GestionActividades> {
                       ],
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  SwitchListTile(
+                    title: const Text('Requiere Control de Asistencia', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    value: requiereAsistencia,
+                    onChanged: (val) => setStateDialog(() => requiereAsistencia = val),
+                  ),
+                  if (requiereAsistencia) ...[
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: ctrlMultaInasistencia,
+                      decoration: const InputDecoration(labelText: 'Multa por inasistencia', prefixText: 'S/ '),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -127,6 +147,8 @@ class _GestionActividadesState extends State<GestionActividades> {
                     actividad.id, ctrlTitulo.text, costoNuevo, auth.usuarioActual!,
                     fechaLimite: fechaLimiteSeleccionada,
                     multaPorDia: multaNueva,
+                    requiereAsistencia: requiereAsistencia,
+                    multaInasistencia: double.tryParse(ctrlMultaInasistencia.text) ?? 0.0,
                   );
                   if (exito && context.mounted) {
                     context.read<ControladorFinanzas>().invalidarCache();
@@ -224,9 +246,25 @@ class _GestionActividadesState extends State<GestionActividades> {
                             style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
                           ),
                         ),
+                      if (actividad.requiereAsistencia)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 36),
+                            ),
+                            icon: const Icon(Icons.checklist, size: 18),
+                            label: const Text('Llamar Lista'),
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/control_asistencia', arguments: actividad);
+                            },
+                          ),
+                        ),
                     ],
                   ),
-                  isThreeLine: actividad.fechaLimite != null,
+                  isThreeLine: actividad.fechaLimite != null || actividad.requiereAsistencia,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -484,7 +522,9 @@ class _CrearActividadState extends State<CrearActividad> {
   final _ctrlTitulo = TextEditingController();
   final _ctrlCosto = TextEditingController();
   final _ctrlMulta = TextEditingController();
+  final _ctrlMultaInasistencia = TextEditingController();
   DateTime? _fechaLimiteSeleccionada;
+  bool _requiereAsistencia = false;
 
   Future<void> _guardar() async {
     final ctrl = Provider.of<ControladorActividades>(context, listen: false);
@@ -499,6 +539,8 @@ class _CrearActividadState extends State<CrearActividad> {
         _ctrlTitulo.text, costo, auth.usuarioActual!,
         fechaLimite: _fechaLimiteSeleccionada,
         multaPorDia: multa,
+        requiereAsistencia: _requiereAsistencia,
+        multaInasistencia: double.tryParse(_ctrlMultaInasistencia.text) ?? 0.0,
       );
       
       if (mounted && exito) {
@@ -612,6 +654,27 @@ class _CrearActividadState extends State<CrearActividad> {
                   label: 'Mora por día vencido',
                   prefixText: 'S/ ',
                   controller: _ctrlMulta,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 20),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Requiere Control de Asistencia', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Generará deuda automática a quienes falten'),
+                value: _requiereAsistencia,
+                activeColor: Theme.of(context).primaryColor,
+                onChanged: (val) => setState(() => _requiereAsistencia = val),
+              ),
+              if (_requiereAsistencia) ...[
+                const SizedBox(height: 10),
+                CampoTextoPersonalizado(
+                  label: 'Multa por inasistencia',
+                  prefixText: 'S/ ',
+                  controller: _ctrlMultaInasistencia,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),

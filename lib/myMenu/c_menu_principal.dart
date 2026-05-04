@@ -193,6 +193,16 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                 Navigator.pushNamed(context, '/reportes_avanzados');
               },
             ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.analytics, color: Colors.teal),
+              title: const Text('InSOFT Analytics', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+              subtitle: const Text('Inteligencia de Datos', style: TextStyle(color: Colors.teal)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/insoft_analytics');
+              },
+            ),
             if (auth.usuarioActual?.rol == 'SuperAdmin' || auth.usuarioActual?.rol == 'Admin') ...[
               const Divider(),
               if (auth.usuarioActual?.rol == 'SuperAdmin')

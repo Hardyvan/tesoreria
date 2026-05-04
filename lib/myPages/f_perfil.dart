@@ -684,6 +684,13 @@ class _TarjetaUsuario extends StatelessWidget {
                   ),
                 ),
                 const PopupMenuItem(
+                  value: 'edit_name',
+                  child: ListTile(
+                    leading: Icon(Icons.edit),
+                    title: Text('Editar Nombre'),
+                  ),
+                ),
+                const PopupMenuItem(
                   value: 'rol',
                   child: ListTile(
                     leading: Icon(Icons.admin_panel_settings),
@@ -730,6 +737,9 @@ class _TarjetaUsuario extends StatelessWidget {
       case 'ver':
         _mostrarPerfilCompleto(context, usuario);
         break;
+      case 'edit_name':
+        _mostrarDialogoEditarNombre(context, usuario);
+        break;
       case 'rol':
         _mostrarDialogoRol(context, usuario);
         break;
@@ -747,6 +757,56 @@ class _TarjetaUsuario extends StatelessWidget {
         _confirmarEliminacion(context, usuario);
         break;
     }
+  }
+
+  void _mostrarDialogoEditarNombre(BuildContext context, Usuario usuario) {
+    final ctrl = TextEditingController(text: usuario.nombre);
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Editar Nombre'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            labelText: 'Nombre Completo',
+            hintText: 'Ej. Juan Pérez',
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (ctrl.text.trim().isEmpty) return;
+              final nuevoNombre = ctrl.text.trim();
+              if (nuevoNombre == usuario.nombre) {
+                Navigator.pop(dialogCtx);
+                return;
+              }
+              Navigator.pop(dialogCtx);
+              
+              final exito = await Provider.of<ControladorUsuarios>(
+                context,
+                listen: false,
+              ).actualizarNombre(usuario.id, nuevoNombre);
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(exito ? 'Nombre actualizado' : 'Error al actualizar nombre'),
+                    backgroundColor: exito ? Colors.green : Colors.red,
+                  )
+                );
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      )
+    );
   }
 
   void _confirmarEliminacion(BuildContext context, Usuario usuario) {

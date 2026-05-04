@@ -18,6 +18,8 @@ class ControladorActividades extends ChangeNotifier {
   Future<bool> crearActividad(String titulo, double costo, Usuario usuario, {
     DateTime? fechaLimite,
     double multaPorDia = 0.0,
+    bool requiereAsistencia = false,
+    double multaInasistencia = 0.0,
   }) async {
     _cargando = true;
     notifyListeners();
@@ -29,6 +31,8 @@ class ControladorActividades extends ChangeNotifier {
         'costo': costo,
         'fechaLimite': fechaLimite?.toIso8601String().split('T')[0],
         'multaPorDia': multaPorDia,
+        'requiereAsistencia': requiereAsistencia,
+        'multaInasistencia': multaInasistencia,
         'adminRol': usuario.rol,
         'adminId': usuario.id,
         'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
@@ -43,6 +47,8 @@ class ControladorActividades extends ChangeNotifier {
           fechaCreada: DateTime.now(),
           fechaLimite: fechaLimite,
           multaPorDia: multaPorDia,
+          requiereAsistencia: requiereAsistencia,
+          multaInasistencia: multaInasistencia,
         ));
         
         // Push notification masiva a todos los usuarios del aula
@@ -87,6 +93,8 @@ class ControladorActividades extends ChangeNotifier {
           'fecha_creada': fila['fecha_creacion'],
           'fecha_limite': fila['fecha_limite'],
           'multa_por_dia': fila['multa_por_dia'],
+          'requiere_asistencia': fila['requiere_asistencia'],
+          'multa_inasistencia': fila['multa_inasistencia'],
         })).toList();
       }
     } catch (e) {
@@ -101,6 +109,8 @@ class ControladorActividades extends ChangeNotifier {
   Future<bool> editarActividad(int id, String nuevoTitulo, double nuevoCosto, Usuario usuario, {
     DateTime? fechaLimite,
     double multaPorDia = 0.0,
+    bool requiereAsistencia = false,
+    double multaInasistencia = 0.0,
   }) async {
     _cargando = true;
     notifyListeners();
@@ -113,6 +123,8 @@ class ControladorActividades extends ChangeNotifier {
         'costo': nuevoCosto,
         'fechaLimite': fechaLimite?.toIso8601String().split('T')[0],
         'multaPorDia': multaPorDia,
+        'requiereAsistencia': requiereAsistencia,
+        'multaInasistencia': multaInasistencia,
         'adminRol': usuario.rol,
         'adminId': usuario.id,
         'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
@@ -129,6 +141,8 @@ class ControladorActividades extends ChangeNotifier {
               fechaCreada: actVieja.fechaCreada,
               fechaLimite: fechaLimite,
               multaPorDia: multaPorDia,
+              requiereAsistencia: requiereAsistencia,
+              multaInasistencia: multaInasistencia,
           );
         }
         return true;
@@ -166,6 +180,43 @@ class ControladorActividades extends ChangeNotifier {
     } catch (e) {
        debugPrint('Error eliminando actividad: $e');
        return 'Ocurrió un error al eliminar.';
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  // Obtener Asistencia
+  Future<List<Map<String, dynamic>>> obtenerAsistencia(int actividadId) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerAsistencia', {'actividadId': actividadId});
+      if (res['ok'] == true) {
+        return List<Map<String, dynamic>>.from(res['datos']);
+      }
+    } catch (e) {
+      debugPrint('Error obteniendo asistencia: $e');
+    }
+    return [];
+  }
+
+  // Guardar Asistencia
+  Future<bool> guardarAsistenciaLote(int actividadId, List<Map<String, dynamic>> asistencias, Usuario usuario) async {
+    _cargando = true;
+    notifyListeners();
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('guardarAsistenciaLote', {
+        'actividadId': actividadId,
+        'asistencias': asistencias,
+        'adminRol': usuario.rol,
+        'adminId': usuario.id,
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+      });
+      return res['ok'] == true;
+    } catch (e) {
+      debugPrint('Error guardando asistencia: $e');
+      return false;
     } finally {
       _cargando = false;
       notifyListeners();

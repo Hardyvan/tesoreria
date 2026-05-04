@@ -80,6 +80,34 @@ class ControladorUsuarios extends ChangeNotifier {
       return false;
     }
   }
+
+  // Actualizar Nombre (Admin)
+  Future<bool> actualizarNombre(int idUsuario, String nuevoNombre) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('actualizarElementoUsuario', {
+        'id': idUsuario,
+        'nombre': nuevoNombre,
+        'adminRol': 'SuperAdmin', // Validado en API
+        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
+      });
+      
+      if (res['ok'] == true) {
+        final index = _usuarios.indexWhere((u) => u.id == idUsuario);
+        if (index != -1) {
+          final usuarioModificado = _usuarios[index].copyWith(nombre: nuevoNombre);
+          _usuarios[index] = usuarioModificado;
+          await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error actualizando nombre: $e');
+      return false;
+    }
+  }
   // Cambiar Estado (Bloquear/Desbloquear)
   Future<bool> cambiarEstadoUsuario(int idUsuario, String nuevoEstado) async {
     try {

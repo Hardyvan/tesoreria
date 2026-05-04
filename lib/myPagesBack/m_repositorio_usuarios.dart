@@ -133,9 +133,10 @@ class RepositorioUsuarios {
   //-------------------------------------------------------------------------
   // 4. ACTUALIZAR CELULAR O FOTO (OFFLINE FIRST LÓGICA)
   //-------------------------------------------------------------------------
-  Future<Usuario?> actualizarElementoUsuario(Usuario usuarioActual, {String? celular, String? fotoUrl, String? fcmToken}) async {
+  Future<Usuario?> actualizarElementoUsuario(Usuario usuarioActual, {String? nombre, String? celular, String? fotoUrl, String? fcmToken}) async {
     try {
       final usuarioActualizado = usuarioActual.copyWith(
+        nombre: nombre ?? usuarioActual.nombre,
         celular: celular ?? usuarioActual.celular,
         fotoUrl: fotoUrl ?? usuarioActual.fotoUrl
       );
@@ -148,8 +149,9 @@ class RepositorioUsuarios {
         final api = api_ext.ApiClient();
         final res = await api.post('actualizarElementoUsuario', {
           'id': usuarioActual.id,
-          'celular': celular,
-          'fotoUrl': fotoUrl,
+          if (nombre != null) 'nombre': nombre,
+          'celular': celular ?? usuarioActual.celular,
+          'fotoUrl': fotoUrl ?? usuarioActual.fotoUrl,
           'fcmToken': fcmToken
         });
         

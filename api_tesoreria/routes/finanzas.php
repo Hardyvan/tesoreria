@@ -79,7 +79,8 @@ switch ($accion) {
                 u.nombre, 
                 u.foto_url,
                 u.celular,
-                (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) as total_a_pagar,
+                ((SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) + 
+                 (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
             FROM DSI_salon_usuarios u
             WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
@@ -212,7 +213,8 @@ switch ($accion) {
         $sqlDeudores = "
             SELECT 
                 u.id, u.nombre, u.rol, u.celular,
-                (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) as total_a_pagar,
+                ((SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) + 
+                 (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
             FROM DSI_salon_usuarios u
             WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1 ORDER BY u.nombre
@@ -248,6 +250,16 @@ switch ($accion) {
             ORDER BY i.fecha_ingreso DESC
         ";
         $resExtras = $pdo->query($sqlExtras)->fetchAll();
+
+        // 4.5 Asistencias
+        $sqlAsistencias = "
+            SELECT u.nombre as alumno, a.titulo as actividad, asi.estado, asi.monto_multa, a.fecha_creacion
+            FROM DSI_salon_asistencias asi
+            JOIN DSI_salon_usuarios u ON asi.usuario_id = u.id
+            JOIN DSI_salon_actividades a ON asi.actividad_id = a.id
+            ORDER BY a.fecha_creacion DESC, u.nombre ASC
+        ";
+        $resAsistencias = $pdo->query($sqlAsistencias)->fetchAll();
         
         // 5. Fondo Base (Historial completo para el reporte)
         $sqlFondo = "SELECT monto, motivo, fecha_apertura FROM DSI_salon_fondo_base ORDER BY fecha_apertura DESC";
@@ -269,6 +281,7 @@ switch ($accion) {
             'pagos' => $resPagos, 
             'gastos' => $resGastos, 
             'extras' => $resExtras,
+            'asistencias' => $resAsistencias,
             'fondo_base' => $resFondo,
             'resumen' => [
                 'totalIngresos' => $pagos + $extras,

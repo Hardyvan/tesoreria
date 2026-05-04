@@ -11,6 +11,9 @@ import '../myPages/c_reportes.dart';
 import '../myPages/d_reportes_avanzados.dart';
 import '../myPages/g_portal_financiero.dart';
 import '../myPages/e_actividades.dart';
+import '../myPages/h_insoft_analytics.dart';
+import '../myPages/i_control_asistencia.dart';
+import '../myPagesBack/modelo_actividad.dart';
 
 class RutasApp {
   // Constantes de Rutas
@@ -40,6 +43,11 @@ class RutasApp {
       auditoria: (_) => const AuditoriaAdmin(),
       portalFinanciero: (_) => const PortalFinanciero(),
       '/crear_actividad': (_) => const CrearActividad(),
+      '/insoft_analytics': (_) => const InsoftAnalyticsDemo(),
+      '/control_asistencia': (context) {
+        final arg = ModalRoute.of(context)!.settings.arguments;
+        return PantallaAsistencia(actividad: arg as Actividad);
+      },
     };
   }
 }
