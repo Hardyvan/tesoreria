@@ -149,7 +149,7 @@ class RepositorioUsuarios {
         final api = api_ext.ApiClient();
         final res = await api.post('actualizarElementoUsuario', {
           'id': usuarioActual.id,
-          if (nombre != null) 'nombre': nombre,
+          'nombre': ?nombre,
           'celular': celular ?? usuarioActual.celular,
           'fotoUrl': fotoUrl ?? usuarioActual.fotoUrl,
           'fcmToken': fcmToken

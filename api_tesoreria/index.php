@@ -97,6 +97,9 @@ if (isset($data['adminUid']) && !empty($data['adminUid'])) {
     if ($rowRol) { $adminRol = $rowRol['rol']; $adminId = (int)$data['adminId']; }
 }
 
+$dispositivoGlobal = $data['dispositivo'] ?? 'App Móvil';
+$dispositivoGlobal = substr(strip_tags($dispositivoGlobal), 0, 50); // Seguridad básica
+
 // 8. Enrutamiento modular
 try {
     switch ($accion) {
@@ -146,6 +149,7 @@ try {
         case 'guardarPerfilCompletado':
         case 'listarUsuariosCompleto':
         case 'cambiarRolUsuario':
+        case 'cambiarEstadoUsuario':
         case 'eliminarUsuario':
         case 'actualizarElementoUsuario':
         case 'sincronizarLoteOffline':

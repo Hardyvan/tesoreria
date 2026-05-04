@@ -92,17 +92,34 @@ switch ($accion) {
         if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false]); exit; }
         $stmt = $pdo->prepare("UPDATE DSI_salon_usuarios SET rol = ? WHERE id = ?");
         if ($stmt->execute([$data['nuevoRol'], (int)$data['targetId']])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Cambiar Rol', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Cambiar Rol', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Usuario ID: {$data['targetId']} - Nuevo Rol: {$data['nuevoRol']}"]);
             echo json_encode(['ok' => true]);
         } else { echo json_encode(['ok' => false]); }
         break;
 
+    case 'cambiarEstadoUsuario':
+        if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false]); exit; }
+        $targetId = (int)$data['targetId'];
+        $nuevoEstado = $data['nuevoEstado']; // 'activo', 'inactivo', 'bloqueado'
+        // NOTA: Se ha corregido para guardar el estado como string directamente, según el modelo. 
+        // En algunas BD esto es VARCHAR, en otras es TINYINT. En tu BD de usuarios 'estado' es VARCHAR(20) de default 'activo'
+        $stmt = $pdo->prepare("UPDATE DSI_salon_usuarios SET estado = ? WHERE id = ?");
+        if ($stmt->execute([$nuevoEstado, $targetId])) {
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Cambiar Estado Usuario', ?, '{$dispositivoGlobal}', NOW())");
+            $stmtAud->execute([$adminId, "Usuario ID: $targetId - Nuevo Estado: $nuevoEstado"]);
+            echo json_encode(['ok' => true]);
+        } else {
+            echo json_encode(['ok' => false]);
+        }
+        break;
+
+
     case 'eliminarUsuario':
         if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false]); exit; }
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_usuarios WHERE id = ?");
         if ($stmt->execute([(int)$data['targetId']])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Usuario', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Usuario', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Usuario ID: {$data['targetId']} (Eliminado)"]);
             echo json_encode(['ok' => true]);
         } else { echo json_encode(['ok' => false]); }

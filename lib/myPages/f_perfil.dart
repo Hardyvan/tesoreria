@@ -747,11 +747,27 @@ class _TarjetaUsuario extends StatelessWidget {
         _confirmarBloqueo(context, usuario);
         break;
       case 'pass':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Se enviaría un correo de reset (Demo)'),
-          ),
-        );
+        if (usuario.email.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('El usuario no tiene un correo registrado.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        Provider.of<ControladorUsuarios>(context, listen: false)
+            .enviarCorreoRestablecimiento(usuario.email)
+            .then((exito) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(exito ? 'Correo de restablecimiento enviado' : 'Error al enviar correo'),
+                backgroundColor: exito ? Colors.green : Colors.red,
+              ),
+            );
+          }
+        });
         break;
       case 'delete':
         _confirmarEliminacion(context, usuario);

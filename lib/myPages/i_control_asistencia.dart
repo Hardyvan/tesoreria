@@ -86,42 +86,75 @@ class _PantallaAsistenciaState extends State<PantallaAsistencia> {
           : Column(
               children: [
                 // Encabezado
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(widget.actividad.titulo, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text('Multa por inasistencia: ${widget.actividad.multaInasistencia.toSoles()}', 
-                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      const Text('Marcar "Faltó" generará automáticamente la deuda en el sistema.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
+                Padding(
+                  padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
+                  child: TarjetaPremium(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.assignment_ind, color: Theme.of(context).primaryColor),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                widget.actividad.titulo, 
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Text('Multa por inasistencia: ${widget.actividad.multaInasistencia.toSoles()}', 
+                          style: const TextStyle(color: ColoresApp.error, fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 4),
+                        const Text('Marcar "Faltó" generará automáticamente la deuda en el sistema.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      ],
+                    ),
                   ),
                 ),
                 
                 // Lista interactiva
                 Expanded(
                   child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar),
                     itemCount: _alumnos.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (context, index) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final alumno = _alumnos[index];
                       final estadoActual = alumno['estado'];
                       
                       return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(vertical: 4),
                         title: Text(alumno['nombre'], style: const TextStyle(fontWeight: FontWeight.w500)),
-                        subtitle: Text(estadoActual == 'pendiente' ? 'Sin marcar' : estadoActual.toString().toUpperCase()),
+                        subtitle: Text(
+                          estadoActual == 'pendiente' ? 'Sin marcar' : estadoActual.toString().toUpperCase(),
+                          style: TextStyle(
+                            color: estadoActual == 'asistio' ? ColoresApp.exito
+                                : estadoActual == 'falto' ? ColoresApp.error
+                                : estadoActual == 'permiso' ? ColoresApp.estadoPendiente
+                                : Colors.grey,
+                            fontWeight: estadoActual != 'pendiente' ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _buildBotonAsistencia(index, 'asistio', Icons.check_circle, Colors.green, estadoActual),
+                            _buildBotonAsistencia(index, 'asistio', Icons.check_circle, ColoresApp.exito, estadoActual),
                             const SizedBox(width: 8),
-                            _buildBotonAsistencia(index, 'falto', Icons.cancel, Colors.red, estadoActual),
+                            _buildBotonAsistencia(index, 'falto', Icons.cancel, ColoresApp.error, estadoActual),
                             const SizedBox(width: 8),
-                            _buildBotonAsistencia(index, 'permiso', Icons.pause_circle_filled, Colors.orange, estadoActual),
+                            _buildBotonAsistencia(index, 'permiso', Icons.pause_circle_filled, ColoresApp.estadoPendiente, estadoActual),
                           ],
                         ),
                       );
@@ -131,7 +164,7 @@ class _PantallaAsistenciaState extends State<PantallaAsistencia> {
                 
                 // Boton Guardar
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,
                     boxShadow: [

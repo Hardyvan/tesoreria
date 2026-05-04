@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 /// Pantilla Analítica: InSOFT Analytics
 class InsoftAnalyticsDemo extends StatefulWidget {
-  const InsoftAnalyticsDemo({Key? key}) : super(key: key);
+  const InsoftAnalyticsDemo({super.key});
 
   @override
   State<InsoftAnalyticsDemo> createState() => _InsoftAnalyticsDemoState();
@@ -17,13 +17,51 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
 
   @override
   Widget build(BuildContext context) {
+    final bool esEscritorio = MediaQuery.of(context).size.width > 800;
+
+    final contenidoTabs = Column(
+      children: [
+        if (!esEscritorio) _buildFiltrosMovil(),
+        // Pestañas (Tabs)
+        Container(
+          color: Colors.white,
+          child: const TabBar(
+            labelColor: Color(0xFF1D3557),
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.teal,
+            isScrollable: true,
+            tabs: [
+              Tab(text: 'Tendencias (Gráficos)'),
+              Tab(text: 'Tablas de Datos'),
+              Tab(text: 'Mapas'),
+            ],
+          ),
+        ),
+        
+        // Contenido de las pestañas
+        Expanded(
+          child: Container(
+            color: const Color(0xFFF1F5F9), // Fondo gris claro
+            padding: const EdgeInsets.all(16),
+            child: TabBarView(
+              children: [
+                _buildGraficoTendencias(),
+                _buildTablaDatos(),
+                _buildMapaPlaceholder(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
     return DefaultTabController(
       length: 3, // Tendencias, Tablas, Mapas
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color(0xFF1D3557), // Azul oscuro estilo corporativo
           title: const Text(
-            'InSOFT Analytics - Sala Situacional',
+            'InSOFT Analytics',
             style: TextStyle(color: Colors.white, fontSize: 18),
           ),
           actions: [
@@ -32,55 +70,23 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
               child: Center(
                 child: Text(
                   'Motor: DSI',
-                  style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
                 ),
               ),
             ),
           ],
         ),
-        body: Row(
-          children: [
-            // 1. BARRA LATERAL DE FILTROS (Izquierda)
-            _buildBarraLateral(),
-
-            // 2. ÁREA PRINCIPAL DE DATOS (Derecha)
-            Expanded(
-              child: Column(
+        body: esEscritorio
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Pestañas (Tabs)
-                  Container(
-                    color: Colors.white,
-                    child: const TabBar(
-                      labelColor: Color(0xFF1D3557),
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: Colors.teal,
-                      tabs: [
-                        Tab(text: 'Tendencias (Gráficos)'),
-                        Tab(text: 'Tablas de Datos'),
-                        Tab(text: 'Mapas'),
-                      ],
-                    ),
-                  ),
-                  
-                  // Contenido de las pestañas
-                  Expanded(
-                    child: Container(
-                      color: const Color(0xFFF1F5F9), // Fondo gris claro
-                      padding: const EdgeInsets.all(16),
-                      child: TabBarView(
-                        children: [
-                          _buildGraficoTendencias(),
-                          _buildTablaDatos(),
-                          _buildMapaPlaceholder(),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // 1. BARRA LATERAL DE FILTROS (Izquierda)
+                  _buildBarraLateral(),
+                  // 2. ÁREA PRINCIPAL DE DATOS (Derecha)
+                  Expanded(child: contenidoTabs),
                 ],
-              ),
-            ),
-          ],
-        ),
+              )
+            : contenidoTabs,
       ),
     );
   }
@@ -124,6 +130,56 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
               ),
               onPressed: () {
                 // Aquí iría la lógica para procesar el CSV cargado en memoria
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Procesando datos en memoria...')),
+                );
+              },
+              icon: const Icon(Icons.analytics),
+              label: const Text('Procesar Datos'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET: FILTROS MÓVIL (ExpansionTile) ---
+  Widget _buildFiltrosMovil() {
+    return Container(
+      color: Colors.white,
+      child: ExpansionTile(
+        title: const Text('Filtros y Parámetros', style: TextStyle(fontWeight: FontWeight.bold)),
+        leading: const Icon(Icons.filter_list, color: Colors.teal),
+        childrenPadding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _crearDropdown('Año', ['2024', '2025', '2026'], _anioSeleccionado, (val) {
+                  setState(() => _anioSeleccionado = val!);
+                }),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _crearDropdown('Enfermedad', ['DENGUE', 'MALARIA', 'ZIKA'], _enfermedadSeleccionada, (val) {
+                  setState(() => _enfermedadSeleccionada = val!);
+                }),
+              ),
+            ],
+          ),
+          _crearDropdown('Departamento', ['NACIONAL', 'LIMA', 'PIURA', 'LORETO'], _departamentoSeleccionado, (val) {
+            setState(() => _departamentoSeleccionado = val!);
+          }),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Procesando datos en memoria...')),
                 );
@@ -182,7 +238,7 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
             Expanded(
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: true, drawVerticalLine: false),
+                  gridData: const FlGridData(show: true, drawVerticalLine: false),
                   titlesData: FlTitlesData(
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (val, meta) => Text('Sem ${val.toInt()}')),
@@ -202,7 +258,7 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
                       barWidth: 3,
                       belowBarData: BarAreaData(
                         show: true, 
-                        color: Colors.redAccent.withOpacity(0.1)
+                        color: Colors.redAccent.withValues(alpha: 0.1)
                       ),
                       dotData: const FlDotData(show: true),
                     ),
@@ -225,8 +281,11 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 8,
               children: [
                 const Text(
                   'Tabla de indicadores epidemiológicos',
@@ -244,21 +303,25 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
           const Divider(height: 0),
           Expanded(
             child: SingleChildScrollView(
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFF1D3557)),
-                headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                columns: const [
-                  DataColumn(label: Text('Indicador')),
-                  DataColumn(label: Text('Casos')),
-                  DataColumn(label: Text('Tasa Incidencia')),
-                  DataColumn(label: Text('Defunciones')),
-                  DataColumn(label: Text('Letalidad (%)')),
-                ],
-                rows: const [
-                  DataRow(cells: [DataCell(Text('Casos Totales')), DataCell(Text('16,178')), DataCell(Text('46.7')), DataCell(Text('17')), DataCell(Text('0.11'))]),
-                  DataRow(cells: [DataCell(Text('Casos Confirmados')), DataCell(Text('9,403')), DataCell(Text('27.1')), DataCell(Text('16')), DataCell(Text('0.17'))]),
-                  DataRow(cells: [DataCell(Text('Casos Probables')), DataCell(Text('6,775')), DataCell(Text('19.6')), DataCell(Text('1')), DataCell(Text('0.01'))]),
-                ],
+              scrollDirection: Axis.vertical,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: WidgetStateProperty.all(const Color(0xFF1D3557)),
+                  headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  columns: const [
+                    DataColumn(label: Text('Indicador')),
+                    DataColumn(label: Text('Casos')),
+                    DataColumn(label: Text('Tasa Incidencia')),
+                    DataColumn(label: Text('Defunciones')),
+                    DataColumn(label: Text('Letalidad (%)')),
+                  ],
+                  rows: const [
+                    DataRow(cells: [DataCell(Text('Casos Totales')), DataCell(Text('16,178')), DataCell(Text('46.7')), DataCell(Text('17')), DataCell(Text('0.11'))]),
+                    DataRow(cells: [DataCell(Text('Casos Confirmados')), DataCell(Text('9,403')), DataCell(Text('27.1')), DataCell(Text('16')), DataCell(Text('0.17'))]),
+                    DataRow(cells: [DataCell(Text('Casos Probables')), DataCell(Text('6,775')), DataCell(Text('19.6')), DataCell(Text('1')), DataCell(Text('0.01'))]),
+                  ],
+                ),
               ),
             ),
           ),

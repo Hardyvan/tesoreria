@@ -666,7 +666,7 @@ class _CrearActividadState extends State<CrearActividad> {
                 title: const Text('Requiere Control de Asistencia', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text('Generará deuda automática a quienes falten'),
                 value: _requiereAsistencia,
-                activeColor: Theme.of(context).primaryColor,
+                activeThumbColor: Theme.of(context).primaryColor,
                 onChanged: (val) => setState(() => _requiereAsistencia = val),
               ),
               if (_requiereAsistencia) ...[

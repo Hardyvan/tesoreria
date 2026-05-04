@@ -11,7 +11,7 @@ switch ($accion) {
         }
         $stmt = $pdo->prepare("INSERT INTO DSI_salon_ingresos_extra (descripcion, monto, fecha_ingreso, admin_id) VALUES (?, ?, NOW(), ?)");
         if ($stmt->execute([$data['descripcion'], $data['monto'], $adminId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Ingreso Extra', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Ingreso Extra', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Ingreso Extra S/ " . $data['monto'] . ": " . $data['descripcion']]);
             echo json_encode(['ok' => true]);
         } else { 
@@ -31,7 +31,7 @@ switch ($accion) {
         $actId = $gasto['actividadId'] ?? null;
         $compUrl = $gasto['comprobanteUrl'] ?? null;
         if ($stmt->execute([$gasto['descripcion'], $gasto['monto'], $compUrl, $actId, $adminId, $adminId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Gasto', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Gasto', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Gasto S/ " . $gasto['monto'] . ": " . $gasto['descripcion']]);
             echo json_encode(['ok' => true]);
         } else {
@@ -44,7 +44,7 @@ switch ($accion) {
         $gastoId = (int)$data['gastoId'];
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_gastos WHERE id = ?");
         if ($stmt->execute([$gastoId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Gasto', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Gasto', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Anuló el Gasto #$gastoId"]);
             echo json_encode(['ok' => true]);
         } else {
@@ -58,7 +58,7 @@ switch ($accion) {
         $nuevoMonto = (float)$data['nuevoMonto'];
         $stmt = $pdo->prepare("UPDATE DSI_salon_gastos SET monto = ? WHERE id = ?");
         if ($stmt->execute([$nuevoMonto, $gastoId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Gasto', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Gasto', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cambió monto a S/ $nuevoMonto en Gasto #$gastoId"]);
             echo json_encode(['ok' => true]);
         } else {
@@ -71,7 +71,7 @@ switch ($accion) {
         $ingresoId = (int)$data['ingresoId'];
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_ingresos_extra WHERE id = ?");
         if ($stmt->execute([$ingresoId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Ingreso Extra', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Ingreso Extra', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Anuló el Ingreso Extra #$ingresoId"]);
             echo json_encode(['ok' => true]);
         } else {
@@ -85,7 +85,7 @@ switch ($accion) {
         $nuevoMonto = (float)$data['nuevoMonto'];
         $stmt = $pdo->prepare("UPDATE DSI_salon_ingresos_extra SET monto = ? WHERE id = ?");
         if ($stmt->execute([$nuevoMonto, $ingresoId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Ingreso Extra', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Ingreso Extra', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cambió monto a S/ $nuevoMonto en Ingreso Extra #$ingresoId"]);
             echo json_encode(['ok' => true]);
         } else {

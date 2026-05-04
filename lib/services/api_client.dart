@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:device_info_plus/device_info_plus.dart';
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -23,6 +23,24 @@ class ApiClient {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null && !body.containsKey('adminUid')) {
         body['adminUid'] = currentUser.uid;
+      }
+
+      // Inyectar nombre del dispositivo
+      if (!body.containsKey('dispositivo')) {
+        try {
+          final deviceInfo = DeviceInfoPlugin();
+          if (defaultTargetPlatform == TargetPlatform.android) {
+            final androidInfo = await deviceInfo.androidInfo;
+            body['dispositivo'] = '${androidInfo.brand} ${androidInfo.model}';
+          } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+            final iosInfo = await deviceInfo.iosInfo;
+            body['dispositivo'] = iosInfo.name;
+          } else {
+             body['dispositivo'] = 'Web/Desktop API';
+          }
+        } catch (_) {
+          body['dispositivo'] = 'Flutter API';
+        }
       }
 
       final response = await http.post(

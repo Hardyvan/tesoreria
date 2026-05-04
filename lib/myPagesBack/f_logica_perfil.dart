@@ -138,15 +138,12 @@ class ControladorUsuarios extends ChangeNotifier {
 
   // Enviar Correo de Restablecimiento (Firebase)
   Future<bool> enviarCorreoRestablecimiento(String email) async {
-    // Delegamos a FirebaseAuth (Usamos instancia directa o vÃ­a AuthController)
-    // Para no acoplar, lo hacemos aquÃ­ simple si la dependencia firebase_auth estÃ¡ disponible
-    // O mejor, dejÃ©moslo en la UI llamando a FirebaseAuth directamente o importarlo.
-    // Lo ideal es tenerlo en ControladorAuth, pero lo haremos aquÃ­ por contexto de gestiÃ³n.
     try {
-        // Necesitamos importar firebase_auth. Lo harÃ© en la UI mejor o agrego import aquÃ­.
-        // Simulamos Ã©xito para lÃ³gica de negocio
-        return true; 
+      if (email.isEmpty) return false;
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      return true; 
     } catch (e) {
+      debugPrint('Error enviando correo de reset: $e');
       return false;
     }
   }

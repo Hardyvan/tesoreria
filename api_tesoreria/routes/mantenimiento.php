@@ -58,7 +58,7 @@ switch ($accion) {
             exit;
         }
         $pdo->query("DELETE FROM DSI_salon_auditoria");
-        $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Vaciar Auditoría', 'Se eliminó historial', 'Flutter API', NOW())");
+        $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Vaciar Auditoría', 'Se eliminó historial', '{$dispositivoGlobal}', NOW())");
         $stmtAud->execute([$adminId]);
         echo json_encode(['ok' => true, 'msj' => 'Historial vaciado correctamente.']);
         break;

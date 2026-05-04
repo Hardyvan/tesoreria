@@ -41,7 +41,7 @@ switch ($accion) {
         $pagoIdInsertado = $pdo->lastInsertId();
 
         if ($exito) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cobro S/ $monto al usuario_id $usuarioId"]);
             echo json_encode(['ok' => true, 'msj' => 'Pago guardado', 'pagoId' => $pagoIdInsertado, 'montoAsignado' => $monto, 'esMultaCero' => ($montoMultaCalculada == 0)]);
         } else {
@@ -59,7 +59,7 @@ switch ($accion) {
         $nuevoMonto = (float)$data['nuevoMonto'];
         $stmt = $pdo->prepare("UPDATE DSI_salon_pagos SET monto = ? WHERE id = ?");
         if ($stmt->execute([$nuevoMonto, $pagoId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Pago', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cambió monto a S/ $nuevoMonto en Pago #$pagoId"]);
             echo json_encode(['ok' => true]);
         } else {
@@ -78,7 +78,7 @@ switch ($accion) {
         
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_pagos WHERE id = ?");
         if ($stmt->execute([$pagoId])) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Pago', ?, 'Flutter API', NOW())");
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Anuló Pago #$pagoId"]);
             echo json_encode(['ok' => true, 'usuarioId' => $pago['usuario_id'], 'monto' => $pago['monto']]);
         } else {
