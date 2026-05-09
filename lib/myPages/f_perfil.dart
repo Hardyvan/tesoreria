@@ -457,9 +457,8 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
 
   Future<void> _cargarUsuarios() async {
     final ctrl = Provider.of<ControladorUsuarios>(context, listen: false);
-    if (ctrl.usuarios.isEmpty) {
-      await ctrl.listarUsuarios();
-    }
+    // Forzamos la actualización siempre que se abra la pantalla para evitar datos viejos cacheados
+    await ctrl.listarUsuarios();
   }
 
   @override

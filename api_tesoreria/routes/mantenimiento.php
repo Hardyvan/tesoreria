@@ -24,7 +24,7 @@ switch ($accion) {
         $stmtCount = $pdo->query("SELECT COUNT(*) as total FROM DSI_salon_usuarios");
         $total = $stmtCount->fetch()['total'];
 
-        $stmtUltimos = $pdo->query("SELECT nombre, email, rol, fecha_registro FROM DSI_salon_usuarios ORDER BY fecha_registro DESC LIMIT 5");
+        $stmtUltimos = $pdo->query("SELECT id, nombre, email, celular, uid FROM DSI_salon_usuarios ORDER BY id DESC LIMIT 15");
         $ultimos = $stmtUltimos->fetchAll();
 
         echo json_encode([

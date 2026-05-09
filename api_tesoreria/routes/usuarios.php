@@ -20,8 +20,26 @@ switch ($accion) {
             $user = $stmt->fetch();
             if ($user) {
                 $pdo->prepare("UPDATE DSI_salon_usuarios SET uid = ? WHERE id = ?")->execute([$uid, $user['id']]);
-                if ($fotoGoogle) {
-                    $pdo->prepare("UPDATE DSI_salon_usuarios SET foto_url = ? WHERE id = ? AND (foto_url IS NULL OR foto_url = '')")->execute([$fotoGoogle, $user['id']]);
+            }
+        }
+
+        // FALLBACK: Si aún no hay usuario, buscar por NOMBRE exacto (para vincular registros viejos sin correo)
+        if (!$user && $nombre) {
+            $stmt = $pdo->prepare("SELECT * FROM DSI_salon_usuarios WHERE nombre = ? AND (email IS NULL OR email = '')");
+            $stmt->execute([$nombre]);
+            $user = $stmt->fetch();
+            if ($user) {
+                // Vincular este registro viejo con el nuevo UID y Email de Google
+                $pdo->prepare("UPDATE DSI_salon_usuarios SET uid = ?, email = ? WHERE id = ?")->execute([$uid, $email, $user['id']]);
+            }
+        }
+
+        if ($user) {
+            // Actualizar foto si el registro viejo no tenía
+            if ($fotoGoogle) {
+                $pdo->prepare("UPDATE DSI_salon_usuarios SET foto_url = ? WHERE id = ? AND (foto_url IS NULL OR foto_url = '')")->execute([$fotoGoogle, $user['id']]);
+                if (empty($user['foto_url'])) {
+                    $user['foto_url'] = $fotoGoogle;
                 }
             }
         }
@@ -85,6 +103,14 @@ switch ($accion) {
     case 'listarUsuariosCompleto':
         if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $stmt = $pdo->query("SELECT id, nombre, celular, email, foto_url, rol, direccion, edad, sexo, estado, updated_at FROM DSI_salon_usuarios ORDER BY nombre ASC");
+        echo json_encode(['ok' => true, 'datos' => $stmt->fetchAll()]);
+        break;
+
+    // NUEVO: Endpoint abierto a cualquier usuario autenticado para ver compañeros del salón
+    case 'listarCompaneros':
+        // Solo requiere estar autenticado (adminId > 0 porque el backend resuelve el uid)
+        // Devuelve datos básicos: no expone celular, email, ni datos sensibles
+        $stmt = $pdo->query("SELECT id, nombre, foto_url, rol, estado FROM DSI_salon_usuarios WHERE estado != 'inactivo' ORDER BY nombre ASC");
         echo json_encode(['ok' => true, 'datos' => $stmt->fetchAll()]);
         break;
 

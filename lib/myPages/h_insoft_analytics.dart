@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:share_plus/share_plus.dart';
+import '../services/api_client.dart' as api_ext;
+import '../myPagesTema/b_ui_kit.dart';
 
-/// Pantilla Analítica: InSOFT Analytics
 class InsoftAnalyticsDemo extends StatefulWidget {
   const InsoftAnalyticsDemo({super.key});
 
@@ -10,187 +19,549 @@ class InsoftAnalyticsDemo extends StatefulWidget {
 }
 
 class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
-  // Variables de los filtros
   String _anioSeleccionado = '2026';
-  String _enfermedadSeleccionada = 'DENGUE';
-  String _departamentoSeleccionado = 'NACIONAL';
+  String _tipoReporteSeleccionado = 'DEUDAS';
+  String _estadoSeleccionado = 'TODOS';
+
+  bool _cargando = true;
+  bool _exportando = false; // Estado para rendimiento de exportaciones
+  Map<String, dynamic>? _datosAnaliticos;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
+  Future<void> _cargarDatos() async {
+    setState(() => _cargando = true);
+    try {
+      final api = api_ext.ApiClient();
+      final data = await api.post('obtenerDashboardAnalytics', {});
+
+      if (data['ok'] == true) {
+        setState(() {
+          _datosAnaliticos = data;
+        });
+      } else {
+        _mostrarError(data['msj'] ?? 'Error desconocido');
+      }
+    } catch (e) {
+      _mostrarError('Error de conexión: $e');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  void _mostrarError(String msj) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msj), backgroundColor: Colors.red));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final bool esEscritorio = MediaQuery.of(context).size.width > 800;
 
-    final contenidoTabs = Column(
-      children: [
-        if (!esEscritorio) _buildFiltrosMovil(),
-        // Pestañas (Tabs)
-        Container(
-          color: Colors.white,
-          child: const TabBar(
-            labelColor: Color(0xFF1D3557),
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.teal,
-            isScrollable: true,
-            tabs: [
-              Tab(text: 'Tendencias (Gráficos)'),
-              Tab(text: 'Tablas de Datos'),
-              Tab(text: 'Mapas'),
-            ],
-          ),
-        ),
-        
-        // Contenido de las pestañas
-        Expanded(
-          child: Container(
-            color: const Color(0xFFF1F5F9), // Fondo gris claro
-            padding: const EdgeInsets.all(16),
-            child: TabBarView(
-              children: [
-                _buildGraficoTendencias(),
-                _buildTablaDatos(),
-                _buildMapaPlaceholder(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+    final contenidoTabs = _cargando 
+        ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+        : (_datosAnaliticos == null 
+            ? const Center(child: Text('Error al cargar datos'))
+            : Column(
+                children: [
+                  if (!esEscritorio) _buildFiltrosMovil(),
+                  Container(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: const TabBar(
+                      labelColor: Color(0xFF1D3557),
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: Colors.teal,
+                      isScrollable: true,
+                      tabs: [
+                        Tab(text: 'Métricas y Gráficos'),
+                        Tab(text: 'Detalle de Usuarios'),
+                        Tab(text: 'Alertas Cruzadas'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: TabBarView(
+                        children: [
+                          _buildGraficosYMetas(),
+                          _buildTablaDatosPremium(),
+                          _buildMapaPlaceholder(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ));
 
     return DefaultTabController(
-      length: 3, // Tendencias, Tablas, Mapas
+      length: 3, 
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1D3557), // Azul oscuro estilo corporativo
-          title: const Text(
-            'InSOFT Analytics',
-            style: TextStyle(color: Colors.white, fontSize: 18),
-          ),
+          backgroundColor: const Color(0xFF1D3557),
+          title: const Text('Dashboard Ejecutivo - Tesorería', style: TextStyle(color: Colors.white, fontSize: 18)),
           actions: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Center(
-                child: Text(
-                  'Motor: DSI',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
-                ),
-              ),
-            ),
+            IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _cargarDatos),
           ],
         ),
         body: esEscritorio
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. BARRA LATERAL DE FILTROS (Izquierda)
                   _buildBarraLateral(),
-                  // 2. ÁREA PRINCIPAL DE DATOS (Derecha)
                   Expanded(child: contenidoTabs),
                 ],
               )
             : contenidoTabs,
+        floatingActionButton: _cargando ? null : Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              heroTag: 'btnExcel',
+              onPressed: _exportando ? null : _exportarExcel,
+              backgroundColor: _exportando ? Colors.grey : Colors.green.shade700,
+              child: _exportando ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.table_view, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            FloatingActionButton.extended(
+              heroTag: 'btnPdf',
+              onPressed: _exportando ? null : _exportarPDF,
+              backgroundColor: _exportando ? Colors.grey : Colors.teal,
+              icon: _exportando ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white)) : const Icon(Icons.picture_as_pdf, color: Colors.white),
+              label: const Text('PDF', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // --- WIDGET: BARRA LATERAL DE FILTROS ---
-  Widget _buildBarraLateral() {
+  // --- COMPONENTES UI: GRÁFICOS Y METAS ---
+  Widget _buildGraficosYMetas() {
+    final kpis = _datosAnaliticos!['kpis'];
+    final double progreso = (kpis['progreso'] as num).toDouble();
+    final double meta = (kpis['meta'] as num).toDouble();
+    final double ingresos = (kpis['ingresos'] as num).toDouble();
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Meta Mensual (Progress Bar)
+          TarjetaPremium(
+            usaGradientePrimario: false,
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Meta de Recaudación (Deuda Total Estudiantil)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('S/ ${ingresos.toStringAsFixed(2)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal)),
+                    Text('de S/ ${meta.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: progreso > 1.0 ? 1.0 : progreso,
+                    minHeight: 12,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('${(progreso * 100).toStringAsFixed(1)}% Alcanzado', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: progreso >= 1.0 ? Colors.green : Colors.orange)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // 2. Gráficos: Línea y Anillo
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: _buildGraficoTendencias()), 
+              const SizedBox(width: 16),
+              Expanded(flex: 1, child: _buildGraficoAnillo()), 
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGraficoAnillo() {
+    final dona = _datosAnaliticos!['dona'] as List;
+    final valRecaudado = (dona[0]['valor'] as num).toDouble();
+    final valDeuda = (dona[1]['valor'] as num).toDouble();
+    
+    return TarjetaPremium(
+      usaGradientePrimario: false,
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          const Text('Composición Global', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 180,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 4,
+                centerSpaceRadius: 40,
+                sections: [
+                  PieChartSectionData(
+                    color: Colors.teal,
+                    value: valRecaudado,
+                    title: '${((valRecaudado/(valRecaudado+valDeuda+0.001))*100).toStringAsFixed(0)}%',
+                    radius: 50,
+                    titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  PieChartSectionData(
+                    color: const Color(0xFFE63946),
+                    value: valDeuda,
+                    title: '${((valDeuda/(valRecaudado+valDeuda+0.001))*100).toStringAsFixed(0)}%',
+                    radius: 50,
+                    titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ]
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.circle, color: Colors.teal, size: 12),
+              const SizedBox(width: 4),
+              Text('Recaudado (S/ ${valRecaudado.toStringAsFixed(0)})', style: const TextStyle(fontSize: 11)),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.circle, color: Color(0xFFE63946), size: 12),
+              const SizedBox(width: 4),
+              Text('Deuda (S/ ${valDeuda.toStringAsFixed(0)})', style: const TextStyle(fontSize: 11)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET: TABLA DE DATOS PREMIUM CON BOTTOM SHEET ---
+  Widget _buildTablaDatosPremium() {
+    final List usuarios = _datosAnaliticos!['usuarios'];
+
+    return TarjetaPremium(
+      usaGradientePrimario: false,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text('Detalle de Usuarios (Toca para ver info)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          const Divider(height: 0),
+          Expanded(
+            child: ListView.builder(
+              itemExtent: 85, // Optimización: Bloquea las alturas a 85px para máximo rendimiento a 60FPS
+              itemCount: usuarios.length,
+              itemBuilder: (context, index) {
+                final u = usuarios[index];
+                final estado = u['estado'].toString();
+                final Color colorEstado = estado == 'AL DÍA' ? Colors.green : (estado == 'CRÍTICO' ? Colors.red : Colors.orange);
+
+                return InkWell(
+                  onTap: () => _mostrarDetalleUsuario(u),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: Row(
+                      children: [
+                        AvatarUsuario(
+                          nombre: u['nombre'].toString(),
+                          fotoUrl: u['foto_url']?.toString(),
+                          radius: 24,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(u['nombre'].toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 4),
+                              Text('Deuda: S/ ${(u['deuda'] as num).toDouble().toStringAsFixed(2)}  •  Faltas: ${u['faltas']}', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                        BadgeEstado(
+                          texto: estado,
+                          colorBase: colorEstado,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarDetalleUsuario(Map<String, dynamic> u) {
+    final deuda = (u['deuda'] as num).toDouble();
+    final String celular = u['celular']?.toString() ?? '';
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AvatarUsuario(
+                nombre: u['nombre'].toString(),
+                fotoUrl: u['foto_url']?.toString(),
+                radius: 40,
+              ),
+              const SizedBox(height: 16),
+              Text(u['nombre'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Deuda Pendiente: S/ ${deuda.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.w600)),
+              Text('Inasistencias Acumuladas: ${u['faltas']} faltas', style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 24),
+              BotonGradiente(
+                text: 'Notificar Deuda por WhatsApp',
+                icon: Icons.chat,
+                useSecondaryColor: true,
+                onPressed: () async {
+                  if (celular.isEmpty) {
+                    _mostrarError('El usuario no tiene celular registrado.');
+                    return;
+                  }
+                  final numWhats = celular.startsWith('51') ? celular : '51$celular';
+                  final uri = Uri.parse('whatsapp://send?phone=$numWhats&text=Hola ${u['nombre']}, te escribimos para recordarte tu deuda de S/ ${deuda.toStringAsFixed(2)}.');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    _mostrarError('No se pudo abrir WhatsApp');
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  // --- LÓGICA: EXPORTAR A EXCEL ---
+  Future<void> _exportarExcel() async {
+    setState(() => _exportando = true);
+    // Añadimos un pequeño retraso para permitir que la UI se actualice y muestre el loading
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Tesoreria'];
+      excel.setDefaultSheet('Tesoreria');
+
+      // Cabeceras
+      sheet.appendRow([
+        TextCellValue('ID'), 
+        TextCellValue('Usuario'), 
+        TextCellValue('Deuda Total (S/)'), 
+        TextCellValue('Faltas'), 
+        TextCellValue('Estado')
+      ]);
+
+      // Datos
+      final usuarios = _datosAnaliticos!['usuarios'] as List;
+      for (var u in usuarios) {
+        sheet.appendRow([
+          IntCellValue(u['id'] as int),
+          TextCellValue(u['nombre']),
+          DoubleCellValue((u['deuda'] as num).toDouble()),
+          IntCellValue(u['faltas'] as int),
+          TextCellValue(u['estado']),
+        ]);
+      }
+
+      // Guardar y Compartir
+      final fileBytes = excel.save();
+      if (fileBytes != null) {
+        final dir = await getApplicationDocumentsDirectory();
+        final path = '${dir.path}/Reporte_Tesoreria.xlsx';
+        final file = File(path);
+        await file.writeAsBytes(fileBytes);
+        await Share.shareXFiles([XFile(path)], text: 'Reporte Excel de Tesorería');
+      }
+    } catch (e) {
+      _mostrarError('Error al exportar Excel: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
+  }
+
+  Future<void> _exportarPDF() async {
+    setState(() => _exportando = true);
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    try {
+      final doc = pw.Document();
+      final List usuarios = _datosAnaliticos!['usuarios'] as List;
+      const int filasPorPagina = 20;
+      final int totalPaginas = (usuarios.length / filasPorPagina).ceil();
+
+      if (usuarios.isEmpty) {
+        _mostrarError('No hay usuarios para exportar');
+        return;
+      }
+
+      for (int p = 0; p < totalPaginas; p++) {
+        final int start = p * filasPorPagina;
+        final int end = (start + filasPorPagina < usuarios.length) ? start + filasPorPagina : usuarios.length;
+        final List datosPagina = usuarios.sublist(start, end);
+
+        doc.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('Reporte Consolidado de Tesorería - Página ${p + 1} de $totalPaginas', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 20),
+                  pw.TableHelper.fromTextArray(
+                    headers: ['Nº', 'Usuario', 'Deuda Total', 'Faltas', 'Estado'],
+                    data: datosPagina.asMap().entries.map((entry) {
+                      int idx = start + entry.key + 1;
+                      var dato = entry.value;
+                      return [idx.toString(), dato['nombre'], 'S/ ${(dato['deuda'] as num).toDouble().toStringAsFixed(2)}', dato['faltas'].toString(), dato['estado']];
+                    }).toList(),
+                    headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF1D3557)),
+                    cellAlignment: pw.Alignment.centerLeft,
+                    cellStyle: const pw.TextStyle(fontSize: 10),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      }
+      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => doc.save(), name: 'Reporte_Tesoreria_$_anioSeleccionado.pdf');
+    } catch(e) {
+      _mostrarError('Error generando PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
+  }
+
+  Widget _buildGraficoTendencias() {
+    return TarjetaPremium(
+      usaGradientePrimario: false,
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Flujo de Recaudación vs Deuda - $_anioSeleccionado', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+          const SizedBox(height: 24),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: true, drawVerticalLine: false),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (val, meta) => Text('M${val.toInt()}'))),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: const [FlSpot(0, 1500), FlSpot(1, 2100), FlSpot(2, 4000), FlSpot(3, 3500), FlSpot(4, 6000), FlSpot(5, 5200)],
+                    isCurved: true, color: Colors.teal, barWidth: 3, dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: true, color: Colors.teal.withValues(alpha: 0.1)),
+                  ),
+                  LineChartBarData(
+                    spots: const [FlSpot(0, 3000), FlSpot(1, 2800), FlSpot(2, 2000), FlSpot(3, 4500), FlSpot(4, 2000), FlSpot(5, 1200)],
+                    isCurved: true, color: const Color(0xFFE63946), barWidth: 3, dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: true, color: const Color(0xFFE63946).withValues(alpha: 0.1)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapaPlaceholder() {
+    return const TarjetaPremium(
+      usaGradientePrimario: false,
+      padding: EdgeInsets.zero,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.dashboard_customize, size: 80, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Alertas y Reportes Cruzados en Construcción', style: TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarraLateral() { 
     return Container(
-      width: 250,
-      color: Colors.white,
+      width: 250, 
+      color: Colors.white, 
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Filtrar información',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          const Text('Filtros Globales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const Divider(),
-          const SizedBox(height: 16),
-          
-          _crearDropdown('Año de análisis', ['2024', '2025', '2026'], _anioSeleccionado, (val) {
-            setState(() => _anioSeleccionado = val!);
-          }),
-          
-          _crearDropdown('Enfermedad', ['DENGUE', 'MALARIA', 'ZIKA'], _enfermedadSeleccionada, (val) {
-            setState(() => _enfermedadSeleccionada = val!);
-          }),
-          
-          _crearDropdown('Departamento', ['NACIONAL', 'LIMA', 'PIURA', 'LORETO'], _departamentoSeleccionado, (val) {
-            setState(() => _departamentoSeleccionado = val!);
-          }),
-
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              onPressed: () {
-                // Aquí iría la lógica para procesar el CSV cargado en memoria
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Procesando datos en memoria...')),
-                );
-              },
-              icon: const Icon(Icons.analytics),
-              label: const Text('Procesar Datos'),
-            ),
-          ),
+          _crearDropdown('Año Fiscal', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() => _anioSeleccionado = val!)),
+          _crearDropdown('Reporte', ['DEUDAS', 'ASISTENCIA', 'INGRESOS'], _tipoReporteSeleccionado, (val) => setState(() => _tipoReporteSeleccionado = val!)),
+          _crearDropdown('Estado', ['TODOS', 'MOROSOS', 'AL DÍA', 'CRÍTICO'], _estadoSeleccionado, (val) => setState(() => _estadoSeleccionado = val!)),
         ],
-      ),
-    );
+      )
+    ); 
   }
-
-  // --- WIDGET: FILTROS MÓVIL (ExpansionTile) ---
-  Widget _buildFiltrosMovil() {
+  
+  Widget _buildFiltrosMovil() { 
     return Container(
       color: Colors.white,
       child: ExpansionTile(
-        title: const Text('Filtros y Parámetros', style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: const Icon(Icons.filter_list, color: Colors.teal),
+        title: const Text('Filtros Globales', style: TextStyle(fontWeight: FontWeight.bold)),
         childrenPadding: const EdgeInsets.all(16),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _crearDropdown('Año', ['2024', '2025', '2026'], _anioSeleccionado, (val) {
-                  setState(() => _anioSeleccionado = val!);
-                }),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _crearDropdown('Enfermedad', ['DENGUE', 'MALARIA', 'ZIKA'], _enfermedadSeleccionada, (val) {
-                  setState(() => _enfermedadSeleccionada = val!);
-                }),
-              ),
-            ],
-          ),
-          _crearDropdown('Departamento', ['NACIONAL', 'LIMA', 'PIURA', 'LORETO'], _departamentoSeleccionado, (val) {
-            setState(() => _departamentoSeleccionado = val!);
-          }),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Procesando datos en memoria...')),
-                );
-              },
-              icon: const Icon(Icons.analytics),
-              label: const Text('Procesar Datos'),
-            ),
-          ),
+          _crearDropdown('Año', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() => _anioSeleccionado = val!)),
+          _crearDropdown('Estado', ['TODOS', 'MOROSOS', 'AL DÍA', 'CRÍTICO'], _estadoSeleccionado, (val) => setState(() => _estadoSeleccionado = val!)),
         ],
       ),
-    );
+    ); 
   }
 
   Widget _crearDropdown(String titulo, List<String> opciones, String valorActual, ValueChanged<String?> onChanged) {
@@ -203,10 +574,7 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4),
-            ),
+            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 isExpanded: true,
@@ -217,132 +585,6 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // --- WIDGET: GRÁFICO DE TENDENCIAS (fl_chart) ---
-  Widget _buildGraficoTendencias() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Curva Epidémica de $_enfermedadSeleccionada - $_anioSeleccionado',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557)),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: LineChart(
-                LineChartData(
-                  gridData: const FlGridData(show: true, drawVerticalLine: false),
-                  titlesData: FlTitlesData(
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (val, meta) => Text('Sem ${val.toInt()}')),
-                    ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: const [
-                        FlSpot(1, 1500), FlSpot(2, 2100), FlSpot(3, 4000), 
-                        FlSpot(4, 8500), FlSpot(5, 6000), FlSpot(6, 3200),
-                      ],
-                      isCurved: true,
-                      color: Colors.redAccent,
-                      barWidth: 3,
-                      belowBarData: BarAreaData(
-                        show: true, 
-                        color: Colors.redAccent.withValues(alpha: 0.1)
-                      ),
-                      dotData: const FlDotData(show: true),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- WIDGET: TABLA DE DATOS ---
-  Widget _buildTablaDatos() {
-    return Card(
-      elevation: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                const Text(
-                  'Tabla de indicadores epidemiológicos',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-                  onPressed: () {},
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('Descargar CSV'),
-                )
-              ],
-            ),
-          ),
-          const Divider(height: 0),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(const Color(0xFF1D3557)),
-                  headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  columns: const [
-                    DataColumn(label: Text('Indicador')),
-                    DataColumn(label: Text('Casos')),
-                    DataColumn(label: Text('Tasa Incidencia')),
-                    DataColumn(label: Text('Defunciones')),
-                    DataColumn(label: Text('Letalidad (%)')),
-                  ],
-                  rows: const [
-                    DataRow(cells: [DataCell(Text('Casos Totales')), DataCell(Text('16,178')), DataCell(Text('46.7')), DataCell(Text('17')), DataCell(Text('0.11'))]),
-                    DataRow(cells: [DataCell(Text('Casos Confirmados')), DataCell(Text('9,403')), DataCell(Text('27.1')), DataCell(Text('16')), DataCell(Text('0.17'))]),
-                    DataRow(cells: [DataCell(Text('Casos Probables')), DataCell(Text('6,775')), DataCell(Text('19.6')), DataCell(Text('1')), DataCell(Text('0.01'))]),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- WIDGET: MAPA (Placeholder) ---
-  Widget _buildMapaPlaceholder() {
-    return const Card(
-      elevation: 2,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.map, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Mapa Interactivo de Calor (Requiere flutter_map)', style: TextStyle(color: Colors.grey, fontSize: 16)),
-          ],
-        ),
       ),
     );
   }

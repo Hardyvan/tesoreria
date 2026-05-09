@@ -2,7 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'modelo_usuario.dart';
 import '../services/api_client.dart' as api_ext;
-import '../myPagesLocal/c_base_datos_local.dart';
+
 
 /// Repositorio exclusivo para operaciones con la Base de Datos Remota (vía API), Local y Storage.
 class RepositorioUsuarios {
@@ -131,7 +131,7 @@ class RepositorioUsuarios {
   }
 
   //-------------------------------------------------------------------------
-  // 4. ACTUALIZAR CELULAR O FOTO (OFFLINE FIRST LÓGICA)
+  // 4. ACTUALIZAR CELULAR O FOTO (API DIRECTA)
   //-------------------------------------------------------------------------
   Future<Usuario?> actualizarElementoUsuario(Usuario usuarioActual, {String? nombre, String? celular, String? fotoUrl, String? fcmToken}) async {
     try {
@@ -141,25 +141,23 @@ class RepositorioUsuarios {
         fotoUrl: fotoUrl ?? usuarioActual.fotoUrl
       );
       
-      // Guardar local (SQLite) siempre para offline
-      await BaseDatosLocal.instance.insertarUsuario(usuarioActualizado, sincronizado: false);
-
-      // Sincronizar con API
+      // Sincronizar con API directamente
       try {
         final api = api_ext.ApiClient();
         final res = await api.post('actualizarElementoUsuario', {
           'id': usuarioActual.id,
-          'nombre': ?nombre,
+          'nombre': nombre,
           'celular': celular ?? usuarioActual.celular,
           'fotoUrl': fotoUrl ?? usuarioActual.fotoUrl,
           'fcmToken': fcmToken
         });
         
-        if (res['ok'] == true) {
-          await BaseDatosLocal.instance.marcarSincronizado(usuarioActual.id);
+        if (res['ok'] != true) {
+           return null;
         }
       } catch (e) {
-        debugPrint('Guardado en SQLite, subida diferida por conexión fallida');
+        debugPrint('Error actualizando elemento en la API: $e');
+        return null;
       }
 
       return usuarioActualizado;

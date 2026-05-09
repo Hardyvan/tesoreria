@@ -148,6 +148,7 @@ try {
         case 'sincronizarUsuarioBD':
         case 'guardarPerfilCompletado':
         case 'listarUsuariosCompleto':
+        case 'listarCompaneros':
         case 'cambiarRolUsuario':
         case 'cambiarEstadoUsuario':
         case 'eliminarUsuario':

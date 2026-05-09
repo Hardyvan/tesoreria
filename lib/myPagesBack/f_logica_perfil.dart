@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/api_client.dart' as api_ext;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_client.dart' as api_ext;
 import 'modelo_usuario.dart';
-import '../myPagesLocal/c_base_datos_local.dart';
-import 'd_sincronizador.dart';
+
 import 'dart:async';
 
 class ControladorUsuarios extends ChangeNotifier {
@@ -13,63 +12,67 @@ class ControladorUsuarios extends ChangeNotifier {
   List<Usuario> get usuarios => _usuarios;
   bool get cargando => _cargando;
 
-  // Listar todos los usuarios (Desde LOCAL)
+  // Listar todos los usuarios (Directo desde la API)
   Future<void> listarUsuarios() async {
     _cargando = true;
     notifyListeners();
 
     try {
-      // 1. Leer de Base de Datos Local
-      final usuariosLocales = await BaseDatosLocal.instance.obtenerUsuarios();
+      final api = api_ext.ApiClient();
+      final res = await api.post('listarUsuariosCompleto', {});
       
-      // Filtrar o manejar estados si se requiere (pero el admin debe ver todos)
-      _usuarios = usuariosLocales;
-      
-      // 2. Intentar Sincronizar en Segundo Plano
-      unawaited(sincronizarUsuarios());
-
+      if (res['ok'] == true && res['datos'] != null) {
+        final List<dynamic> lista = res['datos'];
+        _usuarios = lista.map((u) {
+          String estadoLocal = 'activo';
+          final estadoRaw = u['estado'];
+          if (estadoRaw != null) {
+            if (estadoRaw.toString() == '1' || estadoRaw == true || estadoRaw.toString().toLowerCase() == 'activo') {
+              estadoLocal = 'activo';
+            } else {
+              estadoLocal = 'inactivo';
+            }
+          }
+          
+          return Usuario(
+            id: u['id'] is int ? u['id'] : int.tryParse(u['id'].toString()) ?? 0,
+            nombre: u['nombre']?.toString() ?? '',
+            celular: u['celular']?.toString() ?? '',
+            uid: u['uid']?.toString() ?? '',
+            email: u['email']?.toString() ?? '',
+            fotoUrl: u['foto_url']?.toString() ?? '',
+            rol: u['rol']?.toString() ?? 'Alumno',
+            direccion: u['direccion']?.toString() ?? '',
+            edad: u['edad'] is int ? u['edad'] : int.tryParse(u['edad'].toString()) ?? 0,
+            sexo: u['sexo']?.toString() ?? '',
+            estado: estadoLocal,
+          );
+        }).toList();
+      }
     } catch (e) {
-      debugPrint('Error listando usuarios locales: $e');
+      debugPrint('Error listando usuarios de la API: $e');
     } finally {
       _cargando = false;
       notifyListeners();
     }
   }
 
-  // SincronizaciÃ³n en segundo plano
-  Future<void> sincronizarUsuarios() async {
-    try {
-      final sinc = Sincronizador();
-      await sinc.sincronizarTodo(); 
-      
-      // Actualizar la lista local
-      _usuarios = await BaseDatosLocal.instance.obtenerUsuarios();
-      notifyListeners();
-      
-    } catch (e) {
-      debugPrint('Modo Offline: No se pudo sincronizar ($e)');
-    }
-  }
 
 
-
-  // Actualizar Rol (Solo Admin)
+  // Actualizar Rol (Solo Admin/SuperAdmin)
   Future<bool> actualizarRol(int idUsuario, String nuevoRol) async {
     try {
       final api = api_ext.ApiClient();
+      // adminUid se inyecta automáticamente por ApiClient; el backend revalida el rol real desde la BD
       final res = await api.post('cambiarRolUsuario', {
         'targetId': idUsuario,
         'nuevoRol': nuevoRol,
-        'adminRol': 'SuperAdmin', // Hardcodeamos para agilizar, idealmente pasar auth
-        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
       });
       
       if (res['ok'] == true) {
         final index = _usuarios.indexWhere((u) => u.id == idUsuario);
         if (index != -1) {
-          final usuarioModificado = _usuarios[index].copyWith(rol: nuevoRol);
-          _usuarios[index] = usuarioModificado;
-          await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
+          _usuarios[index] = _usuarios[index].copyWith(rol: nuevoRol);
           notifyListeners();
         }
         return true;
@@ -81,23 +84,20 @@ class ControladorUsuarios extends ChangeNotifier {
     }
   }
 
-  // Actualizar Nombre (Admin)
+  // Actualizar Nombre (Admin/SuperAdmin o el propio usuario)
   Future<bool> actualizarNombre(int idUsuario, String nuevoNombre) async {
     try {
       final api = api_ext.ApiClient();
+      // adminUid se inyecta automáticamente; el backend valida: dueño del perfil o admin
       final res = await api.post('actualizarElementoUsuario', {
         'id': idUsuario,
         'nombre': nuevoNombre,
-        'adminRol': 'SuperAdmin', // Validado en API
-        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
       });
       
       if (res['ok'] == true) {
         final index = _usuarios.indexWhere((u) => u.id == idUsuario);
         if (index != -1) {
-          final usuarioModificado = _usuarios[index].copyWith(nombre: nuevoNombre);
-          _usuarios[index] = usuarioModificado;
-          await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
+          _usuarios[index] = _usuarios[index].copyWith(nombre: nuevoNombre);
           notifyListeners();
         }
         return true;
@@ -108,23 +108,20 @@ class ControladorUsuarios extends ChangeNotifier {
       return false;
     }
   }
-  // Cambiar Estado (Bloquear/Desbloquear)
+  // Cambiar Estado (Bloquear/Desbloquear) - Solo Admin/SuperAdmin
   Future<bool> cambiarEstadoUsuario(int idUsuario, String nuevoEstado) async {
     try {
       final api = api_ext.ApiClient();
+      // adminUid se inyecta automáticamente; el backend revalida el rol real
       final res = await api.post('cambiarEstadoUsuario', {
         'targetId': idUsuario,
         'nuevoEstado': nuevoEstado,
-        'adminRol': 'SuperAdmin',
-        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
       });
       
       if (res['ok'] == true) {
         final index = _usuarios.indexWhere((u) => u.id == idUsuario);
         if (index != -1) {
-           final usuarioModificado = _usuarios[index].copyWith(estado: nuevoEstado);
-           _usuarios[index] = usuarioModificado;
-           await BaseDatosLocal.instance.insertarUsuario(usuarioModificado, sincronizado: true);
+           _usuarios[index] = _usuarios[index].copyWith(estado: nuevoEstado);
            notifyListeners();
         }
         return true;
@@ -148,19 +145,16 @@ class ControladorUsuarios extends ChangeNotifier {
     }
   }
 
-  // Eliminar Usuario (Solo Admin)
+  // Eliminar Usuario (Solo Admin/SuperAdmin)
   Future<bool> eliminarUsuario(int idUsuario) async {
     try {
       final api = api_ext.ApiClient();
+      // adminUid se inyecta automáticamente; el backend revalida el rol real
       final res = await api.post('eliminarUsuario', {
         'targetId': idUsuario,
-        'adminRol': 'SuperAdmin',
-        'adminUid': FirebaseAuth.instance.currentUser?.uid ?? ''
       });
 
       if (res['ok'] == true) {
-        final dbLocal = await BaseDatosLocal.instance.database;
-        await dbLocal.delete('usuarios', where: 'id = ?', whereArgs: [idUsuario]);
         _usuarios.removeWhere((u) => u.id == idUsuario);
         notifyListeners();
         return true;

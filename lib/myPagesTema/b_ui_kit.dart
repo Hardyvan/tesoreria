@@ -502,10 +502,13 @@ class AvatarUsuario extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String iniciales = nombre != null && nombre!.isNotEmpty ? nombre!.substring(0, 1).toUpperCase() : '?';
+    final hasImage = fotoUrl != null && fotoUrl!.isNotEmpty;
+    
     return CircleAvatar(
       radius: radius,
       backgroundColor: backgroundColor,
-      child: Text(
+      backgroundImage: hasImage ? NetworkImage(fotoUrl!) : null,
+      child: hasImage ? null : Text(
         iniciales,
         style: TextStyle(color: textColor ?? Colors.white, fontWeight: FontWeight.bold, fontSize: radius * 0.8),
       ),

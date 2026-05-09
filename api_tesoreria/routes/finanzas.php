@@ -72,7 +72,7 @@ switch ($accion) {
         break;
 
     case 'obtenerReporteDeudores':
-        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
+        // Abierto a cualquier usuario autenticado (para llenar la pestaña "Estado" en la app)
         $sql = "
             SELECT 
                 u.id, 
@@ -322,6 +322,84 @@ switch ($accion) {
         if ($stmt->execute([$nuevoMonto])) {
             echo json_encode(['ok' => true]);
         } else { echo json_encode(['ok' => false]); }
+        break;
+    case 'obtenerDashboardAnalytics':
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
+        
+        // 1. KPIs Generales
+        $stmtI = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1");
+        $pagos = (float)$stmtI->fetch()['total'];
+        
+        $stmtE = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra");
+        $extras = (float)$stmtE->fetch()['total'];
+        $recaudadoTotal = $pagos + $extras;
+
+        $stmtG = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos");
+        $gastos = (float)$stmtG->fetch()['total'];
+
+        // 2. Cálculo de Deuda y Meta (Deuda total de todas las actividades)
+        $sqlDeuda = "
+            SELECT 
+                (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) * 
+                (SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1) as meta_total
+        ";
+        $metaTotal = (float)$pdo->query($sqlDeuda)->fetch()['meta_total'];
+        $deudaPendiente = max(0, $metaTotal - $pagos);
+        
+        // Progreso de la Meta General
+        $progresoMeta = $metaTotal > 0 ? ($pagos / $metaTotal) : 0;
+
+        // 3. Usuarios Detallados para la Tabla
+        $sqlUsuarios = "
+            SELECT 
+                u.id, 
+                u.nombre, 
+                u.foto_url,
+                u.celular,
+                ((SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) + 
+                 (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
+                (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado,
+                (SELECT COUNT(1) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto') as faltas
+            FROM DSI_salon_usuarios u
+            WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
+            ORDER BY u.nombre ASC
+        ";
+        $resUsuarios = $pdo->query($sqlUsuarios)->fetchAll();
+        $usuariosFormateados = [];
+        foreach ($resUsuarios as $u) {
+            $deuda = (float)$u['total_a_pagar'] - (float)$u['total_pagado'];
+            $faltas = (int)$u['faltas'];
+            $estado = 'AL DÍA';
+            if ($deuda > 0) {
+                $estado = $faltas >= 3 ? 'CRÍTICO' : 'MOROSO';
+            }
+            
+            $usuariosFormateados[] = [
+                'id' => $u['id'],
+                'nombre' => $u['nombre'],
+                'foto_url' => $u['foto_url'],
+                'celular' => $u['celular'],
+                'deuda' => $deuda,
+                'faltas' => $faltas,
+                'estado' => $estado
+            ];
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'kpis' => [
+                'ingresos' => $recaudadoTotal,
+                'gastos' => $gastos,
+                'deudaPendiente' => $deudaPendiente,
+                'meta' => $metaTotal,
+                'progreso' => $progresoMeta
+            ],
+            'dona' => [
+                ['titulo' => 'Recaudado', 'valor' => $pagos],
+                ['titulo' => 'Deuda', 'valor' => $deudaPendiente]
+            ],
+            'usuarios' => $usuariosFormateados
+        ]);
         break;
 
     default:
