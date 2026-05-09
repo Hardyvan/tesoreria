@@ -673,6 +673,7 @@ class ControladorFinanzas extends ChangeNotifier {
           'id': fila['id'],
           'nombre': fila['nombre'].toString(),
           'foto_url': fila['foto_url'].toString(),
+          'celular': fila['celular']?.toString() ?? '',
           'deuda': (fila['deuda'] as num).toDouble(),
           'estado': fila['estado'].toString()
         }).toList();

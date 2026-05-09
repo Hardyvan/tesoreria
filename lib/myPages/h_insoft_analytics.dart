@@ -20,12 +20,18 @@ class InsoftAnalyticsDemo extends StatefulWidget {
 
 class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
   String _anioSeleccionado = '2026';
-  String _tipoReporteSeleccionado = 'DEUDAS';
+  String _mesSeleccionado = 'TODOS';
   String _estadoSeleccionado = 'TODOS';
+  String _tipoReporteSeleccionado = 'DEUDAS';
 
   bool _cargando = true;
-  bool _exportando = false; // Estado para rendimiento de exportaciones
+  bool _exportando = false; 
   Map<String, dynamic>? _datosAnaliticos;
+
+  final List<String> _meses = [
+    'TODOS', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
 
   @override
   void initState() {
@@ -37,7 +43,11 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
     setState(() => _cargando = true);
     try {
       final api = api_ext.ApiClient();
-      final data = await api.post('obtenerDashboardAnalytics', {});
+      final data = await api.post('obtenerDashboardAnalytics', {
+        'anio': _anioSeleccionado,
+        'mes': _mesSeleccionado,
+        'estado': _estadoSeleccionado,
+      });
 
       if (data['ok'] == true) {
         setState(() {
@@ -55,7 +65,11 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
 
   void _mostrarError(String msj) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msj), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msj),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.fixed, // Evita el conflicto con los FABs apilados
+      ));
     }
   }
 
@@ -185,15 +199,10 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
           ),
           const SizedBox(height: 16),
           
-          // 2. Gráficos: Línea y Anillo
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 2, child: _buildGraficoTendencias()), 
-              const SizedBox(width: 16),
-              Expanded(flex: 1, child: _buildGraficoAnillo()), 
-            ],
-          )
+          // 2. Gráficos: Tendencias y Composición (Uno debajo del otro para mejor legibilidad en móvil)
+          _buildGraficoTendencias(),
+          const SizedBox(height: 16),
+          _buildGraficoAnillo(),
         ],
       ),
     );
@@ -242,15 +251,16 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
             children: [
               const Icon(Icons.circle, color: Colors.teal, size: 12),
               const SizedBox(width: 4),
-              Text('Recaudado (S/ ${valRecaudado.toStringAsFixed(0)})', style: const TextStyle(fontSize: 11)),
+              Flexible(child: Text('Recaudado (S/ ${valRecaudado.toStringAsFixed(0)})', style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
             ],
           ),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.circle, color: Color(0xFFE63946), size: 12),
               const SizedBox(width: 4),
-              Text('Deuda (S/ ${valDeuda.toStringAsFixed(0)})', style: const TextStyle(fontSize: 11)),
+              Flexible(child: Text('Deuda (S/ ${valDeuda.toStringAsFixed(0)})', style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
             ],
           ),
         ],
@@ -477,32 +487,60 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
   }
 
   Widget _buildGraficoTendencias() {
+    final tendencias = _datosAnaliticos!['tendencias'];
+    final List<double> ingresosMensuales = List<double>.from(tendencias['ingresos'].map((e) => (e as num).toDouble()));
+    final List<double> gastosMensuales = List<double>.from(tendencias['gastos'].map((e) => (e as num).toDouble()));
+
+    final List<FlSpot> spotsIngresos = [];
+    final List<FlSpot> spotsGastos = [];
+
+    for (int i = 0; i < 12; i++) {
+      spotsIngresos.add(FlSpot(i.toDouble(), ingresosMensuales[i]));
+      spotsGastos.add(FlSpot(i.toDouble(), gastosMensuales[i]));
+    }
+
+    const mesesCortos = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+
     return TarjetaPremium(
       usaGradientePrimario: false,
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Flujo de Recaudación vs Deuda - $_anioSeleccionado', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+          Text('Flujo de Recaudación vs Gastos - $_anioSeleccionado', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
           const SizedBox(height: 24),
-          Expanded(
+          SizedBox(
+            height: 200,
             child: LineChart(
               LineChartData(
                 gridData: const FlGridData(show: true, drawVerticalLine: false),
                 titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (val, meta) => Text('M${val.toInt()}'))),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true, 
+                      reservedSize: 30, 
+                      getTitlesWidget: (val, meta) {
+                        int idx = val.toInt();
+                        if (idx < 0 || idx >= 12) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(mesesCortos[idx], style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        );
+                      }
+                    )
+                  ),
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: const [FlSpot(0, 1500), FlSpot(1, 2100), FlSpot(2, 4000), FlSpot(3, 3500), FlSpot(4, 6000), FlSpot(5, 5200)],
+                    spots: spotsIngresos,
                     isCurved: true, color: Colors.teal, barWidth: 3, dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(show: true, color: Colors.teal.withValues(alpha: 0.1)),
                   ),
                   LineChartBarData(
-                    spots: const [FlSpot(0, 3000), FlSpot(1, 2800), FlSpot(2, 2000), FlSpot(3, 4500), FlSpot(4, 2000), FlSpot(5, 1200)],
+                    spots: spotsGastos,
                     isCurved: true, color: const Color(0xFFE63946), barWidth: 3, dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(show: true, color: const Color(0xFFE63946).withValues(alpha: 0.1)),
                   ),
@@ -510,25 +548,90 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendaChart('Ingresos', Colors.teal),
+              const SizedBox(width: 16),
+              _buildLegendaChart('Gastos', const Color(0xFFE63946)),
+            ],
+          )
         ],
       ),
     );
   }
 
+  Widget _buildLegendaChart(String t, Color c) {
+    return Row(
+      children: [
+        Icon(Icons.circle, color: c, size: 10),
+        const SizedBox(width: 4),
+        Text(t, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
+    );
+  }
+
   Widget _buildMapaPlaceholder() {
-    return const TarjetaPremium(
-      usaGradientePrimario: false,
-      padding: EdgeInsets.zero,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.dashboard_customize, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Alertas y Reportes Cruzados en Construcción', style: TextStyle(color: Colors.grey, fontSize: 16)),
-          ],
+    final List alertas = _datosAnaliticos!['alertas'] ?? [];
+
+    if (alertas.isEmpty) {
+      return const TarjetaPremium(
+        usaGradientePrimario: false,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
+              SizedBox(height: 16),
+              Text('No hay alertas críticas en este momento', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: alertas.length,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemBuilder: (context, index) {
+        final a = alertas[index];
+        final Color colorBase = a['nivel'] == 'danger' ? const Color(0xFFE63946) : Colors.orange;
+        
+        IconData icon;
+        switch(a['tipo']) {
+          case 'USUARIO': icon = Icons.person_off; break;
+          case 'ACTIVIDAD': icon = Icons.event_busy; break;
+          case 'CAJA': icon = Icons.account_balance_wallet; break;
+          default: icon = Icons.notifications_active;
+        }
+
+        return TarjetaPremium(
+          usaGradientePrimario: false,
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: colorBase.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: Icon(icon, color: colorBase),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(a['titulo'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorBase)),
+                    const SizedBox(height: 4),
+                    Text(a['msj'], style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -542,9 +645,10 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
         children: [
           const Text('Filtros Globales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const Divider(),
-          _crearDropdown('Año Fiscal', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() => _anioSeleccionado = val!)),
+          _crearDropdown('Año Fiscal', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() { _anioSeleccionado = val!; _cargarDatos(); })),
+          _crearDropdown('Mes', _meses, _mesSeleccionado, (val) => setState(() { _mesSeleccionado = val!; _cargarDatos(); })),
           _crearDropdown('Reporte', ['DEUDAS', 'ASISTENCIA', 'INGRESOS'], _tipoReporteSeleccionado, (val) => setState(() => _tipoReporteSeleccionado = val!)),
-          _crearDropdown('Estado', ['TODOS', 'MOROSOS', 'AL DÍA', 'CRÍTICO'], _estadoSeleccionado, (val) => setState(() => _estadoSeleccionado = val!)),
+          _crearDropdown('Estado', ['TODOS', 'MOROSOS', 'AL DÍA', 'CRÍTICO'], _estadoSeleccionado, (val) => setState(() { _estadoSeleccionado = val!; _cargarDatos(); })),
         ],
       )
     ); 
@@ -557,8 +661,9 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
         title: const Text('Filtros Globales', style: TextStyle(fontWeight: FontWeight.bold)),
         childrenPadding: const EdgeInsets.all(16),
         children: [
-          _crearDropdown('Año', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() => _anioSeleccionado = val!)),
-          _crearDropdown('Estado', ['TODOS', 'MOROSOS', 'AL DÍA', 'CRÍTICO'], _estadoSeleccionado, (val) => setState(() => _estadoSeleccionado = val!)),
+          _crearDropdown('Año', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() { _anioSeleccionado = val!; _cargarDatos(); })),
+          _crearDropdown('Mes', _meses, _mesSeleccionado, (val) => setState(() { _mesSeleccionado = val!; _cargarDatos(); })),
+          _crearDropdown('Estado', ['TODOS', 'MOROSOS', 'AL DÍA', 'CRÍTICO'], _estadoSeleccionado, (val) => setState(() { _estadoSeleccionado = val!; _cargarDatos(); })),
         ],
       ),
     ); 

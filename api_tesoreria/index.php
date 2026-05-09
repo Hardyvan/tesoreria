@@ -113,6 +113,7 @@ try {
         case 'establecerFondoBase':
         case 'vaciarFondoBase':
         case 'editarFondoBase':
+        case 'obtenerDashboardAnalytics':
             require_once __DIR__ . '/routes/finanzas.php';
             break;
 
@@ -131,6 +132,8 @@ try {
         case 'editarActividad':
         case 'eliminarActividad':
         case 'obtenerActividadesSimplificadas':
+        case 'obtenerAsistencia':
+        case 'guardarAsistenciaLote':
             require_once __DIR__ . '/routes/actividades.php';
             break;
 

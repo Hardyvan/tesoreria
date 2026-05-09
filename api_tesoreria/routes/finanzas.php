@@ -326,45 +326,100 @@ switch ($accion) {
     case 'obtenerDashboardAnalytics':
         if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         
-        // 1. KPIs Generales
-        $stmtI = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1");
+        $anio = $data['anio'] ?? date('Y');
+        $mes = $data['mes'] ?? 'TODOS';
+        $estadoFiltro = $data['estado'] ?? 'TODOS';
+
+        // 1. KPIs Filtrados
+        $sqlPagos = "SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1 AND YEAR(fecha_pago) = ?";
+        $paramsPagos = [$anio];
+        
+        $mesesMap = [
+            'Enero' => 1, 'Febrero' => 2, 'Marzo' => 3, 'Abril' => 4, 'Mayo' => 5, 'Junio' => 6,
+            'Julio' => 7, 'Agosto' => 8, 'Septiembre' => 9, 'Octubre' => 10, 'Noviembre' => 11, 'Diciembre' => 12
+        ];
+        
+        if ($mes !== 'TODOS') {
+            $mesNum = $mesesMap[$mes] ?? 0;
+            if ($mesNum > 0) {
+                $sqlPagos .= " AND MONTH(fecha_pago) = ?";
+                $paramsPagos[] = $mesNum;
+            }
+        }
+        
+        $stmtI = $pdo->prepare($sqlPagos);
+        $stmtI->execute($paramsPagos);
         $pagos = (float)$stmtI->fetch()['total'];
         
-        $stmtE = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra");
+        $sqlExtra = "SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra WHERE YEAR(fecha_ingreso) = ?";
+        $paramsExtra = [$anio];
+        if ($mes !== 'TODOS') {
+            $mesNum = $mesesMap[$mes] ?? 0;
+            if ($mesNum > 0) {
+                $sqlExtra .= " AND MONTH(fecha_ingreso) = ?";
+                $paramsExtra[] = $mesNum;
+            }
+        }
+        $stmtE = $pdo->prepare($sqlExtra);
+        $stmtE->execute($paramsExtra);
         $extras = (float)$stmtE->fetch()['total'];
         $recaudadoTotal = $pagos + $extras;
 
-        $stmtG = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos");
+        $sqlGastos = "SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos WHERE YEAR(fecha_gasto) = ?";
+        $paramsGastos = [$anio];
+        if ($mes !== 'TODOS') {
+            $mesNum = $mesesMap[$mes] ?? 0;
+            if ($mesNum > 0) {
+                $sqlGastos .= " AND MONTH(fecha_gasto) = ?";
+                $paramsGastos[] = $mesNum;
+            }
+        }
+        $stmtG = $pdo->prepare($sqlGastos);
+        $stmtG->execute($paramsGastos);
         $gastos = (float)$stmtG->fetch()['total'];
 
-        // 2. Cálculo de Deuda y Meta (Deuda total de todas las actividades)
-        $sqlDeuda = "
-            SELECT 
-                (SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) * 
-                (SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1) as meta_total
-        ";
-        $metaTotal = (float)$pdo->query($sqlDeuda)->fetch()['meta_total'];
-        $deudaPendiente = max(0, $metaTotal - $pagos);
+        // 2. Cálculo de Deuda y Meta (Optimizando subconsultas)
+        $costoTotalActividades = (float)$pdo->query("SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades WHERE estado = 1")->fetchColumn();
+        $alumnosActivos = (int)$pdo->query("SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1")->fetchColumn();
         
-        // Progreso de la Meta General
+        $metaTotal = $costoTotalActividades * $alumnosActivos;
+
+        $deudaPendiente = max(0, $metaTotal - $pagos);
         $progresoMeta = $metaTotal > 0 ? ($pagos / $metaTotal) : 0;
 
-        // 3. Usuarios Detallados para la Tabla
+        // 3. Tendencias Mensuales (Flujo de Caja para el Gráfico de Líneas)
+        $tendenciasIngresos = array_fill(0, 12, 0);
+        $tendenciasGastos = array_fill(0, 12, 0);
+
+        $sqlTing = "SELECT MONTH(fecha_pago) as mes, SUM(monto) as total FROM DSI_salon_pagos WHERE confirmado = 1 AND YEAR(fecha_pago) = ? GROUP BY MONTH(fecha_pago)";
+        $stmtTing = $pdo->prepare($sqlTing);
+        $stmtTing->execute([$anio]);
+        foreach ($stmtTing->fetchAll() as $r) { $tendenciasIngresos[(int)$r['mes'] - 1] = (float)$r['total']; }
+
+        $sqlTgas = "SELECT MONTH(fecha_gasto) as mes, SUM(monto) as total FROM DSI_salon_gastos WHERE YEAR(fecha_gasto) = ? GROUP BY MONTH(fecha_gasto)";
+        $stmtTgas = $pdo->prepare($sqlTgas);
+        $stmtTgas->execute([$anio]);
+        foreach ($stmtTgas->fetchAll() as $r) { $tendenciasGastos[(int)$r['mes'] - 1] = (float)$r['total']; }
+
+        // 4. Usuarios Detallados para la Tabla (Filtrados por Estado si aplica)
+        // OPTIMIZACIÓN: Pasamos el costo base como parámetro en vez de hacer subquery por cada usuario
         $sqlUsuarios = "
             SELECT 
                 u.id, 
                 u.nombre, 
                 u.foto_url,
                 u.celular,
-                ((SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) + 
-                 (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
-                (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado,
+                (? + (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
+                (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1 AND YEAR(fecha_pago) = ?) as total_pagado,
                 (SELECT COUNT(1) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto') as faltas
             FROM DSI_salon_usuarios u
             WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
             ORDER BY u.nombre ASC
         ";
-        $resUsuarios = $pdo->query($sqlUsuarios)->fetchAll();
+        $stmtU = $pdo->prepare($sqlUsuarios);
+        $stmtU->execute([$costoTotalActividades, $anio]);
+        $resUsuarios = $stmtU->fetchAll();
+        
         $usuariosFormateados = [];
         foreach ($resUsuarios as $u) {
             $deuda = (float)$u['total_a_pagar'] - (float)$u['total_pagado'];
@@ -374,14 +429,71 @@ switch ($accion) {
                 $estado = $faltas >= 3 ? 'CRÍTICO' : 'MOROSO';
             }
             
+            // Aplicar filtro de estado si no es TODOS
+            if ($estadoFiltro !== 'TODOS' && $estadoFiltro !== $estado) {
+                continue;
+            }
+            
             $usuariosFormateados[] = [
                 'id' => $u['id'],
                 'nombre' => $u['nombre'],
                 'foto_url' => $u['foto_url'],
                 'celular' => $u['celular'],
-                'deuda' => $deuda,
+                'deuda' => max(0, $deuda),
                 'faltas' => $faltas,
                 'estado' => $estado
+            ];
+        }
+
+        // 5. Alertas Cruzadas Inteligentes
+        $alertas = [];
+        
+        // Alerta: Actividades con baja recaudación (< 50%)
+        // OPTIMIZACIÓN: Usamos el contador de alumnos en memoria ($alumnosActivos)
+        $sqlActAlert = "
+            SELECT 
+                titulo, 
+                costo * ? as meta,
+                (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE actividad_id = a.id AND confirmado = 1) as rec
+            FROM DSI_salon_actividades a WHERE estado = 1
+        ";
+        $stmtAct = $pdo->prepare($sqlActAlert);
+        $stmtAct->execute([$alumnosActivos]);
+        
+        foreach ($stmtAct->fetchAll() as $ac) {
+            $metaA = (float)$ac['meta'];
+            $recA = (float)$ac['rec'];
+            if ($metaA > 0 && ($recA / $metaA) < 0.5) {
+                $alertas[] = [
+                    'tipo' => 'ACTIVIDAD',
+                    'titulo' => 'Baja Recaudación',
+                    'msj' => "La actividad '{$ac['titulo']}' está por debajo del 50% de su meta.",
+                    'nivel' => 'warning'
+                ];
+            }
+        }
+
+        // Alerta: Usuarios Críticos (Muchos ya están en el array de usuarios, pero aquí los resaltamos)
+        $criticosCount = 0;
+        foreach ($usuariosFormateados as $uf) {
+            if ($uf['estado'] === 'CRÍTICO') $criticosCount++;
+        }
+        if ($criticosCount > 0) {
+            $alertas[] = [
+                'tipo' => 'USUARIO',
+                'titulo' => 'Atención Urgente',
+                'msj' => "Hay $criticosCount usuarios con deuda y más de 3 faltas acumuladas.",
+                'nivel' => 'danger'
+            ];
+        }
+
+        // Alerta: Balance de Caja
+        if ($gastos > $recaudadoTotal) {
+            $alertas[] = [
+                'tipo' => 'CAJA',
+                'titulo' => 'Déficit Detectado',
+                'msj' => "Los gastos del periodo superan a los ingresos totales.",
+                'nivel' => 'danger'
             ];
         }
 
@@ -394,11 +506,16 @@ switch ($accion) {
                 'meta' => $metaTotal,
                 'progreso' => $progresoMeta
             ],
+            'tendencias' => [
+                'ingresos' => $tendenciasIngresos,
+                'gastos' => $tendenciasGastos
+            ],
             'dona' => [
                 ['titulo' => 'Recaudado', 'valor' => $pagos],
                 ['titulo' => 'Deuda', 'valor' => $deudaPendiente]
             ],
-            'usuarios' => $usuariosFormateados
+            'usuarios' => $usuariosFormateados,
+            'alertas' => $alertas
         ]);
         break;
 
