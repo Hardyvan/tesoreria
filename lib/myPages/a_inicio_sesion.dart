@@ -5,9 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:dsi/myPagesTema/a_tema.dart';
 
-
 // TUS IMPORTS DE INSOFT
-
 import '../myPagesBack/a_logica_inicio_sesion.dart';
 import '../myMenu/b_rutas_app.dart';
 
@@ -21,147 +19,152 @@ class InicioSesion extends StatefulWidget {
 class _InicioSesionState extends State<InicioSesion> {
   final ValueNotifier<bool> _cargando = ValueNotifier<bool>(false);
 
+  @override
+  void dispose() {
+    // Liberamos el ValueNotifier para evitar fugas de memoria
+    _cargando.dispose();
+    super.dispose();
+  }
+
   // ---------------------------------------------------------------------------
   // LÓGICA DE LOGIN (Delegada al Controlador)
   // ---------------------------------------------------------------------------
   Future<void> _ingresarConGoogle() async {
-    // Ya no setteamos _cargando localmente porque lo escuchamos del Provider
-    // Sin embargo, para UX inmediata, podemos dejarlo o confiar en el listener.
-    // Lo ideal es usar el estado del provider.
-    
     final auth = Provider.of<ControladorAuth>(context, listen: false);
     final errorMsg = await auth.ingresarConGoogle();
 
     if (!mounted) return;
 
     if (errorMsg == null) {
-      // Login exitoso y completo
       unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
     } else if (errorMsg == 'UsuarioNuevo' || errorMsg == 'UsuarioIncompleto') {
-      // Necesita completar perfil -> Navegar a pantalla de completar
       unawaited(Navigator.pushReplacementNamed(context, '/completar_perfil'));
     } else {
-      // Error real
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),
-       );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),
+      );
     }
   }
 
-  // AQUÍ CONECTAS CON TU SERVIDOR EN dsi.net.pe
-
-
   // Lógica de Login Manual (Admin)
   void _mostrarLoginManual() {
-    final auth = Provider.of<ControladorAuth>(context, listen: false); // Solo para leer iniciales
-    final usuarioCtrl = TextEditingController(text: auth.emailGuardado); // Pre-llenar
-    final passCtrl = TextEditingController(text: auth.passwordGuardado); // Pre-llenar password
+    final auth = Provider.of<ControladorAuth>(context, listen: false);
+    final usuarioCtrl = TextEditingController(text: auth.emailGuardado);
+    final passCtrl = TextEditingController(text: auth.passwordGuardado);
     final formKey = GlobalKey<FormState>();
-    
-    // Estado local para el checkbox del diálogo
+
     bool recordarLocal = auth.recordarUsuario;
+    bool cargandoLocal = false; // Estado de carga exclusivo del diálogo
 
     showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder( // StatefulBuilder para actualizar checkbox
-        builder: (innerContext, setStateDialog) {
-          return AlertDialog(
-            title: const Text('Iniciar Sesión'),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CampoTextoPersonalizado(
-                    controller: usuarioCtrl,
-                    label: 'Usuario o Correo',
-                    prefixIcon: Icons.person,
-                  ),
-                  const SizedBox(height: 16),
-                  CampoTextoPersonalizado(
-                    controller: passCtrl,
-                    label: 'Contraseña',
-                    prefixIcon: Icons.lock,
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // CHECKBOX "RECORDARME"
-                  CheckboxListTile(
-                    title: const Text('Recordar usuario', style: TextStyle(fontSize: 14)),
-                    value: recordarLocal,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: Theme.of(context).primaryColor,
-                    onChanged: (val) {
-                      setStateDialog(() => recordarLocal = val!);
-                    },
-                  ),
-                  
-                  // OLVIDÉ MI CONTRASEÑA
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                        _mostrarRecuperarPassword(usuarioCtrl.text);
-                      },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(50, 30),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(fontSize: 13)),
+      builder: (dialogContext) => StatefulBuilder(
+          builder: (innerContext, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Iniciar Sesión'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CampoTextoPersonalizado(
+                      controller: usuarioCtrl,
+                      label: 'Usuario o Correo',
+                      prefixIcon: Icons.person,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    Navigator.pop(dialogContext); // Cerrar diálogo
-                    _cargando.value = true;
-                    
-                    final auth = Provider.of<ControladorAuth>(context, listen: false);
-                    final errorMsg = await auth.iniciarSesion(usuarioCtrl.text, passCtrl.text);
+                    const SizedBox(height: 16),
+                    CampoTextoPersonalizado(
+                      controller: passCtrl,
+                      label: 'Contraseña',
+                      prefixIcon: Icons.lock,
+                      isPassword: true,
+                    ),
+                    const SizedBox(height: 8),
 
-                    if (!mounted) return;
+                    CheckboxListTile(
+                      title: const Text('Recordar usuario', style: TextStyle(fontSize: 14)),
+                      value: recordarLocal,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: Theme.of(context).primaryColor,
+                      onChanged: (val) {
+                        setStateDialog(() => recordarLocal = val!);
+                      },
+                    ),
 
-                    if (errorMsg == null) {
-                       // GUARDAR PREFERENCIA SI ÉXITO
-                       unawaited(auth.guardarPreferencias(usuarioCtrl.text, passCtrl.text, recordarLocal));
-                       
-                       if (mounted) {
-                          unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
-                       }
-                    } else {
-                       if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),
-                          );
-                       }
-                    }
-                    
-                    if (mounted) _cargando.value = false;
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: cargandoLocal ? null : () {
+                          Navigator.pop(dialogContext);
+                          _mostrarRecuperarPassword(usuarioCtrl.text);
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(50, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(fontSize: 13)),
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('Ingresar'),
               ),
-            ],
-          );
-        }
+              actions: [
+                TextButton(
+                  onPressed: cargandoLocal ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: cargandoLocal ? null : () async {
+                    if (formKey.currentState!.validate()) {
+                      setStateDialog(() => cargandoLocal = true);
+
+                      // 1. Capturamos las dependencias de la pantalla principal ANTES del await
+                      final auth = Provider.of<ControladorAuth>(context, listen: false);
+                      final navigatorPantalla = Navigator.of(context);
+                      final scaffoldMsg = ScaffoldMessenger.of(context);
+
+                      // 2. Ejecutamos la tarea asíncrona
+                      final errorMsg = await auth.iniciarSesion(usuarioCtrl.text, passCtrl.text);
+
+                      // 3. Verificamos SOLO el contexto del diálogo para su estado y cerrarlo
+                      if (!innerContext.mounted) return;
+                      setStateDialog(() => cargandoLocal = false);
+
+                      if (errorMsg == null) {
+                        unawaited(auth.guardarPreferencias(usuarioCtrl.text, passCtrl.text, recordarLocal));
+
+                        // Cerramos el diálogo usando su propio contexto ya validado
+                        Navigator.pop(innerContext);
+
+                        // Navegamos a la siguiente pantalla usando la referencia capturada
+                        unawaited(navigatorPantalla.pushReplacementNamed(RutasApp.menuPrincipal));
+                      } else {
+                        // Mostramos el snackbar usando la referencia capturada
+                        scaffoldMsg.showSnackBar(
+                          SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: cargandoLocal
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Ingresar'),
+                ),
+              ],
+            );
+          }
       ),
-    );
+    ).then((_) {
+      // Nos aseguramos de destruir los controladores al cerrar el diálogo
+      usuarioCtrl.dispose();
+      passCtrl.dispose();
+    });
   }
 
   void _mostrarRecuperarPassword(String correoRecomendado) {
@@ -189,9 +192,9 @@ class _InicioSesionState extends State<InicioSesion> {
                   prefixIcon: Icons.email,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
-                     if (v == null || v.isEmpty) return 'El correo es obligatorio';
-                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Correo inválido';
-                     return null;
+                    if (v == null || v.isEmpty) return 'El correo es obligatorio';
+                    if (!RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(v)) return 'Correo inválido';
+                    return null;
                   },
                 ),
               ],
@@ -227,7 +230,7 @@ class _InicioSesionState extends State<InicioSesion> {
           ],
         );
       },
-    );
+    ).then((_) => correoCtrl.dispose());
   }
 
   @override
@@ -236,52 +239,45 @@ class _InicioSesionState extends State<InicioSesion> {
 
     return Scaffold(
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 1. LOGO DE LA APP
-              Image.asset(
-                'assets/logo/noti.png',
-                height: 100,
-                // Si la imagen DSI.png es rectangular ancha, usa un ancho también en lugar de height: 100
-                // Para redonder bordes si fuera necesario, envolver en ClipRRect.
-              ),
-              const SizedBox(height: 24),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/logo/noti.png',
+                  height: 100,
+                ),
+                const SizedBox(height: 24),
 
-
-              
-
-
-              ValueListenableBuilder<bool>(
-                valueListenable: _cargando,
-                builder: (context, isLoading, child) {
-                  if (isLoading) {
-                    return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-                  }
-                  return child!;
-                },
-                child: Column(
-                  children: [
-                    // 2. BOTÓN DE GOOGLE PERSONALIZADO (Professional Standard)
-                    TarjetaPremium(
-                      onTap: _ingresarConGoogle,
-                      padding: EdgeInsets.zero,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30), // Bordes más redondeados (Pill shape)
-                          border: Border.all(color: Colors.grey.shade200),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _cargando,
+                  builder: (context, isLoading, child) {
+                    if (isLoading) {
+                      return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                    }
+                    return child!;
+                  },
+                  child: Column(
+                    children: [
+                      TarjetaPremium(
+                        onTap: _ingresarConGoogle,
+                        padding: EdgeInsets.zero,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: Colors.grey.shade200),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -290,7 +286,6 @@ class _InicioSesionState extends State<InicioSesion> {
                                 height: 24,
                                 width: 24,
                                 errorBuilder: (context, error, stackTrace) {
-                                  // Fallback: Si la red bloquea la descarga, muestra una 'G' local amigable.
                                   return Container(
                                     height: 24,
                                     width: 24,
@@ -312,39 +307,37 @@ class _InicioSesionState extends State<InicioSesion> {
                             ],
                           ),
                         ),
-                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // BOTÓN REGISTRARSE (Correo)
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/registro_correo');
-                      },
-                      child: const Text('¿No tienes cuenta? Regístrate aquí'),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Opción secundaria discreta (Ahora general)
-                    TextButton(
-                      onPressed: _mostrarLoginManual,
-                      child: Text(
-                        'Ingresar con Correo / Admin',
-                        style: TextStyle(color: theme.colorScheme.secondary),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 16),
+
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/registro_correo');
+                        },
+                        child: const Text('¿No tienes cuenta? Regístrate aquí'),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      TextButton(
+                        onPressed: _mostrarLoginManual,
+                        child: Text(
+                          'Ingresar con Correo / Admin',
+                          style: TextStyle(color: theme.colorScheme.secondary),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
-
 
 class PantallaRegistro extends StatefulWidget {
   const PantallaRegistro({super.key});
@@ -355,17 +348,27 @@ class PantallaRegistro extends StatefulWidget {
 
 class _PantallaRegistroState extends State<PantallaRegistro> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Controladores
+
   final nombreCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final celularCtrl = TextEditingController();
   final direccionCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
-  
+
   String? sexoSeleccionado;
   bool _cargando = false;
+
+  @override
+  void dispose() {
+    nombreCtrl.dispose();
+    emailCtrl.dispose();
+    passCtrl.dispose();
+    celularCtrl.dispose();
+    direccionCtrl.dispose();
+    edadCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -388,7 +391,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                   Text(
+                  Text(
                     'Registro Completo',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -397,8 +400,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  
-                  // 1. Datos de Cuenta
+
                   CampoTextoPersonalizado(
                     controller: emailCtrl,
                     label: 'Correo Electrónico',
@@ -406,8 +408,8 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'El correo es obligatorio';
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) {
-                         return 'Formato de correo inválido';
+                      if (!RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(v)) {
+                        return 'Formato de correo inválido';
                       }
                       return null;
                     },
@@ -426,7 +428,6 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                   ),
                   const Divider(height: 30),
 
-                  // 2. Datos Personales
                   CampoTextoPersonalizado(
                     controller: nombreCtrl,
                     label: 'Nombre Completo',
@@ -456,49 +457,49 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                     textCapitalization: TextCapitalization.sentences,
                   ),
                   const SizedBox(height: 12),
-                  
+
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: CampoTextoPersonalizado(
                           controller: edadCtrl,
-                          label: 'Edad (Op.)', // Texto más corto para evitar overflow
+                          label: 'Edad (Op.)',
                           prefixIcon: Icons.cake,
                           keyboardType: TextInputType.number,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: sexoSeleccionado,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: 'Sexo (Op.)',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
-                                borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
-                              ),
-                              prefixIcon: Icon(Icons.wc, color: Theme.of(context).primaryColor),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
-                              filled: true,
-                              fillColor: Theme.of(context).colorScheme.surface,
+                        child: DropdownButtonFormField<String>(
+                          initialValue: sexoSeleccionado,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Sexo (Op.)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
                             ),
-                            hint: const Text('Selec.'),
-                            items: const [
-                              DropdownMenuItem(value: 'Masculino', child: Text('Masculino', overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(value: 'Femenino', child: Text('Femenino', overflow: TextOverflow.ellipsis)),
-                            ],
-                            onChanged: (val) => setState(() => sexoSeleccionado = val),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
+                              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                            ),
+                            prefixIcon: Icon(Icons.wc, color: Theme.of(context).primaryColor),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
                           ),
+                          hint: const Text('Selec.'),
+                          items: const [
+                            DropdownMenuItem(value: 'Masculino', child: Text('Masculino', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'Femenino', child: Text('Femenino', overflow: TextOverflow.ellipsis)),
+                          ],
+                          onChanged: (val) => setState(() => sexoSeleccionado = val),
+                        ),
                       ),
                     ],
                   ),
@@ -524,19 +525,17 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
 
   Future<void> _registrarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
-    // VALIDACIÓN: El formulario ya se encargó de verificar vacíos y formatos.
 
     setState(() => _cargando = true);
     final auth = Provider.of<ControladorAuth>(context, listen: false);
 
-    // Si edad o dirección están vacíos, mandamos valores por defecto
     final error = await auth.registrarUsuarioCorreo(
       email: emailCtrl.text.trim(),
       password: passCtrl.text.trim(),
       nombre: nombreCtrl.text.trim(),
       celular: celularCtrl.text.trim(),
-      direccion: direccionCtrl.text.trim(), // Puede ir vacío
-      edad: int.tryParse(edadCtrl.text) ?? 0, // Si falla o es vacío, va 0
+      direccion: direccionCtrl.text.trim(),
+      edad: int.tryParse(edadCtrl.text) ?? 0,
       sexo: sexoSeleccionado ?? 'No especificado',
     );
 
@@ -544,11 +543,8 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
     setState(() => _cargando = false);
 
     if (error == null) {
-      // Éxito Total (Quizás recuperación inmediata) -> Ir al Home
       unawaited(Navigator.pushNamedAndRemoveUntil(context, RutasApp.menuPrincipal, (route) => false));
-    
     } else if (error == 'VERIFICACION_ENVIADA') {
-      // Registro exitoso, pero requiere validación
       unawaited(showDialog(
         context: context,
         barrierDismissible: false,
@@ -559,7 +555,6 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                // Ir al Login para que ingrese sus datos
                 unawaited(Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false));
               },
               child: const Text('Entendido, ir al Login'),
@@ -567,7 +562,6 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
           ],
         ),
       ));
-
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error), backgroundColor: ColoresApp.error),
@@ -585,32 +579,45 @@ class PantallaCompletarPerfil extends StatefulWidget {
 
 class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Controladores
+
   final nombreCtrl = TextEditingController();
   final celularCtrl = TextEditingController();
   final direccionCtrl = TextEditingController();
   final edadCtrl = TextEditingController();
-  
+
   String? sexoSeleccionado;
   bool _cargando = false;
 
   @override
-  Widget build(BuildContext context) {
-    // Obtenemos los datos que ya tenemos (Nombre, Email) del Controlador
-    final auth = Provider.of<ControladorAuth>(context);
+  void initState() {
+    super.initState();
+    // Corregido: La inicialización segura se realiza aquí, no en el build
+    final auth = Provider.of<ControladorAuth>(context, listen: false);
     final user = auth.usuarioActual;
-    
-    // Inicializar nombre si está vacío
-    if (nombreCtrl.text.isEmpty && user != null) {
+    if (user != null) {
       nombreCtrl.text = user.nombre == 'Usuario' ? '' : user.nombre;
     }
+  }
+
+  @override
+  void dispose() {
+    nombreCtrl.dispose();
+    celularCtrl.dispose();
+    direccionCtrl.dispose();
+    edadCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<ControladorAuth>(context);
+    final user = auth.usuarioActual;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Completar Perfil'),
-        automaticallyImplyLeading: false, // No permitir volver atrás sin completar
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: ColoresApp.textoOscuro,
@@ -626,9 +633,9 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                   Icon(Icons.security_update_good, size: 60, color: Theme.of(context).primaryColor),
-                   const SizedBox(height: 16),
-                   Text(
+                  Icon(Icons.security_update_good, size: 60, color: Theme.of(context).primaryColor),
+                  const SizedBox(height: 16),
+                  Text(
                     "¡Casi listo, ${user?.nombre ?? 'Usuario'}!",
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -643,7 +650,6 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                   ),
                   const Divider(height: 30),
 
-                  // Llenar Datos Faltantes
                   CampoTextoPersonalizado(
                     controller: nombreCtrl,
                     label: 'Nombre Completo *',
@@ -676,14 +682,14 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
-                  
+
                   Row(
                     children: [
                       Expanded(
-                        flex: 2, // Menos espacio para la edad
+                        flex: 2,
                         child: CampoTextoPersonalizado(
                           controller: edadCtrl,
-                          label: 'Edad', // Etiqueta más corta
+                          label: 'Edad',
                           prefixIcon: Icons.cake,
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
@@ -691,7 +697,7 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        flex: 3, // Más espacio para el texto "Masculino/Femenino"
+                        flex: 3,
                         child: DropdownButtonFormField<String>(
                           initialValue: sexoSeleccionado,
                           isExpanded: true,
@@ -733,14 +739,14 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
                     isLoading: _cargando,
                     onPressed: _guardarDatos,
                   ),
-                  
+
                   const SizedBox(height: 10),
                   TextButton(
-                    onPressed: () {
+                      onPressed: () {
                         auth.cerrarSesion();
                         Navigator.pushReplacementNamed(context, '/inicio_sesion');
-                    }, 
-                    child: const Text('Cancelar y Salir', style: TextStyle(color: ColoresApp.error))
+                      },
+                      child: const Text('Cancelar y Salir', style: TextStyle(color: ColoresApp.error))
                   )
                 ],
               ),
@@ -760,8 +766,8 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     final errorMsg = await auth.completarPerfil(
       nombre: nombreCtrl.text.trim(),
       celular: celularCtrl.text.trim(),
-      direccion: direccionCtrl.text.trim(), // Opcional
-      edad: int.tryParse(edadCtrl.text) ?? 0, // Opcional
+      direccion: direccionCtrl.text.trim(),
+      edad: int.tryParse(edadCtrl.text) ?? 0,
       sexo: sexoSeleccionado ?? 'No especificado',
     );
 
@@ -769,7 +775,6 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     setState(() => _cargando = false);
 
     if (errorMsg == null) {
-      // Éxito -> Ir al Menu
       unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
