@@ -34,8 +34,8 @@ switch ($accion) {
         }
 
         $stmtIns = $pdo->prepare("
-            INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, monto_multa, metodo_pago, comprobante_url, admin_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO DSI_salon_pagos (usuario_id, actividad_id, monto, monto_multa, metodo_pago, comprobante_url, admin_id, confirmado)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
         ");
         $exito = $stmtIns->execute([$usuarioId, $actividadId, $monto, $montoMultaCalculada, $metodoPago, $comprobante, $adminId]);
         $pagoIdInsertado = $pdo->lastInsertId();

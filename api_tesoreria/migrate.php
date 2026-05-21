@@ -1,5 +1,6 @@
 <?php
 require 'config/database.php';
+$pdo = getDBConnection();
 
 try {
     // 1. Añadir columnas a DSI_salon_actividades

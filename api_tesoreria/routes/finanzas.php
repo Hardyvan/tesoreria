@@ -5,20 +5,14 @@
 
 switch ($accion) {
     case 'obtenerResumenGeneral':
-        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
-        $stmtI = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1");
-        $pagos = (float)$stmtI->fetch()['total'];
+        // Abierto a todos los usuarios por política de transparencia (para ver saldo en tiempo real)
         
-        $stmtE = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_ingresos_extra");
-        $extras = (float)$stmtE->fetch()['total'];
+        // Ingresos y Gastos Globales (Solo confirmados)
+        $pagos = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE confirmado = 1")->fetchColumn();
+        $extras = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_ingresos_extra")->fetchColumn();
+        $gastos = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_gastos")->fetchColumn();
+        $fondoBase = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_fondo_base")->fetchColumn();
         
-        $stmtG = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_gastos");
-        $gastos = (float)$stmtG->fetch()['total'];
-        
-        $stmtF = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_fondo_base");
-        $montoFondo = (float)$stmtF->fetch()['total'];
-        
-        // El motivo ya no es único, así que devolvemos un resumen o el último
         $stmtFL = $pdo->query("SELECT motivo FROM DSI_salon_fondo_base ORDER BY id DESC LIMIT 1");
         $motivoFondo = $stmtFL->fetch()['motivo'] ?? '';
         
@@ -27,15 +21,15 @@ switch ($accion) {
             'resumen' => [
                 'totalIngresos' => $pagos + $extras,
                 'totalGastos'   => $gastos,
-                'fondoBase'     => $montoFondo,
+                'fondoBase'     => $fondoBase,
                 'fondoBaseMotivo' => $motivoFondo,
-                'saldoCaja'     => ($pagos + $extras + $montoFondo) - $gastos
+                'saldoCaja'     => ($pagos + $extras + $fondoBase) - $gastos
             ]
         ]);
         break;
 
     case 'obtenerHistorialKardex':
-        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
+        // Abierto a todos los usuarios por política de transparencia (historial de movimientos)
         $limit = isset($data['limit']) ? (int)$data['limit'] : 20;
         $offset = isset($data['offset']) ? (int)$data['offset'] : 0;
         
@@ -208,7 +202,7 @@ switch ($accion) {
         break;
 
     case 'obtenerDatosExcel':
-        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
+        // Abierto a todos los usuarios para permitir la descarga del resumen oficial en Excel
         // 1. Deudores
         $sqlDeudores = "
             SELECT 
@@ -380,7 +374,7 @@ switch ($accion) {
 
         // 2. Cálculo de Deuda y Meta (Optimizando subconsultas)
         $costoTotalActividades = (float)$pdo->query("SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades WHERE estado = 1")->fetchColumn();
-        $alumnosActivos = (int)$pdo->query("SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1")->fetchColumn();
+        $alumnosActivos = (int)$pdo->query("SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 'activo' AND id != 1")->fetchColumn();
         
         $metaTotal = $costoTotalActividades * $alumnosActivos;
 
@@ -413,7 +407,7 @@ switch ($accion) {
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1 AND YEAR(fecha_pago) = ?) as total_pagado,
                 (SELECT COUNT(1) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto') as faltas
             FROM DSI_salon_usuarios u
-            WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
+            WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1 AND u.estado != 'inactivo'
             ORDER BY u.nombre ASC
         ";
         $stmtU = $pdo->prepare($sqlUsuarios);
@@ -463,13 +457,23 @@ switch ($accion) {
         foreach ($stmtAct->fetchAll() as $ac) {
             $metaA = (float)$ac['meta'];
             $recA = (float)$ac['rec'];
-            if ($metaA > 0 && ($recA / $metaA) < 0.5) {
-                $alertas[] = [
-                    'tipo' => 'ACTIVIDAD',
-                    'titulo' => 'Baja Recaudación',
-                    'msj' => "La actividad '{$ac['titulo']}' está por debajo del 50% de su meta.",
-                    'nivel' => 'warning'
-                ];
+            if ($metaA > 0) {
+                $porcentaje = ($recA / $metaA);
+                if ($porcentaje < 0.5) {
+                    $alertas[] = [
+                        'tipo' => 'ACTIVIDAD',
+                        'titulo' => 'Baja Recaudación',
+                        'msj' => "La actividad '{$ac['titulo']}' está por debajo del 50% de su meta.",
+                        'nivel' => 'warning'
+                    ];
+                } else if ($porcentaje >= 0.95) {
+                    $alertas[] = [
+                        'tipo' => 'ACTIVIDAD',
+                        'titulo' => '¡Meta Alcanzada!',
+                        'msj' => "La actividad '{$ac['titulo']}' ya superó el 95% de recaudación.",
+                        'nivel' => 'success'
+                    ];
+                }
             }
         }
 
@@ -487,13 +491,28 @@ switch ($accion) {
             ];
         }
 
-        // Alerta: Balance de Caja
-        if ($gastos > $recaudadoTotal) {
+        // Alerta: Balance de Caja Global vs Balance del Periodo
+        // 1. Calculamos el saldo real absoluto de la caja (histórico completo)
+        $globalPagos = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE confirmado = 1")->fetchColumn();
+        $globalExtras = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_ingresos_extra")->fetchColumn();
+        $globalGastos = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_gastos")->fetchColumn();
+        $fondoBaseTotal = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_fondo_base")->fetchColumn();
+        
+        $saldoRealGlobal = ($globalPagos + $globalExtras + $fondoBaseTotal) - $globalGastos;
+        
+        if ($saldoRealGlobal < 0) {
             $alertas[] = [
                 'tipo' => 'CAJA',
-                'titulo' => 'Déficit Detectado',
-                'msj' => "Los gastos del periodo superan a los ingresos totales.",
+                'titulo' => 'Déficit Crítico',
+                'msj' => "¡Alerta! La caja general está en negativo. Los gastos históricos superan todo el dinero ingresado.",
                 'nivel' => 'danger'
+            ];
+        } else if ($gastos > $recaudadoTotal && $recaudadoTotal > 0) {
+            $alertas[] = [
+                'tipo' => 'CAJA',
+                'titulo' => 'Gasto Elevado (Periodo)',
+                'msj' => "En este mes seleccionado, los gastos superaron a los ingresos (se usó dinero de reserva).",
+                'nivel' => 'warning'
             ];
         }
 
