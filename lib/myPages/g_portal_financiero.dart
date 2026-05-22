@@ -6,9 +6,9 @@ import 'package:fl_chart/fl_chart.dart'; // REQUIRED FOR DYNAMIC CHARTS
 
 import '../myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
+import '../myPagesTema/i_servicio_descargas.dart';
 import '../myPagesBack/a_logica_inicio_sesion.dart';
 import '../myPagesBack/b_logica_estado_financiero.dart';
-import '../myPagesBack/g_servicio_excel.dart';
 
 class PortalFinanciero extends StatefulWidget {
   const PortalFinanciero({super.key});
@@ -112,19 +112,19 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                       leading: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
+                          color: theme.primaryColor.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.table_chart, color: Colors.green, size: 28),
+                        child: Icon(Icons.download_for_offline_rounded, color: theme.primaryColor, size: 28),
                       ),
                       title: Text(
-                        esAdmin ? 'Cierre Contable Completo' : 'Estado General de Tesorería',
+                        esAdmin ? 'Centro de Descargas Premium' : 'Estado General de Tesorería',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       subtitle: Text(
                         esAdmin 
-                          ? 'Exporta la lista de deudores, pagos y gastos en un archivo de Excel (.xlsx)'
-                          : 'Descarga un resumen oficial del estado de cuentas de la promoción en Excel.',
+                          ? 'Exporta la lista de deudores, pagos y gastos en Excel estilizado o PDFs listos para imprimir.'
+                          : 'Descarga un resumen oficial del estado de cuentas de la promoción en formato Excel o PDF.',
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),
@@ -133,31 +133,16 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: theme.primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: () async {
-                          // Mostrar indicador
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Generando archivo Excel... 📊'), duration: Duration(seconds: 2)),
-                          );
-                          
-                          // Generar
-                          bool exito = await ServicioExcel.exportarYCompartir(context);
-                          
-                          if (!exito && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Error al generar el reporte.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
+                        onPressed: () {
+                          ServicioDescargas.mostrarMenuDescargas(context);
                         },
-                        icon: const Icon(Icons.download),
-                        label: const Text('Descargar Reporte Excel', style: TextStyle(fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.download_rounded),
+                        label: const Text('Abrir Centro de Descargas', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

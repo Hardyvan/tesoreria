@@ -1,48 +1,14 @@
-# =============================================
-# CONFIGURACIÓN DEL SERVIDOR - TESORERÍA API
-# =============================================
-
-# Evitar redirect 301 de DirectorySlash
-DirectorySlash Off
-
-# Ocultar listado de directorios
-Options -Indexes
-
-# =============================================
-# BLOQUEAR ACCESO A ARCHIVOS Y CARPETAS SENSIBLES
-# =============================================
-
-# Bloquea .env, .gitignore, logs, gateway.php, db.php, etc.
-<FilesMatch "(^\.env$|^\.env\..*|^\.gitignore$|^\.git$|\.log$|gateway\.php$|db\.php$)">
+# Bloquear acceso al archivo .env por razones de seguridad crítica
+<Files .env>
     Order allow,deny
     Deny from all
-</FilesMatch>
+</Files>
 
-# Bloquea acceso directo a carpetas internas
-RewriteEngine On
-RewriteRule ^config/ - [F,L]
-RewriteRule ^middleware/ - [F,L]
-RewriteRule ^routes/ - [F,L]
+# Documento de error 403 personalizado y hermoso
+ErrorDocument 403 /pollito/upload/api_tesoreria/error_403.html
 
-# =============================================
-# CORS PARA FLUTTER
-# =============================================
-<IfModule mod_headers.c>
-    Header always set Access-Control-Allow-Origin "*"
-    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept"
-</IfModule>
+# Habilitar cabeceras y manejo de index
+DirectoryIndex index.php
 
-# Manejo de preflight OPTIONS
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ $1 [R=200,L]
-
-# =============================================
-# REDIRECCIÓN A ROUTER CENTRAL (index.php)
-# =============================================
-
-# Si no es un archivo real y no es un directorio real...
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-# ...redirigir todo a index.php
-RewriteRule ^(.*)$ index.php [QSA,L]
+# Desactivar visualización de carpetas
+Options -Indexes

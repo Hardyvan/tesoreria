@@ -295,11 +295,12 @@ class PerfilUsuario extends StatelessWidget {
     final auth = Provider.of<ControladorAuth>(context, listen: false);
 
     try {
-      // 1. Seleccionar con compresión
+      // 1. Seleccionar con compresión (Calidad reducida al 70% y dimensiones optimizadas para perfil)
       final XFile? archivo = await picker.pickImage(
         source: source,
-        maxWidth: 800, // Reducir tamaño
-        imageQuality: 60, // Calidad media (ahorro)
+        maxWidth: 600, // Dimensión física optimizada para perfil
+        maxHeight: 600, // Evitar distorsión vertical alta
+        imageQuality: 70, // Reducción estricta de calidad al 70% (ahorro de tamaño)
       );
 
       if (archivo == null) return; // Cancelado

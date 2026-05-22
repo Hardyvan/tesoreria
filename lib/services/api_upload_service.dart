@@ -16,7 +16,7 @@ class ApiUploadService {
   ApiUploadService._internal();
 
   // Lee la URL estática desde .env (Seguridad y Mantenimiento)
-  String get _uploadUrl => dotenv.env['API_UPLOAD_URL'] ?? 'https://api.insoft.com.pe/pollito/upload/api_tesoreria';
+  String get _uploadUrl => dotenv.env['API_UPLOAD_URL'] ?? 'https://api.insoft.com.pe/pollito/upload/api_tesoreria/index.php';
   
   // API KEY incrustada directamente (Por solicitud: Menos info en el .env)
   final String _secretKey = 'Insoft2026_SecureKey';

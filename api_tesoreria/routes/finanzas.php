@@ -294,6 +294,12 @@ switch ($accion) {
         
         $stmt = $pdo->prepare("INSERT INTO DSI_salon_fondo_base (monto, motivo, fecha_apertura) VALUES (?, ?, NOW())");
         if ($stmt->execute([$monto, $motivo])) {
+            // Webhook Sync
+            sincronizarConGoogleSheets('APERTURA_CAJA', [
+                'monto' => $monto,
+                'motivo' => $motivo,
+                'fecha_apertura' => date('Y-m-d H:i:s')
+            ]);
             echo json_encode(['ok' => true]);
         } else {
             $err = $stmt->errorInfo();
@@ -304,6 +310,12 @@ switch ($accion) {
     case 'vaciarFondoBase':
         if ($adminRol !== 'SuperAdmin') { echo json_encode(['ok' => false, 'msj' => 'Solo SuperAdmin']); exit;}
         $pdo->query("DELETE FROM DSI_salon_fondo_base");
+        
+        // Webhook Sync
+        sincronizarConGoogleSheets('CAJA_RESET', [
+            'fecha_reset' => date('Y-m-d H:i:s')
+        ]);
+        
         echo json_encode(['ok' => true]);
         break;
 
@@ -314,6 +326,12 @@ switch ($accion) {
         $pdo->query("DELETE FROM DSI_salon_fondo_base");
         $stmt = $pdo->prepare("INSERT INTO DSI_salon_fondo_base (monto, motivo, fecha_apertura) VALUES (?, 'Apertura Corregida', NOW())");
         if ($stmt->execute([$nuevoMonto])) {
+            // Webhook Sync
+            sincronizarConGoogleSheets('APERTURA_CAJA', [
+                'monto' => $nuevoMonto,
+                'motivo' => 'Apertura Corregida (Edición)',
+                'fecha_apertura' => date('Y-m-d H:i:s')
+            ]);
             echo json_encode(['ok' => true]);
         } else { echo json_encode(['ok' => false]); }
         break;
@@ -374,7 +392,7 @@ switch ($accion) {
 
         // 2. Cálculo de Deuda y Meta (Optimizando subconsultas)
         $costoTotalActividades = (float)$pdo->query("SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades WHERE estado = 1")->fetchColumn();
-        $alumnosActivos = (int)$pdo->query("SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 'activo' AND id != 1")->fetchColumn();
+        $alumnosActivos = (int)$pdo->query("SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1")->fetchColumn();
         
         $metaTotal = $costoTotalActividades * $alumnosActivos;
 
@@ -407,7 +425,7 @@ switch ($accion) {
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1 AND YEAR(fecha_pago) = ?) as total_pagado,
                 (SELECT COUNT(1) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto') as faltas
             FROM DSI_salon_usuarios u
-            WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1 AND u.estado != 'inactivo'
+            WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1 AND u.estado = 1
             ORDER BY u.nombre ASC
         ";
         $stmtU = $pdo->prepare($sqlUsuarios);

@@ -150,71 +150,58 @@ class AppPalettes {
     return MaterialColor(color.toARGB32(), swatch);
   }
 
-  // 2. COLORES PERSONALIZADOS
-  static final MaterialColor insoftBlue = _createMaterialColor(const Color(0xFF003162));
-  static final MaterialColor foodOrange = _createMaterialColor(const Color(0xFFFF6B00));
-  static final MaterialColor carbon = _createMaterialColor(const Color(0xFF2C3E50));
+  // 2. COLORES PERSONALIZADOS PREMIUM (7 Duotonos Vibrantes de Alto Impacto)
+  static final MaterialColor insoftBlue = _createMaterialColor(const Color(0xFF003162));      // 1. 🌌 Azul Eclipse Corporativo
+  static final MaterialColor verdeBosque = _createMaterialColor(const Color(0xFF1B4D3E));     // 2. 🌲 Verde Bosque Místico
+  static final MaterialColor moradoCosmico = _createMaterialColor(const Color(0xFF3F2B96));   // 3. 🔮 Morado Amatista Cósmico
+  static final MaterialColor naranjaCobre = _createMaterialColor(const Color(0xFFD35400));    // 4. 🍊 Naranja Cobre Terracota
+  static final MaterialColor rojoRubi = _createMaterialColor(const Color(0xFF8D0801));        // 5. 🍷 Rojo Rubí Imperial
+  static final MaterialColor carbonTech = _createMaterialColor(const Color(0xFF212529));      // 6. 🖤 Negro Carbón Industrial
+  static final MaterialColor bronceLatte = _createMaterialColor(const Color(0xFF7E6B5A));     // 7. 🍂 Bronce Latte Escandinavo
 
-  static const Color defaultPrimary = Color(0xFF0056D2);
-  static const Color defaultSecondary = Color(0xFF00A2FF);
-  static const Color azulProfundo = Color(0xFF295E73); // #295E73
-  static const Color amarilloinSoft = Color(0xFFEAA012); // #F2B441
-  static const Color rosaViejo = Color(0xFFD48392);
-  static const Color rosaPolvo = Color(0xFFE4B9AB);// #F27141
-  static const Color rojoTerracota = Color(0xFFBF5349); /// Cian para el azul
+  static const Color defaultPrimary = Color(0xFF003162); // Por defecto: Azul Insoft Corporativo para evitar transiciones feas al cargar
+  static const Color defaultSecondary = Color(0xFFFD9703); // Por defecto: Ámbar Insoft
 
-  // 3. LISTA DE SELECCIÓN DE COLORES
+  // 3. LISTA OFICIAL DE LOS 7 COLORES CORPORATIVOS DISPONIBLES
   static final List<Color> coloresDisponibles = [
-    insoftBlue,         // Tu azul corporativo base
-    azulProfundo,       // #295E73
-    amarilloinSoft,    // #F2B441
-    rosaViejo,        // #F2A341
-    rosaPolvo,       // #F27141
-    rojoTerracota,      // #BF5349
-    carbon,             // Tu color carbón
-    //Colors.blueGrey,    // Gris azulado
+    insoftBlue,         // 1. Azul Eclipse Corporativo
+    verdeBosque,        // 2. Verde Bosque Místico
+    moradoCosmico,      // 3. Morado Amatista Cósmico
+    naranjaCobre,       // 4. Naranja Cobre Terracota
+    rojoRubi,           // 5. Rojo Rubí Imperial
+    carbonTech,         // 6. Negro Carbón Industrial
+    bronceLatte,        // 7. Bronce Latte Escandinavo
   ];
 
   // ===========================================================================
-  // ✨ MÉTODO "DUOTONO VIBRANTE": COLORES COMPAÑEROS DE ALTO CONTRASTE
+  // ✨ MÉTODO "DUOTONO VIBRANTE": COLORES COMPAÑEROS DE ALTO CONTRASTE PREMIUM
   // ===========================================================================
   static Color obtenerColorSecundario(Color colorPrimario) {
     final int value = colorPrimario.toARGB32();
 
-    // 0. 🔵 Azul Standard (Default) -> Compañero: Cian Claro (el que pediste inicialmente)
-    if (value == defaultPrimary.toARGB32()) return defaultSecondary;
-
-    // 1. 🔵 Azul InSOFT (#003162) -> Compañero: Ámbar InSOFT (#FD9703) (Contraste clásico)
+    // 1. 🌌 Azul Eclipse Corporativo (#003162) -> Compañero: Ámbar Insoft Vibrante (#FD9703) (El dúo perfecto de la marca)
     if (value == insoftBlue.toARGB32()) return const Color(0xFFFD9703);
 
-    // 2. 🌲 Azul Profundo / Teal oscuro (#295E73) -> Compañero: Coral Cálido / Terracota (#E07A5F)
-    if (value == azulProfundo.toARGB32()) return const Color(0xFFE07A5F);
+    // 2. 🌲 Verde Bosque Místico (#1B4D3E) -> Compañero: Menta Neón Eléctrica (#00E676) (Contraste verde ultra-moderno)
+    if (value == verdeBosque.toARGB32()) return const Color(0xFF00E676);
 
-    // 3. 🟡 Amarillo InSOFT (#EAA012) -> Compañero: Azul Marino Profundo (#1E3A8A)
-    if (value == amarilloinSoft.toARGB32()) return const Color(0xFF1E3A8A);
+    // 3. 🔮 Morado Amatista Cósmico (#3F2B96) -> Compañero: Rosa Orquídea Neón (#EC53B5) (Aspecto Cyberpunk futurista)
+    if (value == moradoCosmico.toARGB32()) return const Color(0xFFEC53B5);
 
-    // 4. 🌸 Rosa Viejo (#D48392) -> Compañero: Verde Salvia oscuro (#4A5D23) o Vino (#5C1D2A)
-    if (value == rosaViejo.toARGB32()) return const Color(0xFF5C1D2A);
+    // 4. 🍊 Naranja Cobre Terracota (#D35400) -> Compañero: Azul Hielo Glaciar (#85C1E9) (Equilibrio térmico bellísimo)
+    if (value == naranjaCobre.toARGB32()) return const Color(0xFF85C1E9);
 
-    // 5. 🌸 Rosa Polvo (#E4B9AB) -> Compañero: Carmesí Rico (#9B2226)
-    if (value == rosaPolvo.toARGB32()) return const Color(0xFF9B2226);
+    // 5. 🍷 Rojo Rubí Imperial (#8D0801) -> Compañero: Océano Turquesa Eléctrico (#00B4D8) (Aspecto pasional de alto contraste)
+    if (value == rojoRubi.toARGB32()) return const Color(0xFF00B4D8);
 
-    // 6. 🔴 Rojo Terracota (#BF5349) -> Compañero: Teal Suave / Océano (#006D77)
-    if (value == rojoTerracota.toARGB32()) return const Color(0xFF006D77);
+    // 6. 🖤 Negro Carbón Industrial (#212529) -> Compañero: Naranja Mandarina Eléctrico (#FFFF8C00) (Estilo minimalista oscuro premium)
+    if (value == carbonTech.toARGB32()) return const Color(0xFFFF8C00);
 
-    // 7. ⚫ Carbón (#2C3E50) -> Compañero: Naranja Quemado (#D35400) (Estilo dev elegante)
-    if (value == carbon.toARGB32()) return const Color(0xFFD35400);
+    // 7. 🍂 Bronce Latte Escandinavo (#7E6B5A) -> Compañero: Oro Champagne Calma (#E8C547) (Elegancia minimalista y relajante)
+    if (value == bronceLatte.toARGB32()) return const Color(0xFFE8C547);
 
-    // 8. 🔘 Azul Grisáceo (fallback) -> Compañero: Ámbar Dorado (#FFC107)
-    if (value == Colors.blueGrey.toARGB32()) return const Color(0xFFFFC107);
-
-    // Fallback de seguridad: generamos un color complementario aproximado invirtiendo los canales
-    return Color.fromARGB(
-      255,
-      255 - colorPrimario.r.toInt(),
-      255 - colorPrimario.g.toInt(),
-      255 - colorPrimario.b.toInt(),
-    );
+    // Fallback por defecto si no coincide ninguno (Azul Insoft -> Ámbar)
+    return const Color(0xFFFD9703);
   }
 
 

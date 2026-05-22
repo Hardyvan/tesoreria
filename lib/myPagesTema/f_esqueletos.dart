@@ -33,6 +33,13 @@ class _EfectoShimmerState extends State<EfectoShimmer> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Colores dinámicos adaptados a la luminosidad de la pantalla
+    final baseColor = isDark ? Colors.grey.shade800 : Colors.grey.shade300;
+    final highlightColor = isDark ? Colors.grey.shade700 : Colors.grey.shade100;
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -41,9 +48,9 @@ class _EfectoShimmerState extends State<EfectoShimmer> with SingleTickerProvider
           shaderCallback: (bounds) {
             return LinearGradient(
               colors: [
-                Colors.grey.shade300,
-                Colors.grey.shade100,
-                Colors.grey.shade300,
+                baseColor,
+                highlightColor,
+                baseColor,
               ],
               stops: const [0.1, 0.4, 0.6],
               begin: const Alignment(-1.0, -0.3),

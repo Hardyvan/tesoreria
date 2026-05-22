@@ -76,6 +76,25 @@ switch ($accion) {
         echo json_encode(['ok' => true, 'datos' => $stmt->fetchAll()]);
         break;
 
+    case 'obtenerIdAdminActual':
+        $uid = $data['uid'] ?? '';
+        if (empty($uid)) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'msj' => 'El uid es obligatorio.']);
+            exit;
+        }
+        
+        $stmt = $pdo->prepare("SELECT id FROM DSI_salon_usuarios WHERE uid = ?");
+        $stmt->execute([$uid]);
+        $row = $stmt->fetch();
+        
+        if ($row) {
+            echo json_encode(['ok' => true, 'id' => (int)$row['id']]);
+        } else {
+            echo json_encode(['ok' => false, 'msj' => 'Usuario no encontrado.']);
+        }
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['ok' => false, 'msj' => "Accion desconocida en Mantenimiento: '$accion'"]);

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Border, BorderSide, BorderStyle;
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
@@ -9,7 +9,7 @@ import '../services/api_client.dart' as api_ext;
 class ServicioExcel {
   
   /// Genera y comparte el Cierre Contable en Excel
-  static Future<bool> exportarYCompartir(BuildContext context) async {
+  static Future<bool> exportarYCompartir() async {
     try {
       final api = api_ext.ApiClient();
       final res = await api.post('obtenerDatosExcel', {});
@@ -39,6 +39,146 @@ class ServicioExcel {
       }
 
       // -----------------------------------------------------
+      // DEFINICIÓN DE ESTILOS PREMIUM
+      // -----------------------------------------------------
+      // -----------------------------------------------------
+      // DEFINICIÓN DE ESTILOS PREMIUM
+      // -----------------------------------------------------
+      final borderGrisClaro = Border(
+        borderStyle: BorderStyle.Thin,
+        borderColorHex: ExcelColor.fromHexString('#CCCCCC'),
+      );
+
+      final borderE0E0E0 = Border(
+        borderStyle: BorderStyle.Thin,
+        borderColorHex: ExcelColor.fromHexString('#E0E0E0'),
+      );
+
+      final borderDobleTesoreria = Border(
+        borderStyle: BorderStyle.Double,
+        borderColorHex: ExcelColor.fromHexString('#1D3557'),
+      );
+
+      final borderThinTesoreria = Border(
+        borderStyle: BorderStyle.Thin,
+        borderColorHex: ExcelColor.fromHexString('#1D3557'),
+      );
+
+      final headerStyle = CellStyle(
+        bold: true,
+        fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
+        backgroundColorHex: ExcelColor.fromHexString('#1D3557'), // Azul oscuro corporativo
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+        topBorder: borderGrisClaro,
+        bottomBorder: borderGrisClaro,
+        leftBorder: borderGrisClaro,
+        rightBorder: borderGrisClaro,
+      );
+
+      final dataStyleLeft = CellStyle(
+        horizontalAlign: HorizontalAlign.Left,
+        verticalAlign: VerticalAlign.Center,
+        topBorder: borderE0E0E0,
+        bottomBorder: borderE0E0E0,
+        leftBorder: borderE0E0E0,
+        rightBorder: borderE0E0E0,
+      );
+
+      final dataStyleRight = CellStyle(
+        horizontalAlign: HorizontalAlign.Right,
+        verticalAlign: VerticalAlign.Center,
+        topBorder: borderE0E0E0,
+        bottomBorder: borderE0E0E0,
+        leftBorder: borderE0E0E0,
+        rightBorder: borderE0E0E0,
+      );
+
+      final titleStyle = CellStyle(
+        bold: true,
+        fontColorHex: ExcelColor.fromHexString('#1D3557'),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+      final totalStyleLeft = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.fromHexString('#ECEFF1'), // Fondo gris claro distinguido
+        horizontalAlign: HorizontalAlign.Left,
+        verticalAlign: VerticalAlign.Center,
+        topBorder: borderDobleTesoreria, // Doble línea contable arriba
+        bottomBorder: borderThinTesoreria,
+        leftBorder: borderE0E0E0,
+        rightBorder: borderE0E0E0,
+      );
+
+      final totalStyleRight = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.fromHexString('#ECEFF1'),
+        horizontalAlign: HorizontalAlign.Right,
+        verticalAlign: VerticalAlign.Center,
+        topBorder: borderDobleTesoreria,
+        bottomBorder: borderThinTesoreria,
+        leftBorder: borderE0E0E0,
+        rightBorder: borderE0E0E0,
+      );
+
+      // Auxiliares para estilización automática
+      void estilizarTabular(Sheet sheet, List<HorizontalAlign> alignments) {
+        if (sheet.maxRows == 0) return;
+        
+        // 1. Cabecera (Fila 0)
+        for (int col = 0; col < sheet.maxColumns; col++) {
+          var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0));
+          cell.cellStyle = headerStyle;
+        }
+        
+        // 2. Datos (Filas 1 a maxRows - 2)
+        int lastRowIndex = sheet.maxRows - 1;
+        for (int row = 1; row < lastRowIndex; row++) {
+          for (int col = 0; col < sheet.maxColumns; col++) {
+            var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+            HorizontalAlign align = col < alignments.length ? alignments[col] : HorizontalAlign.Left;
+            
+            cell.cellStyle = CellStyle(
+              horizontalAlign: align,
+              verticalAlign: VerticalAlign.Center,
+              topBorder: borderE0E0E0,
+              bottomBorder: borderE0E0E0,
+              leftBorder: borderE0E0E0,
+              rightBorder: borderE0E0E0,
+            );
+          }
+        }
+        
+        // 3. Fila de Total (Fila lastRowIndex)
+        for (int col = 0; col < sheet.maxColumns; col++) {
+          var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: lastRowIndex));
+          HorizontalAlign align = col < alignments.length ? alignments[col] : HorizontalAlign.Left;
+          cell.cellStyle = (align == HorizontalAlign.Right) ? totalStyleRight : totalStyleLeft;
+        }
+      }
+
+      void autoAjustarColumnas(Sheet sheet) {
+        for (int col = 0; col < sheet.maxColumns; col++) {
+          double maxLen = 10.0;
+          for (int row = 0; row < sheet.maxRows; row++) {
+            var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+            if (cell.value != null) {
+              String valStr = cell.value.toString();
+              if (cell.value is DoubleCellValue) {
+                valStr = 'S/ ${(cell.value as DoubleCellValue).value.toStringAsFixed(2)}';
+              }
+              if (valStr.length > maxLen) {
+                maxLen = valStr.length.toDouble();
+              }
+            }
+          }
+          sheet.setColumnWidth(col, maxLen + 4.0);
+        }
+      }
+
+      // -----------------------------------------------------
       // 0. PESTAÑA: RESUMEN GENERAL
       // -----------------------------------------------------
       sheetResumen.appendRow([TextCellValue('RESUMEN DE CAJA AL ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}')]);
@@ -51,11 +191,22 @@ class ServicioExcel {
       sheetResumen.appendRow([]);
       sheetResumen.appendRow([TextCellValue('(*) Deuda Pendiente (Por cobrar)'), DoubleCellValue(deudaTotalAlumnos)]);
 
+      // Aplicar estilos a Resumen General
+      sheetResumen.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = titleStyle;
+      sheetResumen.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 2)).cellStyle = headerStyle;
+      sheetResumen.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 2)).cellStyle = headerStyle;
+      
+      final resumenRows = [3, 4, 5, 6, 8];
+      for (var r in resumenRows) {
+        sheetResumen.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: r)).cellStyle = dataStyleLeft;
+        sheetResumen.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: r)).cellStyle = dataStyleRight;
+      }
+      autoAjustarColumnas(sheetResumen);
+
       // -----------------------------------------------------
       // 1. PESTAÑA: DEUDORES (ESTADO DE ALUMNOS)
       // -----------------------------------------------------
       Sheet sheetAlumnos = excel['Estado Alumnos'];
-      // Cabecera Alumnos
       sheetAlumnos.appendRow([
         TextCellValue('ID'), 
         TextCellValue('Nombre'), 
@@ -66,11 +217,17 @@ class ServicioExcel {
         TextCellValue('Estado')
       ]);
 
+      double totalPagadoAlumnos = 0;
+      double totalDeudaAlumnos = 0;
+
       for (var row in deudoresLista) {
         double totalPagar = double.tryParse(row['total_a_pagar']?.toString() ?? '0') ?? 0.0;
         double totalPagado = double.tryParse(row['total_pagado']?.toString() ?? '0') ?? 0.0;
         double deuda = totalPagar - totalPagado;
         
+        totalPagadoAlumnos += totalPagado;
+        totalDeudaAlumnos += deuda;
+
         sheetAlumnos.appendRow([
           IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
           TextCellValue(row['nombre']?.toString() ?? ''),
@@ -81,6 +238,28 @@ class ServicioExcel {
           TextCellValue(deuda > 0 ? 'Deudor' : 'Al día'),
         ]);
       }
+
+      // Fila de Totales
+      sheetAlumnos.appendRow([
+        TextCellValue(''),
+        TextCellValue('TOTAL GENERAL'),
+        TextCellValue(''),
+        TextCellValue(''),
+        DoubleCellValue(totalPagadoAlumnos),
+        DoubleCellValue(totalDeudaAlumnos),
+        TextCellValue(''),
+      ]);
+
+      estilizarTabular(sheetAlumnos, [
+        HorizontalAlign.Center,
+        HorizontalAlign.Left,
+        HorizontalAlign.Center,
+        HorizontalAlign.Center,
+        HorizontalAlign.Right,
+        HorizontalAlign.Right,
+        HorizontalAlign.Center
+      ]);
+      autoAjustarColumnas(sheetAlumnos);
 
       // -----------------------------------------------------
       // 2. PESTAÑA: HISTORIAL DE PAGOS
@@ -98,18 +277,51 @@ class ServicioExcel {
       ]);
 
       final pagosLista = List<Map<String, dynamic>>.from(res['pagos'] ?? []);
+      double totalPagosMonto = 0;
+      double totalPagosMora = 0;
+
       for (var row in pagosLista) {
+        double monto = double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
+        double multa = double.tryParse(row['monto_multa']?.toString() ?? '0') ?? 0.0;
+
+        totalPagosMonto += monto;
+        totalPagosMora += multa;
+
         sheetPagos.appendRow([
           IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
           TextCellValue(row['alumno']?.toString() ?? ''),
           TextCellValue(row['actividad']?.toString() ?? ''),
           TextCellValue(row['metodo_pago']?.toString() ?? 'Efectivo'),
-          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
-          DoubleCellValue(double.tryParse(row['monto_multa']?.toString() ?? '0') ?? 0.0),
-          TextCellValue(row['recaudador']?.toString() ?? 'Sistema (Anterior)'),
+          DoubleCellValue(monto),
+          DoubleCellValue(multa),
+          TextCellValue(row['recaudador']?.toString() ?? 'Sistema'),
           TextCellValue(row['fecha_pago']?.toString() ?? ''),
         ]);
       }
+
+      // Fila de Totales
+      sheetPagos.appendRow([
+        TextCellValue(''),
+        TextCellValue('TOTAL RECAUDADO'),
+        TextCellValue(''),
+        TextCellValue(''),
+        DoubleCellValue(totalPagosMonto),
+        DoubleCellValue(totalPagosMora),
+        TextCellValue(''),
+        TextCellValue(''),
+      ]);
+
+      estilizarTabular(sheetPagos, [
+        HorizontalAlign.Center,
+        HorizontalAlign.Left,
+        HorizontalAlign.Left,
+        HorizontalAlign.Center,
+        HorizontalAlign.Right,
+        HorizontalAlign.Right,
+        HorizontalAlign.Left,
+        HorizontalAlign.Center
+      ]);
+      autoAjustarColumnas(sheetPagos);
 
       // -----------------------------------------------------
       // 3. PESTAÑA: HISTORIAL DE GASTOS
@@ -126,17 +338,44 @@ class ServicioExcel {
       ]);
 
       final gastosLista = List<Map<String, dynamic>>.from(res['gastos'] ?? []);
+      double totalGastosMonto = 0;
+
       for (var row in gastosLista) {
+        double monto = double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
+        totalGastosMonto += monto;
+
         sheetGastos.appendRow([
           IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
           TextCellValue(row['descripcion']?.toString() ?? ''),
           TextCellValue(row['actividad']?.toString() ?? 'Gasto General'),
           TextCellValue(row['responsable']?.toString() ?? 'Sistema'),
-          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
+          DoubleCellValue(monto),
           TextCellValue((row['comprobante_url'] != null && row['comprobante_url'].toString().trim().isNotEmpty) ? 'Sí' : 'No'),
           TextCellValue(row['fecha_gasto']?.toString() ?? ''),
         ]);
       }
+
+      // Fila de Totales
+      sheetGastos.appendRow([
+        TextCellValue(''),
+        TextCellValue('TOTAL GASTOS'),
+        TextCellValue(''),
+        TextCellValue(''),
+        DoubleCellValue(totalGastosMonto),
+        TextCellValue(''),
+        TextCellValue(''),
+      ]);
+
+      estilizarTabular(sheetGastos, [
+        HorizontalAlign.Center,
+        HorizontalAlign.Left,
+        HorizontalAlign.Left,
+        HorizontalAlign.Left,
+        HorizontalAlign.Right,
+        HorizontalAlign.Center,
+        HorizontalAlign.Center
+      ]);
+      autoAjustarColumnas(sheetGastos);
 
       // -----------------------------------------------------
       // 4. PESTAÑA: HISTORIAL DE DONACIONES / INGRESOS EXTRA
@@ -151,34 +390,76 @@ class ServicioExcel {
       ]);
 
       final extrasLista = List<Map<String, dynamic>>.from(res['extras'] ?? []);
+      double totalExtrasMonto = 0;
+
       for (var row in extrasLista) {
+        double monto = double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
+        totalExtrasMonto += monto;
+
         sheetExtras.appendRow([
           IntCellValue(int.tryParse(row['id']?.toString() ?? '0') ?? 0),
           TextCellValue(row['descripcion']?.toString() ?? ''),
-          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
+          DoubleCellValue(monto),
           TextCellValue(row['responsable']?.toString() ?? 'Sistema'),
           TextCellValue(row['fecha_ingreso']?.toString() ?? ''),
         ]);
       }
+
+      // Fila de Totales
+      sheetExtras.appendRow([
+        TextCellValue(''),
+        TextCellValue('TOTAL INGRESOS EXTRA'),
+        DoubleCellValue(totalExtrasMonto),
+        TextCellValue(''),
+        TextCellValue(''),
+      ]);
+
+      estilizarTabular(sheetExtras, [
+        HorizontalAlign.Center,
+        HorizontalAlign.Left,
+        HorizontalAlign.Right,
+        HorizontalAlign.Left,
+        HorizontalAlign.Center
+      ]);
+      autoAjustarColumnas(sheetExtras);
 
       // -----------------------------------------------------
       // 5. PESTAÑA: DETALLE APERTURA (FONDO BASE)
       // -----------------------------------------------------
       Sheet sheetFondo = excel['Detalle Apertura'];
       sheetFondo.appendRow([
-        TextCellValue('Monto (S/)'), 
+        TextCellValue('Monto base (S/)'), 
         TextCellValue('Motivo / Nombre'), 
         TextCellValue('Fecha de Apertura')
       ]);
 
       final fondoLista = List<Map<String, dynamic>>.from(res['fondo_base'] ?? []);
+      double totalFondoMonto = 0;
+
       for (var row in fondoLista) {
+        double monto = double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
+        totalFondoMonto += monto;
+
         sheetFondo.appendRow([
-          DoubleCellValue(double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0),
+          DoubleCellValue(monto),
           TextCellValue(row['motivo']?.toString() ?? ''),
           TextCellValue(row['fecha_apertura']?.toString() ?? ''),
         ]);
       }
+
+      // Fila de Totales
+      sheetFondo.appendRow([
+        DoubleCellValue(totalFondoMonto),
+        TextCellValue('TOTAL BASE DE APERTURA'),
+        TextCellValue(''),
+      ]);
+
+      estilizarTabular(sheetFondo, [
+        HorizontalAlign.Right,
+        HorizontalAlign.Left,
+        HorizontalAlign.Center
+      ]);
+      autoAjustarColumnas(sheetFondo);
 
       // -----------------------------------------------------
       // GUARDAR Y COMPARTIR

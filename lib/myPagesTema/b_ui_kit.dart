@@ -8,7 +8,7 @@ import 'a_tema.dart';
 // =============================================================================
 // 1. BOTÓN PRINCIPAL SOLID (Reemplaza BotonGradiente)
 // =============================================================================
-class BotonGradiente extends StatelessWidget {
+class BotonGradiente extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
   final IconData? icon;
@@ -29,16 +29,42 @@ class BotonGradiente extends StatelessWidget {
   });
 
   @override
+  State<BotonGradiente> createState() => _BotonGradienteState();
+}
+
+class _BotonGradienteState extends State<BotonGradiente> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isEnabled = onPressed != null && !isLoading;
+    final isEnabled = widget.onPressed != null && !widget.isLoading;
     
     // Usamos colores SÓLIDOS puros como pidió el usuario, cero degradados
-    final solidColor = useSecondaryColor ? theme.colorScheme.secondary : theme.primaryColor;
+    final solidColor = widget.useSecondaryColor ? theme.colorScheme.secondary : theme.primaryColor;
 
-    return Container(
-      width: width,
-      height: height,
+    final buttonContent = Container(
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
         color: isEnabled ? solidColor : Colors.grey.shade400,
         borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
@@ -56,11 +82,14 @@ class BotonGradiente extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isEnabled ? onPressed : null,
+          onTap: isEnabled ? () {
+            HapticFeedback.lightImpact(); // Vibración física premium
+            widget.onPressed!();
+          } : null,
           borderRadius: BorderRadius.circular(DimensionesApp.radioMedio),
           splashColor: Colors.white.withValues(alpha: 0.2),
           child: Center(
-            child: isLoading
+            child: widget.isLoading
                 ? const SizedBox(
               width: 24,
               height: 24,
@@ -69,12 +98,12 @@ class BotonGradiente extends StatelessWidget {
                 : Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (icon != null) ...[
-                  Icon(icon, color: Colors.white, size: 22),
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, color: Colors.white, size: 22),
                   const SizedBox(width: 8),
                 ],
                 Text(
-                  text,
+                  widget.text,
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700, // Más Bold para compensar la falta de gradiente
@@ -86,6 +115,18 @@ class BotonGradiente extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+
+    if (!isEnabled) return buttonContent;
+
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: buttonContent,
       ),
     );
   }
@@ -244,7 +285,7 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
 // =============================================================================
 // 3. TARJETA PREMIUM
 // =============================================================================
-class TarjetaPremium extends StatelessWidget {
+class TarjetaPremium extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
@@ -263,26 +304,50 @@ class TarjetaPremium extends StatelessWidget {
   });
 
   @override
+  State<TarjetaPremium> createState() => _TarjetaPremiumState();
+}
+
+class _TarjetaPremiumState extends State<TarjetaPremium> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     
-    // Si usa gradiente, el color de fondo sólido se vuelve transparente
-
-    final borderColor = esBordeBrillante
+    final borderColor = widget.esBordeBrillante
         ? theme.primaryColor.withValues(alpha: 0.5)
         : (isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.05));
 
-    return Container(
+    final cardContent = Container(
       decoration: BoxDecoration(
         // 🔥 Simplificación: Eliminamos degradados para usar colores sólidos puros (Máxima legibilidad)
         gradient: null,
-        color: usaGradientePrimario ? colorScheme.primary : (backgroundColor ?? theme.cardTheme.color),
+        color: widget.usaGradientePrimario ? colorScheme.primary : (widget.backgroundColor ?? theme.cardTheme.color),
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         border: Border.all(
-          color: usaGradientePrimario ? Colors.transparent : borderColor,
-          width: esBordeBrillante ? 1.5 : 1,
+          color: widget.usaGradientePrimario ? Colors.transparent : borderColor,
+          width: widget.esBordeBrillante ? 1.5 : 1,
         ),
         boxShadow: isDark ? [] : ColoresApp.sombraSuave,
       ),
@@ -291,45 +356,62 @@ class TarjetaPremium extends StatelessWidget {
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap != null ? () {
+            HapticFeedback.lightImpact(); // Vibración física premium
+            widget.onTap!();
+          } : null,
           splashColor: Colors.white.withValues(alpha: 0.2),
           highlightColor: Colors.white.withValues(alpha: 0.1),
           child: Theme(
             data: theme.copyWith(
               iconTheme: IconThemeData(
-                color: usaGradientePrimario ? Colors.white : null,
+                color: widget.usaGradientePrimario ? Colors.white : null,
               ),
               dividerTheme: theme.dividerTheme.copyWith(
-                color: usaGradientePrimario ? Colors.white.withValues(alpha: 0.2) : null,
+                color: widget.usaGradientePrimario ? Colors.white.withValues(alpha: 0.2) : null,
               ),
               iconButtonTheme: IconButtonThemeData(
                 style: IconButton.styleFrom(
-                  foregroundColor: usaGradientePrimario ? Colors.white : null,
+                  foregroundColor: widget.usaGradientePrimario ? Colors.white : null,
                 ),
               ),
               listTileTheme: ListTileThemeData(
-                iconColor: usaGradientePrimario ? Colors.white : null,
-                textColor: usaGradientePrimario ? Colors.white : null,
+                iconColor: widget.usaGradientePrimario ? Colors.white : null,
+                textColor: widget.usaGradientePrimario ? Colors.white : null,
                 titleTextStyle: theme.textTheme.titleMedium!.copyWith(
-                  color: usaGradientePrimario ? Colors.white : null,
+                  color: widget.usaGradientePrimario ? Colors.white : null,
                   fontWeight: FontWeight.bold,
                 ),
                 subtitleTextStyle: theme.textTheme.bodySmall!.copyWith(
-                  color: usaGradientePrimario ? Colors.white70 : null,
+                  color: widget.usaGradientePrimario ? Colors.white70 : null,
                 ),
               ),
             ),
             child: DefaultTextStyle(
               style: theme.textTheme.bodyMedium!.copyWith(
-                color: usaGradientePrimario ? Colors.white : null,
+                color: widget.usaGradientePrimario ? Colors.white : null,
               ),
               child: Padding(
-                padding: padding ?? const EdgeInsets.all(AppTokens.paddingEstandar),
-                child: child,
+                padding: widget.padding ?? const EdgeInsets.all(AppTokens.paddingEstandar),
+                child: widget.child,
               ),
             ),
           ),
         ),
+      ),
+    );
+
+    if (widget.onTap == null) {
+      return cardContent;
+    }
+
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: cardContent,
       ),
     );
   }

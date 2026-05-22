@@ -43,6 +43,33 @@ switch ($accion) {
         if ($exito) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cobro S/ $monto al usuario_id $usuarioId"]);
+
+            // Obtener el nombre del alumno y de la actividad para enviar al webhook
+            $stmtInfo = $pdo->prepare("
+                SELECT 
+                    (SELECT nombre FROM DSI_salon_usuarios WHERE id = ?) as alumno_nombre, 
+                    (SELECT titulo FROM DSI_salon_actividades WHERE id = ?) as actividad_titulo
+            ");
+            $stmtInfo->execute([$usuarioId, $actividadId]);
+            $info = $stmtInfo->fetch();
+            $alumnoNombre = $info ? $info['alumno_nombre'] : "ID: $usuarioId";
+            $actividadTitulo = $info ? $info['actividad_titulo'] : "Actividad ID: $actividadId";
+            
+            // Enviar datos de sincronización al webhook
+            sincronizarConGoogleSheets('PAGO_NUEVO', [
+                'pago_id' => $pagoIdInsertado,
+                'usuario_id' => $usuarioId,
+                'alumno_nombre' => $alumnoNombre,
+                'actividad_id' => $actividadId,
+                'actividad_titulo' => $actividadTitulo,
+                'monto' => $monto,
+                'monto_multa' => $montoMultaCalculada,
+                'metodo_pago' => $metodoPago,
+                'comprobante_url' => $comprobante,
+                'registrado_por' => $adminId,
+                'fecha_pago' => date('Y-m-d H:i:s')
+            ]);
+
             echo json_encode(['ok' => true, 'msj' => 'Pago guardado', 'pagoId' => $pagoIdInsertado, 'montoAsignado' => $monto, 'esMultaCero' => ($montoMultaCalculada == 0)]);
         } else {
             echo json_encode(['ok' => false, 'msj' => 'Error al guardar en base de datos.']);

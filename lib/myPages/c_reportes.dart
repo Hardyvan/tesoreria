@@ -14,7 +14,7 @@ import 'b_estado_financiero.dart';
 import 'e_actividades.dart';
 import '../../myPagesTema/f_esqueletos.dart'; // IMPORTANTE
 
-import '../../myPagesBack/g_servicio_excel.dart';
+import '../myPagesTema/i_servicio_descargas.dart';
 
 class ReporteFinanciero extends StatefulWidget {
   const ReporteFinanciero({super.key});
@@ -79,14 +79,10 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
         actions: [
           if (esAdmin)
             IconButton(
-              icon: const Icon(Icons.table_view_outlined),
-              tooltip: 'Exportar Cierre Contable a Excel',
-              onPressed: () async {
-                ManejadorErrores.mostrarMensajeExito(context, 'Generando documento, por favor espera...');
-                final exito = await ServicioExcel.exportarYCompartir(context);
-                if (!exito && context.mounted) {
-                   ManejadorErrores.mostrarErrorCritico(context, 'Error de Exportación', 'Hubo un error al generar o compartir el archivo Excel.');
-                }
+              icon: const Icon(Icons.download_for_offline_outlined),
+              tooltip: 'Centro de Descargas Premium (Excel/PDF)',
+              onPressed: () {
+                ServicioDescargas.mostrarMenuDescargas(context);
               },
             ),
           const BannerSinConexion() 

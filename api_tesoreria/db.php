@@ -1,44 +1,63 @@
 <?php
-// Función para cargar lector de entorno oculto
+/**
+ * Conexión Centralizada a Base de Datos - DSI Tesorería API
+ * Carga de forma segura el archivo .env y establece conexión mediante PDO.
+ */
+
 function cargarEnv($ruta) {
     if (!file_exists($ruta)) return false;
     $lineas = file($ruta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lineas as $linea) {
         if (strpos(trim($linea), '#') === 0) continue;
-        list($nombre, $valor) = explode('=', $linea, 2);
-        $nombre = trim($nombre);
-        $valor = trim($valor);
-        $valor = trim($valor, '"\''); // Quitar comillas si las hay
-        putenv(sprintf('%s=%s', $nombre, $valor));
-        $_ENV[$nombre] = $valor;
+        if (strpos($linea, '=') !== false) {
+            list($nombre, $valor) = explode('=', $linea, 2);
+            $nombre = trim($nombre);
+            $valor = trim(trim($valor), '"\'');
+            putenv("$nombre=$valor");
+            $_ENV[$nombre] = $valor;
+        }
     }
 }
 
-// Conexión segura usando PDO
-function getDBConnection() {
-    // Si no están en ENV globales, cargar el archivo oculto en la misma carpeta
+function getDBConnection(): PDO {
+    static $pdo = null;
+    if ($pdo !== null) {
+        return $pdo;
+    }
+
+    // Cargar variables de entorno si no están presentes
     if (!isset($_ENV['DB_HOST'])) {
         cargarEnv(__DIR__ . '/.env');
     }
 
-    $host = $_ENV['DB_HOST'] ?? '';
-    $db = $_ENV['DB_NAME'] ?? '';
-    $user = $_ENV['DB_USER'] ?? '';
-    $pass = $_ENV['DB_PASS'] ?? '';
-    $charset = $_ENV['DB_CHARSET'] ?? 'utf8mb4';
+    $host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'localhost');
+    $db = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?? '');
+    $user = getenv('DB_USER') ?: ($_ENV['DB_USER'] ?? '');
+    $pass = getenv('DB_PASS') ?: ($_ENV['DB_PASS'] ?? '');
+    $port = getenv('DB_PORT') ?: ($_ENV['DB_PORT'] ?? '3306');
+    $charset = getenv('DB_CHARSET') ?: ($_ENV['DB_CHARSET'] ?? 'utf8mb4');
 
-    $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+    $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+    
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false, // Usar consultas preparadas reales (protección Sql injection)
+        PDO::ATTR_EMULATE_PREPARES   => false, // Desactivar emulación para mayor seguridad
     ];
 
     try {
-        return new PDO($dsn, $user, $pass, $options);
+        $pdo = new PDO($dsn, $user, $pass, $options);
+        return $pdo;
     } catch (\PDOException $e) {
-        // En prod, ocultar el $e->getMessage() si expone BD.
-        throw new \PDOException("Fallo conexion: " . $e->getMessage(), (int)$e->getCode());
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => false,
+            'msj' => 'Error de conexión con la base de datos de Tesorería: ' . $e->getMessage()
+        ]);
+        exit;
     }
 }
-?>
+
+// Cargar automáticamente las variables de entorno al incluir este archivo
+cargarEnv(__DIR__ . '/.env');
