@@ -687,17 +687,25 @@ class ControladorFinanzas extends ChangeNotifier {
   }
 
   // --- NUEVA FUNCIÓN: Alumno Offline ---
-  Future<bool> registrarAlumnoOffline(String nombre) async {
+  Future<bool> registrarAlumnoOffline({
+    required String nombre,
+    String? email,
+    String? celular,
+  }) async {
     _cargando = true;
     notifyListeners();
     try {
       final api = api_ext.ApiClient();
-      final res = await api.post('registrarAlumnoOffline', {'nombre': nombre});
+      final res = await api.post('registrarAlumnoOffline', {
+        'nombre': nombre,
+        'email': email ?? '',
+        'celular': celular ?? '',
+      });
       
       if (res['ok'] == true) {
         unawaited(ServicioAuditoria().registrarAccion(
           accion: 'Alumno Offline Creado',
-          detalle: 'Nombre: $nombre',
+          detalle: 'Nombre: $nombre${email != null && email.isNotEmpty ? ', Email: $email' : ''}',
         ));
         await obtenerReporteDeudores();
         return true;

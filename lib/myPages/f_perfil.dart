@@ -523,18 +523,62 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
   }
 
   void _mostrarDialogoCrearAlumno(BuildContext context) {
-    final ctrl = TextEditingController();
+    final ctrlNombre = TextEditingController();
+    final ctrlEmail = TextEditingController();
+    final ctrlCelular = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Crear Alumno Offline'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(
-            labelText: 'Nombre Completo',
-            hintText: 'Ej. Juan Pérez',
+        title: const Text('Crear Alumno Manual'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CampoTextoPersonalizado(
+                  controller: ctrlNombre,
+                  label: 'Nombre Completo *',
+                  hint: 'Ej. Juan Pérez',
+                  prefixIcon: Icons.person,
+                  textCapitalization: TextCapitalization.words,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'El nombre es obligatorio';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                CampoTextoPersonalizado(
+                  controller: ctrlEmail,
+                  label: 'Correo Electrónico (Google)',
+                  hint: 'Ej. compañero@gmail.com',
+                  prefixIcon: Icons.email,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value != null && value.trim().isNotEmpty) {
+                      final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                      if (!emailRegExp.hasMatch(value.trim())) {
+                        return 'Formato de correo inválido';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                CampoTextoPersonalizado(
+                  controller: ctrlCelular,
+                  label: 'Número de Celular',
+                  hint: 'Ej. 987654321',
+                  prefixIcon: Icons.phone,
+                  keyboardType: TextInputType.phone,
+                ),
+              ],
+            ),
           ),
-          textCapitalization: TextCapitalization.words,
         ),
         actions: [
           TextButton(
@@ -543,16 +587,25 @@ class _GestionUsuariosState extends State<GestionUsuarios> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (ctrl.text.trim().isEmpty) return;
+              if (formKey.currentState?.validate() != true) return;
+              
+              final nombre = ctrlNombre.text.trim();
+              final email = ctrlEmail.text.trim();
+              final celular = ctrlCelular.text.trim();
+              
               Navigator.pop(dialogCtx);
               
               final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
-              final exito = await finanzas.registrarAlumnoOffline(ctrl.text.trim());
+              final exito = await finanzas.registrarAlumnoOffline(
+                nombre: nombre,
+                email: email.isNotEmpty ? email : null,
+                celular: celular.isNotEmpty ? celular : null,
+              );
               
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(exito ? 'Alumno registrado correctamente' : 'Error al crear alumno (Verifica internet)'),
+                    content: Text(exito ? 'Alumno registrado correctamente' : 'Error al crear alumno (Verifica conexión/duplicados)'),
                     backgroundColor: exito ? Colors.green : Colors.red,
                   )
                 );
@@ -683,6 +736,14 @@ class _TarjetaUsuario extends StatelessWidget {
                     title: Text('Ver Perfil'),
                   ),
                 ),
+                if (usuario.rol == 'Alumno')
+                  const PopupMenuItem(
+                    value: 'exonerar',
+                    child: ListTile(
+                      leading: Icon(Icons.verified_user_outlined),
+                      title: Text('Exoneraciones'),
+                    ),
+                  ),
                 const PopupMenuItem(
                   value: 'edit_name',
                   child: ListTile(
@@ -737,6 +798,9 @@ class _TarjetaUsuario extends StatelessWidget {
       case 'ver':
         _mostrarPerfilCompleto(context, usuario);
         break;
+      case 'exonerar':
+        _mostrarDialogoExoneraciones(context, usuario);
+        break;
       case 'edit_name':
         _mostrarDialogoEditarNombre(context, usuario);
         break;
@@ -781,12 +845,10 @@ class _TarjetaUsuario extends StatelessWidget {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Editar Nombre'),
-        content: TextField(
+        content: CampoTextoPersonalizado(
           controller: ctrl,
-          decoration: const InputDecoration(
-            labelText: 'Nombre Completo',
-            hintText: 'Ej. Juan Pérez',
-          ),
+          label: 'Nombre Completo',
+          hint: 'Ej. Juan Pérez',
           textCapitalization: TextCapitalization.words,
         ),
         actions: [
@@ -1008,6 +1070,104 @@ class _TarjetaUsuario extends StatelessWidget {
                     Navigator.pop(context);
                   },
                   child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _mostrarDialogoExoneraciones(BuildContext context, Usuario usuario) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        final ctrlUsuarios = Provider.of<ControladorUsuarios>(context, listen: false);
+        final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
+
+        return FutureBuilder<List<int>>(
+          future: ctrlUsuarios.obtenerExoneraciones(usuario.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const AlertDialog(
+                title: Text('Cargando Exoneraciones...'),
+                content: SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+
+            final exoneradas = snapshot.data ?? [];
+            
+            return AlertDialog(
+              title: Text('Exoneraciones: ${usuario.nombre}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Desmarca las actividades de las cuales el alumno queda EXONERADO (no tendrá deuda de las mismas).',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  if (finanzas.metasActividades.isEmpty)
+                    const Text('No hay actividades registradas en el salón.')
+                  else
+                    SizedBox(
+                      width: double.maxFinite,
+                      height: 250,
+                      child: StatefulBuilder(
+                        builder: (statefulCtx, setStateLocal) {
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: finanzas.metasActividades.length,
+                            itemBuilder: (listCtx, index) {
+                              final act = finanzas.metasActividades[index];
+                              final actId = act['id'] is int ? act['id'] : int.tryParse(act['id'].toString()) ?? 0;
+                              final titulo = act['titulo']?.toString() ?? '';
+                              final participa = !exoneradas.contains(actId);
+
+                              return CheckboxListTile(
+                                title: Text(titulo),
+                                subtitle: Text('Costo: S/ ${act['costo'] ?? act['costo_usuario'] ?? '0.00'}'),
+                                value: participa,
+                                activeColor: Colors.green,
+                                onChanged: (value) async {
+                                  if (value == null) return;
+                                  
+                                  final exito = await ctrlUsuarios.guardarExoneracion(
+                                    usuario.id,
+                                    actId,
+                                    !value, // exonerado = true si desmarca
+                                  );
+
+                                  if (exito) {
+                                    setStateLocal(() {
+                                      if (value) {
+                                        exoneradas.remove(actId);
+                                      } else {
+                                        exoneradas.add(actId);
+                                      }
+                                    });
+                                    // Recargar reportes financieros y metas
+                                    unawaited(finanzas.obtenerReporteDeudores());
+                                    unawaited(finanzas.obtenerMetasActividades());
+                                  }
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cerrar'),
                 ),
               ],
             );

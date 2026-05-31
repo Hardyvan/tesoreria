@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fl_chart/fl_chart.dart'; // REQUIRED FOR DYNAMIC CHARTS
+import 'package:fl_chart/fl_chart.dart';
+
 
 import '../myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
@@ -45,10 +46,19 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
       }
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Portal Financiero'),
+        title: const Text(
+          'Control de Caja',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
@@ -61,7 +71,7 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
               style: GoogleFonts.poppins(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: theme.primaryColor,
+                color: isDark ? Colors.white : Theme.of(context).primaryColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -70,7 +80,7 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                   ? 'Panel de control administrativo e informes financieros.'
                   : 'Aquí encontrarás herramientas e información útil sobre el estado de la tesorería.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: ColoresApp.textoSecundarioClaro,
+                color: isDark ? Colors.white70 : Colors.black54,
               ),
             ),
             
@@ -79,7 +89,10 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
             // SECCIÓN: GRÁFICO DINÁMICO DE APORTES (NUEVO)
             Text(
               'Estado de Aportes',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Theme.of(context).primaryColor
+              ),
             ),
             const SizedBox(height: 16),
             if (fn.cargando && fn.listaDeudores.isEmpty)
@@ -95,7 +108,10 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
             // SECCIÓN: REPORTES (PARA TODOS, PERO DIFERENTE)
             Text(
               'Reportes y Descargas',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Theme.of(context).primaryColor
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -119,13 +135,20 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                       ),
                       title: Text(
                         esAdmin ? 'Centro de Descargas Premium' : 'Estado General de Tesorería',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 16,
+                          color: isDark ? Colors.white : Colors.black87
+                        ),
                       ),
                       subtitle: Text(
                         esAdmin 
                           ? 'Exporta la lista de deudores, pagos y gastos en Excel estilizado o PDFs listos para imprimir.'
                           : 'Descarga un resumen oficial del estado de cuentas de la promoción en formato Excel o PDF.',
-                        style: const TextStyle(fontSize: 13),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white70 : Colors.black54
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -156,7 +179,10 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
             if (esAdmin) ...[
               Text(
                 'Herramientas de Administración',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : theme.primaryColor
+                ),
               ),
               const SizedBox(height: 16),
               
@@ -196,36 +222,90 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                 ],
               ),
             ] else ...[
-              // Opciones para Alumnos (Podría ser accesos directos informativos)
-
-            ],
-            
-            const SizedBox(height: 32),
-            
-            // BOTÓN DE SINCRONIZACIÓN (TODOS)
-            Center(
-              child: TextButton.icon(
-                onPressed: () {
-                  final finanzasController = Provider.of<ControladorFinanzas>(context, listen: false);
-                  finanzasController.cargarFinanzasUsuario(auth.usuarioActual!.id);
-                  finanzasController.obtenerMovimientosKardex(reset: true);
-                  finanzasController.obtenerReporteDeudores(); // REFRESH GRÁFICO
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sincronizados datos financieros con el servidor.')),
-                  );
-                },
-                icon: const Icon(Icons.sync),
-                label: const Text('Actualizar Datos'),
-                style: TextButton.styleFrom(foregroundColor: theme.primaryColor),
+              // Opciones para Alumnos (Accesos rápidos a reportes y análisis)
+              Text(
+                'Herramientas de Consulta',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : theme.primaryColor
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 16),
+              
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+                children: [
+                  _TarjetaOpcionAdmin(
+                    titulo: 'Reporte\nFinanciero',
+                    icono: Icons.assessment_outlined,
+                    colorBase: Colors.teal,
+                    onTap: () => Navigator.pushNamed(context, '/reportes'),
+                  ),
+                  _TarjetaOpcionAdmin(
+                    titulo: 'Gráficos\nAvanzados',
+                    icono: Icons.pie_chart,
+                    colorBase: Colors.blueAccent,
+                    onTap: () => Navigator.pushNamed(context, '/reportes_avanzados'),
+                  ),
+                  _TarjetaOpcionAdmin(
+                    titulo: 'InSOFT\nAnalytics',
+                    icono: Icons.analytics,
+                    colorBase: Colors.purple,
+                    onTap: () => Navigator.pushNamed(context, '/insoft_analytics'),
+                  ),
+                ],
+              ),
+            ],
+              
+              const SizedBox(height: 32),
+              
+              // BOTÓN DE SINCRONIZACIÓN (TODOS)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    final finanzasController = Provider.of<ControladorFinanzas>(context, listen: false);
+                    finanzasController.cargarFinanzasUsuario(auth.usuarioActual!.id);
+                    finanzasController.obtenerMovimientosKardex(reset: true);
+                    finanzasController.obtenerReporteDeudores(); // REFRESH GRÁFICO
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Sincronizados datos financieros con el servidor.')),
+                    );
+                  },
+                  icon: Icon(Icons.sync, color: isDark ? Colors.white : theme.primaryColor),
+                  label: Text(
+                    'Actualizar Datos', 
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : theme.primaryColor
+                    )
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : theme.primaryColor,
+                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: isDark ? Colors.white24 : theme.primaryColor.withValues(alpha: 0.25)
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    elevation: isDark ? 0 : 2,
+                    shadowColor: Colors.black.withValues(alpha: 0.1),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   // DIÁLOGO PARA REGISTRAR DONACIÓN O INGRESO EXTRA
   void _mostrarDialogoDonacion(BuildContext context) {
@@ -294,73 +374,188 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
     );
   }
 
-  // WIDGET EXTRAIDO PARA EL GRÁFICO TIPO DONA
+  // WIDGET EXTRAIDO PARA EL GRÁFICO TIPO DONA EN 3D
   Widget _construirGraficoAportes(int alDia, int conDeuda) {
     int total = alDia + conDeuda;
     if (total == 0) return const Text('No hay deudores ni aportantes.');
 
-    return TarjetaPremium(
-      usaGradientePrimario: false,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 220,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                   PieChart(
-                    PieChartData(
-                      sectionsSpace: 4,
-                      centerSpaceRadius: 60,
-                      sections: [
-                        if (alDia > 0)
-                          PieChartSectionData(
-                            color: ColoresApp.exito,
-                            value: alDia.toDouble(),
-                            title: '${((alDia / total) * 100).toStringAsFixed(0)}%',
-                            radius: 45,
-                            titleStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return RepaintBoundary(
+      child: TarjetaPremium(
+        usaGradientePrimario: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 240,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Sombra de toda la base del disco 3D
+                    Positioned(
+                      bottom: 12,
+                      child: Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateX(0.65),
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 190,
+                          height: 190,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.25),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              )
+                            ],
                           ),
-                        if (conDeuda > 0)
-                          PieChartSectionData(
-                            color: ColoresApp.error.withValues(alpha: 0.8),
-                            value: conDeuda.toDouble(),
-                            title: '${((conDeuda / total) * 100).toStringAsFixed(0)}%',
-                            radius: 45,
-                            titleStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ),
+
+                    // Borde de grosor 3D (Cuerpo cilíndrico del gráfico)
+                    Positioned(
+                      top: 14,
+                      child: Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateX(0.65),
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 176,
+                          height: 176,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withValues(alpha: 0.6),
+                                Colors.black.withValues(alpha: 0.2),
+                                Colors.black.withValues(alpha: 0.5),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
                           ),
-                      ]
-                    )
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Total', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text('$total', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                    ]
-                  )
-                ]
-              ),
-            ),
-            const SizedBox(height: 16),
-            // LEYENDA
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _indicador(ColoresApp.exito, 'Al día ($alDia)'),
-                const SizedBox(width: 24),
-                _indicador(ColoresApp.error, 'Con Deuda ($conDeuda)'),
-              ],
-            )
-          ],
-        ),
-      ),
+                        ),
+                      ),
+                    ),
+
+                    // La cara interactiva superior del gráfico en 3D
+                    Positioned(
+                      top: 6,
+                      child: Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateX(0.65), // Inclinación isométrica
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: 180,
+                          height: 180,
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 3,
+                              centerSpaceRadius: 55,
+                              sections: [
+                                if (alDia > 0)
+                                  PieChartSectionData(
+                                    color: ColoresApp.exito,
+                                    value: alDia.toDouble(),
+                                    title: '${((alDia / total) * 100).toStringAsFixed(0)}%',
+                                    radius: 35,
+                                    titleStyle: GoogleFonts.outfit(
+                                      fontSize: 14, 
+                                      fontWeight: FontWeight.w800, 
+                                      color: Colors.white
+                                    ),
+                                  ),
+                                if (conDeuda > 0)
+                                  PieChartSectionData(
+                                    color: ColoresApp.error,
+                                    value: conDeuda.toDouble(),
+                                    title: '${((conDeuda / total) * 100).toStringAsFixed(0)}%',
+                                    radius: 35,
+                                    titleStyle: GoogleFonts.outfit(
+                                      fontSize: 14, 
+                                      fontWeight: FontWeight.w800, 
+                                      color: Colors.white
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Centro de la dona (Tapa interna con simulación de profundidad)
+                    Positioned(
+                      top: 50, // Centrado con la perspectiva
+                      child: Container(
+                        width: 76,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 3),
+                            )
+                          ],
+                       ),
+                       child: Column(
+                         mainAxisAlignment: MainAxisAlignment.center,
+                         mainAxisSize: MainAxisSize.min,
+                         children: [
+                           Text(
+                             'Total', 
+                             style: GoogleFonts.inter(
+                               fontSize: 11, 
+                               color: isDark ? Colors.white60 : Colors.black54,
+                               fontWeight: FontWeight.w500
+                             )
+                           ),
+                           const SizedBox(height: 2),
+                           Text(
+                             '$total', 
+                             style: GoogleFonts.outfit(
+                               fontSize: 24, 
+                               fontWeight: FontWeight.bold,
+                               color: isDark ? Colors.white : Colors.black87
+                             )
+                           ),
+                         ],
+                       ),
+                     ),
+                   ),
+                 ],
+               ),
+             ),
+             const SizedBox(height: 16),
+             // LEYENDA
+             Row(
+               mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 _indicador(ColoresApp.exito, 'Al día ($alDia)'),
+                 const SizedBox(width: 24),
+                 _indicador(ColoresApp.error, 'Con Deuda ($conDeuda)'),
+               ],
+             )
+           ],
+         ),
+       ),
+     ),
     );
-  }
+   }
 
   Widget _indicador(Color color, String texto) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -370,7 +565,13 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
           decoration: BoxDecoration(shape: BoxShape.circle, color: color)
         ),
         const SizedBox(width: 8),
-        Text(texto, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(
+          texto, 
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.black87
+          )
+        ),
       ],
     );
   }
@@ -391,6 +592,8 @@ class _TarjetaOpcionAdmin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -398,8 +601,10 @@ class _TarjetaOpcionAdmin extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: ColoresApp.sombraSuave,
-          border: Border.all(color: colorBase.withValues(alpha: 0.3)),
+          boxShadow: isDark ? [] : ColoresApp.sombraSuave,
+          border: Border.all(
+            color: isDark ? colorBase.withValues(alpha: 0.3) : colorBase.withValues(alpha: 0.15)
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -421,6 +626,7 @@ class _TarjetaOpcionAdmin extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
             ],

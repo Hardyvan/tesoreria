@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import '../services/api_client.dart' as api_ext;
+import 'package:google_fonts/google_fonts.dart';
+import '../myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
 
 class InsoftAnalyticsDemo extends StatefulWidget {
@@ -76,22 +78,23 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
   @override
   Widget build(BuildContext context) {
     final bool esEscritorio = MediaQuery.of(context).size.width > 800;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final contenidoTabs = _cargando 
-        ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+        ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary))
         : (_datosAnaliticos == null 
-            ? const Center(child: Text('Error al cargar datos'))
+            ? Center(child: Text('Error al cargar datos', style: TextStyle(color: isDark ? Colors.white : Colors.black87)))
             : Column(
                 children: [
                   if (!esEscritorio) _buildFiltrosMovil(),
                   Container(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    child: const TabBar(
-                      labelColor: Color(0xFF1D3557),
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: Colors.teal,
+                    color: Colors.transparent,
+                    child: TabBar(
+                      labelColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                      unselectedLabelColor: isDark ? Colors.white60 : Colors.black54,
+                      indicatorColor: Theme.of(context).colorScheme.secondary,
                       isScrollable: true,
-                      tabs: [
+                      tabs: const [
                         Tab(text: 'Métricas y Gráficos'),
                         Tab(text: 'Detalle de Usuarios'),
                         Tab(text: 'Alertas Cruzadas'),
@@ -103,9 +106,9 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
                       padding: const EdgeInsets.all(16),
                       child: TabBarView(
                         children: [
-                          _buildGraficosYMetas(),
-                          _buildTablaDatosPremium(),
-                          _buildMapaPlaceholder(),
+                          KeepAliveWrapper(child: _buildGraficosYMetas()),
+                          KeepAliveWrapper(child: _buildTablaDatosPremium()),
+                          KeepAliveWrapper(child: _buildMapaPlaceholder()),
                         ],
                       ),
                     ),
@@ -116,9 +119,15 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
     return DefaultTabController(
       length: 3, 
       child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1D3557),
-          title: const Text('Dashboard Ejecutivo - Tesorería', style: TextStyle(color: Colors.white, fontSize: 18)),
+          backgroundColor: Theme.of(context).primaryColor,
+          elevation: 2,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'Recaudación y Deudores',
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           actions: [
             IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _cargarDatos),
           ],
@@ -162,24 +171,44 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
     final double meta = (kpis['meta'] as num).toDouble();
     final double ingresos = (kpis['ingresos'] as num).toDouble();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Meta Mensual (Progress Bar)
           TarjetaPremium(
-            usaGradientePrimario: false,
+            backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+            esBordeBrillante: isDark,
             padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Meta de Recaudación (Deuda Total Estudiantil)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+                Text(
+                  'Meta de Recaudación (Deuda Total Estudiantil)', 
+                  style: TextStyle(
+                    fontSize: 16, 
+                    fontWeight: FontWeight.bold, 
+                    color: isDark ? Colors.white : Theme.of(context).primaryColor
+                  )
+                ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('S/ ${ingresos.toStringAsFixed(2)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal)),
-                    Text('de S/ ${meta.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                    Text(
+                      'S/ ${ingresos.toStringAsFixed(2)}', 
+                      style: TextStyle(
+                        fontSize: 24, 
+                        fontWeight: FontWeight.bold, 
+                        color: isDark ? Colors.greenAccent : ColoresApp.exito
+                      )
+                    ),
+                    Text(
+                      'de S/ ${meta.toStringAsFixed(2)}', 
+                      style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black54)
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -188,12 +217,19 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
                   child: LinearProgressIndicator(
                     value: progreso > 1.0 ? 1.0 : progreso,
                     minHeight: 12,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05),
+                    valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text('${(progreso * 100).toStringAsFixed(1)}% Alcanzado', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: progreso >= 1.0 ? Colors.green : Colors.orange)),
+                Text(
+                  '${(progreso * 100).toStringAsFixed(1)}% Alcanzado', 
+                  style: TextStyle(
+                    fontSize: 12, 
+                    fontWeight: FontWeight.bold, 
+                    color: progreso >= 1.0 ? ColoresApp.exito : Colors.orange
+                  )
+                ),
               ],
             ),
           ),
@@ -212,37 +248,171 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
     final dona = _datosAnaliticos!['dona'] as List;
     final valRecaudado = (dona[0]['valor'] as num).toDouble();
     final valDeuda = (dona[1]['valor'] as num).toDouble();
+    final double totalVal = valRecaudado + valDeuda;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return TarjetaPremium(
-      usaGradientePrimario: false,
+      backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+      esBordeBrillante: isDark,
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          const Text('Composición Global', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+      child: RepaintBoundary(
+        child: Column(
+          children: [
+          Text(
+            'Composición Global', 
+            style: TextStyle(
+              fontSize: 16, 
+              fontWeight: FontWeight.bold, 
+              color: isDark ? Colors.white : Theme.of(context).primaryColor
+            )
+          ),
           const SizedBox(height: 24),
           SizedBox(
-            height: 180,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 4,
-                centerSpaceRadius: 40,
-                sections: [
-                  PieChartSectionData(
-                    color: Colors.teal,
-                    value: valRecaudado,
-                    title: '${((valRecaudado/(valRecaudado+valDeuda+0.001))*100).toStringAsFixed(0)}%',
-                    radius: 50,
-                    titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            height: 240,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Sombra de toda la base del disco 3D
+                Positioned(
+                  bottom: 12,
+                  child: Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateX(0.65),
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 190,
+                      height: 190,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.25),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          )
+                        ],
+                      ),
+                    ),
                   ),
-                  PieChartSectionData(
-                    color: const Color(0xFFE63946),
-                    value: valDeuda,
-                    title: '${((valDeuda/(valRecaudado+valDeuda+0.001))*100).toStringAsFixed(0)}%',
-                    radius: 50,
-                    titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+
+                // Borde de grosor 3D (Cuerpo cilíndrico del gráfico)
+                Positioned(
+                  top: 14,
+                  child: Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateX(0.65),
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 176,
+                      height: 176,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: 0.6),
+                            Colors.black.withValues(alpha: 0.2),
+                            Colors.black.withValues(alpha: 0.5),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
                   ),
-                ]
-              ),
+                ),
+
+                // La cara interactiva superior del gráfico en 3D
+                Positioned(
+                  top: 6,
+                  child: Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateX(0.65), // Inclinación isométrica
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: 180,
+                      height: 180,
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 3,
+                          centerSpaceRadius: 55,
+                          sections: [
+                            PieChartSectionData(
+                              color: Colors.teal,
+                              value: valRecaudado,
+                              title: '${((valRecaudado / (totalVal + 0.001)) * 100).toStringAsFixed(0)}%',
+                              radius: 35,
+                              titleStyle: GoogleFonts.outfit(
+                                fontSize: 14, 
+                                fontWeight: FontWeight.w800, 
+                                color: Colors.white
+                              ),
+                            ),
+                            PieChartSectionData(
+                              color: const Color(0xFFE63946),
+                              value: valDeuda,
+                              title: '${((valDeuda / (totalVal + 0.001)) * 100).toStringAsFixed(0)}%',
+                              radius: 35,
+                              titleStyle: GoogleFonts.outfit(
+                                fontSize: 14, 
+                                fontWeight: FontWeight.w800, 
+                                color: Colors.white
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Centro de la dona (Tapa interna con simulación de profundidad)
+                Positioned(
+                  top: 50, // Centrado con la perspectiva
+                  child: Container(
+                    width: 76,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 4,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Total', 
+                          style: GoogleFonts.inter(
+                            fontSize: 11, 
+                            color: isDark ? Colors.white60 : Colors.black54,
+                            fontWeight: FontWeight.w500
+                          )
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          (valRecaudado + valDeuda).toStringAsFixed(0), 
+                          style: GoogleFonts.outfit(
+                            fontSize: 20, 
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87
+                          )
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -250,39 +420,69 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.circle, color: Colors.teal, size: 12),
-              const SizedBox(width: 4),
-              Flexible(child: Text('Recaudado (S/ ${valRecaudado.toStringAsFixed(0)})', style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Recaudado (S/ ${valRecaudado.toStringAsFixed(0)})', 
+                  style: TextStyle(
+                    fontSize: 12, 
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.black87
+                  ), 
+                  overflow: TextOverflow.ellipsis
+                )
+              ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.circle, color: Color(0xFFE63946), size: 12),
-              const SizedBox(width: 4),
-              Flexible(child: Text('Deuda (S/ ${valDeuda.toStringAsFixed(0)})', style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Deuda (S/ ${valDeuda.toStringAsFixed(0)})', 
+                  style: TextStyle(
+                    fontSize: 12, 
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.black87
+                  ), 
+                  overflow: TextOverflow.ellipsis
+                )
+              ),
             ],
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // --- WIDGET: TABLA DE DATOS PREMIUM CON BOTTOM SHEET ---
   Widget _buildTablaDatosPremium() {
     final List usuarios = _datosAnaliticos!['usuarios'];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return TarjetaPremium(
-      usaGradientePrimario: false,
+      backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+      esBordeBrillante: isDark,
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('Detalle de Usuarios (Toca para ver info)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Detalle de Usuarios (Toca para ver info)', 
+              style: TextStyle(
+                fontSize: 16, 
+                fontWeight: FontWeight.bold, 
+                color: isDark ? Colors.white : Theme.of(context).primaryColor
+              )
+            ),
           ),
-          const Divider(height: 0),
+          Divider(height: 0, color: isDark ? Colors.white24 : Colors.black12),
           Expanded(
             child: ListView.builder(
               itemExtent: 85, // Optimización: Bloquea las alturas a 85px para máximo rendimiento a 60FPS
@@ -290,39 +490,57 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
               itemBuilder: (context, index) {
                 final u = usuarios[index];
                 final estado = u['estado'].toString();
-                final Color colorEstado = estado == 'AL DÍA' ? Colors.green : (estado == 'CRÍTICO' ? Colors.red : Colors.orange);
-
-                return InkWell(
-                  onTap: () => _mostrarDetalleUsuario(u),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                    ),
-                    child: Row(
-                      children: [
-                        AvatarUsuario(
-                          nombre: u['nombre'].toString(),
-                          fotoUrl: u['foto_url']?.toString(),
-                          radius: 24,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(u['nombre'].toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 4),
-                              Text('Deuda: S/ ${(u['deuda'] as num).toDouble().toStringAsFixed(2)}  •  Faltas: ${u['faltas']}', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500, fontSize: 13)),
-                            ],
+                final Color colorEstado = estado == 'AL DÍA' ? Colors.greenAccent : (estado == 'CRÍTICO' ? Colors.redAccent : Colors.orangeAccent);
+ 
+                return RepaintBoundary(
+                  child: InkWell(
+                    onTap: () => _mostrarDetalleUsuario(u),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05))),
+                      ),
+                      child: Row(
+                        children: [
+                          AvatarUsuario(
+                            nombre: u['nombre'].toString(),
+                            fotoUrl: u['foto_url']?.toString(),
+                            radius: 24,
                           ),
-                        ),
-                        BadgeEstado(
-                          texto: estado,
-                          colorBase: colorEstado,
-                        ),
-                      ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  u['nombre'].toString(), 
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold, 
+                                    fontSize: 16, 
+                                    color: isDark ? Colors.white : Colors.black87
+                                  ), 
+                                  maxLines: 1, 
+                                  overflow: TextOverflow.ellipsis
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Deuda: S/ ${(u['deuda'] as num).toDouble().toStringAsFixed(2)}  •  Faltas: ${u['faltas']}', 
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white70 : Colors.black54, 
+                                    fontWeight: FontWeight.w500, 
+                                    fontSize: 13
+                                  )
+                                ),
+                              ],
+                            ),
+                          ),
+                          BadgeEstado(
+                            texto: estado,
+                            colorBase: colorEstado,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -368,11 +586,15 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
                     return;
                   }
                   final numWhats = celular.startsWith('51') ? celular : '51$celular';
-                  final uri = Uri.parse('whatsapp://send?phone=$numWhats&text=Hola ${u['nombre']}, te escribimos para recordarte tu deuda de S/ ${deuda.toStringAsFixed(2)}.');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri);
-                  } else {
-                    _mostrarError('No se pudo abrir WhatsApp');
+                  final mensaje = 'Hola ${u['nombre']}, te escribimos para recordarte tu deuda de S/ ${deuda.toStringAsFixed(2)}.';
+                  final uri = Uri.parse('https://wa.me/$numWhats?text=${Uri.encodeComponent(mensaje)}');
+                  
+                  try {
+                    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                      _mostrarError('No se pudo abrir WhatsApp');
+                    }
+                  } catch (e) {
+                    _mostrarError('No se pudo abrir la aplicación de WhatsApp');
                   }
                 },
               ),
@@ -500,14 +722,24 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
     }
 
     const mesesCortos = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return TarjetaPremium(
-      usaGradientePrimario: false,
+    return RepaintBoundary(
+      child: TarjetaPremium(
+      backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+      esBordeBrillante: isDark,
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Flujo de Recaudación vs Gastos - $_anioSeleccionado', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1D3557))),
+          Text(
+            'Flujo de Recaudación vs Gastos - $_anioSeleccionado', 
+            style: TextStyle(
+              fontSize: 16, 
+              fontWeight: FontWeight.bold, 
+              color: isDark ? Colors.white : Theme.of(context).primaryColor
+            )
+          ),
           const SizedBox(height: 24),
           SizedBox(
             height: 200,
@@ -524,7 +756,10 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
                         if (idx < 0 || idx >= 12) return const SizedBox();
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(mesesCortos[idx], style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          child: Text(
+                            mesesCortos[idx], 
+                            style: TextStyle(fontSize: 10, color: isDark ? Colors.white70 : Colors.black54)
+                          ),
                         );
                       }
                     )
@@ -559,32 +794,39 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
           )
         ],
       ),
+      ),
     );
   }
 
   Widget _buildLegendaChart(String t, Color c) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Icon(Icons.circle, color: c, size: 10),
         const SizedBox(width: 4),
-        Text(t, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(t, style: TextStyle(fontSize: 10, color: isDark ? Colors.white70 : Colors.black54)),
       ],
     );
   }
 
   Widget _buildMapaPlaceholder() {
     final List alertas = _datosAnaliticos!['alertas'] ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (alertas.isEmpty) {
-      return const TarjetaPremium(
-        usaGradientePrimario: false,
+      return TarjetaPremium(
+        backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+        esBordeBrillante: isDark,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
-              SizedBox(height: 16),
-              Text('No hay alertas críticas en este momento', style: TextStyle(color: Colors.grey)),
+              const Icon(Icons.check_circle_outline, size: 60, color: Colors.greenAccent),
+              const SizedBox(height: 16),
+              Text(
+                'No hay alertas críticas en este momento', 
+                style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)
+              ),
             ],
           ),
         ),
@@ -596,7 +838,7 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemBuilder: (context, index) {
         final a = alertas[index];
-        final Color colorBase = a['nivel'] == 'danger' ? const Color(0xFFE63946) : Colors.orange;
+        final Color colorBase = a['nivel'] == 'danger' ? const Color(0xFFE63946) : Colors.orangeAccent;
         
         IconData icon;
         switch(a['tipo']) {
@@ -607,13 +849,14 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
         }
 
         return TarjetaPremium(
-          usaGradientePrimario: false,
+          backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+          esBordeBrillante: isDark,
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: colorBase.withValues(alpha: 0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: colorBase.withValues(alpha: 0.2), shape: BoxShape.circle),
                 child: Icon(icon, color: colorBase),
               ),
               const SizedBox(width: 16),
@@ -623,11 +866,11 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
                   children: [
                     Text(a['titulo'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorBase)),
                     const SizedBox(height: 4),
-                    Text(a['msj'], style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                    Text(a['msj'], style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+              Icon(Icons.arrow_forward_ios, size: 14, color: isDark ? Colors.white60 : Colors.black54),
             ],
           ),
         );
@@ -636,15 +879,24 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
   }
 
   Widget _buildBarraLateral() { 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 250, 
-      color: Colors.white, 
+      color: isDark ? const Color(0xFF1E293B) : Colors.white, 
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Filtros Globales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            'Filtros Globales', 
+            style: TextStyle(
+              fontSize: 16, 
+              fontWeight: FontWeight.bold, 
+              color: isDark ? Colors.white : Theme.of(context).primaryColor
+            )
+          ),
           const Divider(),
+          const SizedBox(height: 8),
           _crearDropdown('Año Fiscal', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() { _anioSeleccionado = val!; _cargarDatos(); })),
           _crearDropdown('Mes', _meses, _mesSeleccionado, (val) => setState(() { _mesSeleccionado = val!; _cargarDatos(); })),
           _crearDropdown('Reporte', ['DEUDAS', 'ASISTENCIA', 'INGRESOS'], _tipoReporteSeleccionado, (val) => setState(() => _tipoReporteSeleccionado = val!)),
@@ -655,10 +907,25 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
   }
   
   Widget _buildFiltrosMovil() { 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: Colors.white,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05)),
+        boxShadow: isDark ? [] : AppTokens.sombraSuave,
+      ),
       child: ExpansionTile(
-        title: const Text('Filtros Globales', style: TextStyle(fontWeight: FontWeight.bold)),
+        collapsedIconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+        iconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+        title: Text(
+          'Filtros Globales', 
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: isDark ? Colors.white : Theme.of(context).primaryColor
+          )
+        ),
         childrenPadding: const EdgeInsets.all(16),
         children: [
           _crearDropdown('Año', ['2024', '2025', '2026'], _anioSeleccionado, (val) => setState(() { _anioSeleccionado = val!; _cargarDatos(); })),
@@ -670,21 +937,74 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
   }
 
   Widget _crearDropdown(String titulo, List<String> opciones, String valorActual, ValueChanged<String?> onChanged) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(titulo, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
+          Text(
+            titulo, 
+            style: GoogleFonts.inter(
+              fontSize: 12, 
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black54
+            )
+          ),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+              border: Border.all(
+                color: isDark 
+                    ? Colors.white.withValues(alpha: 0.15) 
+                    : primaryColor.withValues(alpha: 0.15),
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
+                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16), // Popup menu round corners!
+                elevation: 8,
+                style: GoogleFonts.inter(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
                 isExpanded: true,
                 value: valorActual,
-                items: opciones.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded, 
+                  color: isDark ? Colors.white70 : primaryColor
+                ),
+                items: opciones.map((e) => DropdownMenuItem(
+                  value: e, 
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.circle, 
+                        size: 6, 
+                        color: e == valorActual 
+                            ? (isDark ? Colors.tealAccent : primaryColor) 
+                            : Colors.grey.withValues(alpha: 0.3)
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        e, 
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: e == valorActual ? FontWeight.w600 : FontWeight.w500,
+                          color: isDark ? Colors.white : Colors.black87,
+                        )
+                      ),
+                    ],
+                  )
+                )).toList(),
                 onChanged: onChanged,
               ),
             ),

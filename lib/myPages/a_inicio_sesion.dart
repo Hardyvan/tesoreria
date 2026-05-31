@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 import '../myPagesTema/b_ui_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:dsi/myPagesTema/a_tema.dart';
+import '../myPagesTema/g_fondo_animado.dart';
 
 // TUS IMPORTS DE INSOFT
 import '../myPagesBack/a_logica_inicio_sesion.dart';
@@ -26,19 +29,31 @@ class _InicioSesionState extends State<InicioSesion> {
     super.dispose();
   }
 
+  Future<void> _redireccionarSegunTerminos(NavigatorState navigator, int usuarioId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final terminosAceptados = prefs.getBool('terms_accepted_$usuarioId') ?? false;
+
+    if (terminosAceptados) {
+      unawaited(navigator.pushReplacementNamed(RutasApp.menuPrincipal));
+    } else {
+      unawaited(navigator.pushReplacementNamed(RutasApp.terminosCondiciones));
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // LÓGICA DE LOGIN (Delegada al Controlador)
   // ---------------------------------------------------------------------------
   Future<void> _ingresarConGoogle() async {
     final auth = Provider.of<ControladorAuth>(context, listen: false);
+    final navigator = Navigator.of(context);
     final errorMsg = await auth.ingresarConGoogle();
 
     if (!mounted) return;
 
     if (errorMsg == null) {
-      unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
+      unawaited(_redireccionarSegunTerminos(navigator, auth.usuarioActual!.id));
     } else if (errorMsg == 'UsuarioNuevo' || errorMsg == 'UsuarioIncompleto') {
-      unawaited(Navigator.pushReplacementNamed(context, '/completar_perfil'));
+      unawaited(navigator.pushReplacementNamed('/completar_perfil'));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),
@@ -139,7 +154,7 @@ class _InicioSesionState extends State<InicioSesion> {
                         Navigator.pop(innerContext);
 
                         // Navegamos a la siguiente pantalla usando la referencia capturada
-                        unawaited(navigatorPantalla.pushReplacementNamed(RutasApp.menuPrincipal));
+                         unawaited(_redireccionarSegunTerminos(navigatorPantalla, auth.usuarioActual!.id));
                       } else {
                         // Mostramos el snackbar usando la referencia capturada
                         scaffoldMsg.showSnackBar(
@@ -236,101 +251,275 @@ class _InicioSesionState extends State<InicioSesion> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/logo/noti.png',
-                  height: 100,
-                ),
-                const SizedBox(height: 24),
-
-                ValueListenableBuilder<bool>(
-                  valueListenable: _cargando,
-                  builder: (context, isLoading, child) {
-                    if (isLoading) {
-                      return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-                    }
-                    return child!;
-                  },
-                  child: Column(
-                    children: [
-                      TarjetaPremium(
-                        onTap: _ingresarConGoogle,
-                        padding: EdgeInsets.zero,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+      body: FondoAnimadoPremium(
+        clima: TipoClimaFondo.aurora,
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+              child: Transform(
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)   // Perspectiva 3D
+                  ..rotateY(0.04)          // Inclinación sutil Y
+                  ..rotateX(-0.02),        // Inclinación sutil X
+                alignment: FractionalOffset.center,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: isDark 
+                            ? Colors.black.withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(
+                          color: isDark 
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.white.withValues(alpha: 0.25),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 40,
+                            spreadRadius: -10,
+                            offset: const Offset(-8, 16), // Sombra con desviación tridimensional
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Image.network(
-                                'https://developers.google.com/identity/images/g-logo.png',
-                                height: 24,
-                                width: 24,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    height: 24,
-                                    width: 24,
-                                    alignment: Alignment.center,
-                                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                    child: const Text('G', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 18)),
-                                  );
-                                },
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Logo Circular Estilizado con Resplandor
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.2),
+                                  Colors.white.withValues(alpha: 0.05),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Continuar con Google',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: theme.primaryColor.withValues(alpha: 0.35),
+                                  blurRadius: 40,
+                                  spreadRadius: 5,
+                                  offset: const Offset(0, 10),
+                                ),
+                                BoxShadow(
+                                  color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                                  blurRadius: 20,
+                                  spreadRadius: -2,
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: Container(
+                                width: 130,
+                                height: 130,
+                                color: Colors.white,
+                                child: Image.asset(
+                                  'assets/logo/noti.png',
+                                  width: 130,
+                                  height: 130,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) => Icon(
+                                    Icons.savings_rounded,
+                                    size: 65,
+                                    color: theme.primaryColor,
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 24),
+  
+                          // Identidad de Acceso
+                          Text(
+                            'INICIAR SESIÓN',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2.0,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: 45,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  theme.colorScheme.secondary,
+                                  Colors.white,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+  
+                          // Cargando / Formulario
+                          ValueListenableBuilder<bool>(
+                            valueListenable: _cargando,
+                            builder: (context, isLoading, childWidget) {
+                              if (isLoading) {
+                                return const SizedBox(
+                                  height: 140,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return childWidget!;
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Botón de Google Estilo Glass
+                                GestureDetector(
+                                  onTap: _ingresarConGoogle,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(30),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.25),
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.1),
+                                          blurRadius: 15,
+                                          offset: const Offset(0, 5),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Image.network(
+                                          'https://developers.google.com/identity/images/g-logo.png',
+                                          height: 24,
+                                          width: 24,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              height: 24,
+                                              width: 24,
+                                              alignment: Alignment.center,
+                                              decoration: const BoxDecoration(
+                                                color: Colors.white,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Text(
+                                                'G',
+                                                style: TextStyle(
+                                                  color: Colors.blue,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Text(
+                                          'Continuar con Google',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+  
+                                // Registrarse Enlace
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pushNamed(context, '/registro_correo');
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                  child: Text(
+                                    '¿No tienes cuenta? Regístrate aquí',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      shadows: const [
+                                        Shadow(
+                                          color: Colors.black26,
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+  
+                                // Ingresar con Correo / Admin
+                                TextButton(
+                                  onPressed: _mostrarLoginManual,
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                  child: Text(
+                                    'Ingresar con Correo / Admin',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.secondary,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Colors.black26,
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-
-                      const SizedBox(height: 16),
-
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/registro_correo');
-                        },
-                        child: const Text('¿No tienes cuenta? Regístrate aquí'),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      TextButton(
-                        onPressed: _mostrarLoginManual,
-                        child: Text(
-                          'Ingresar con Correo / Admin',
-                          style: TextStyle(color: theme.colorScheme.secondary),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

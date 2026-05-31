@@ -73,7 +73,12 @@ switch ($accion) {
                 u.nombre, 
                 u.foto_url,
                 u.celular,
-                ((SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) + 
+                ((SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
+                  WHERE act.estado = 1 
+                  AND NOT EXISTS (
+                      SELECT 1 FROM DSI_salon_exoneraciones ex 
+                      WHERE ex.usuario_id = u.id AND ex.actividad_id = act.id
+                  )) + 
                  (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
             FROM DSI_salon_usuarios u
@@ -102,7 +107,12 @@ switch ($accion) {
               a.id, 
               a.titulo, 
               a.costo,
-              (SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1) as total_alumnos,
+              (SELECT COUNT(1) FROM DSI_salon_usuarios u 
+               WHERE u.rol IN ('Alumno', 'Admin') AND u.estado = 1 AND u.id != 1
+               AND NOT EXISTS (
+                   SELECT 1 FROM DSI_salon_exoneraciones ex 
+                   WHERE ex.usuario_id = u.id AND ex.actividad_id = a.id
+               )) as total_alumnos,
               (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos p WHERE p.actividad_id = a.id AND p.confirmado = 1) as recaudado,
               (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_gastos g WHERE g.actividad_id = a.id) as gastado
             FROM DSI_salon_actividades a
@@ -137,7 +147,6 @@ switch ($accion) {
         break;
 
     case 'obtenerReporteAvanzado':
-        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
         $inicio = $data['inicio'];
         $fin = $data['fin'];
         $inicioFull = $inicio . ' 00:00:00';
@@ -207,7 +216,12 @@ switch ($accion) {
         $sqlDeudores = "
             SELECT 
                 u.id, u.nombre, u.rol, u.celular,
-                ((SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades) + 
+                ((SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
+                  WHERE act.estado = 1 
+                  AND NOT EXISTS (
+                      SELECT 1 FROM DSI_salon_exoneraciones ex 
+                      WHERE ex.usuario_id = u.id AND ex.actividad_id = act.id
+                  )) + 
                  (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
             FROM DSI_salon_usuarios u
@@ -259,6 +273,10 @@ switch ($accion) {
         $sqlFondo = "SELECT monto, motivo, fecha_apertura FROM DSI_salon_fondo_base ORDER BY fecha_apertura DESC";
         $resFondo = $pdo->query($sqlFondo)->fetchAll();
 
+        // 5.5 Actividades activas
+        $sqlActividades = "SELECT id, titulo, costo FROM DSI_salon_actividades WHERE estado = 1 ORDER BY fecha_creacion ASC";
+        $resActividades = $pdo->query($sqlActividades)->fetchAll();
+ 
         // 6. Resumen General
         $stmtI = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE confirmado = 1");
         $pagos = (float)$stmtI->fetch()['total'];
@@ -268,7 +286,7 @@ switch ($accion) {
         $gastos = (float)$stmtG->fetch()['total'];
         $stmtF = $pdo->query("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_fondo_base");
         $montoFondo = (float)($stmtF->fetch()['total'] ?? 0);
-
+ 
         echo json_encode([ 
             'ok' => true, 
             'deudores' => $resDeudores, 
@@ -277,6 +295,7 @@ switch ($accion) {
             'extras' => $resExtras,
             'asistencias' => $resAsistencias,
             'fondo_base' => $resFondo,
+            'actividades' => $resActividades,
             'resumen' => [
                 'totalIngresos' => $pagos + $extras,
                 'totalGastos' => $gastos,
@@ -336,8 +355,6 @@ switch ($accion) {
         } else { echo json_encode(['ok' => false]); }
         break;
     case 'obtenerDashboardAnalytics':
-        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { http_response_code(403); echo json_encode(['ok' => false, 'msj' => 'No autorizado']); exit; }
-        
         $anio = $data['anio'] ?? date('Y');
         $mes = $data['mes'] ?? 'TODOS';
         $estadoFiltro = $data['estado'] ?? 'TODOS';
@@ -390,11 +407,21 @@ switch ($accion) {
         $stmtG->execute($paramsGastos);
         $gastos = (float)$stmtG->fetch()['total'];
 
-        // 2. Cálculo de Deuda y Meta (Optimizando subconsultas)
-        $costoTotalActividades = (float)$pdo->query("SELECT COALESCE(SUM(costo), 0) FROM DSI_salon_actividades WHERE estado = 1")->fetchColumn();
-        $alumnosActivos = (int)$pdo->query("SELECT COUNT(1) FROM DSI_salon_usuarios WHERE rol IN ('Alumno', 'Admin') AND estado = 1 AND id != 1")->fetchColumn();
-        
-        $metaTotal = $costoTotalActividades * $alumnosActivos;
+        // 2. Cálculo de Deuda y Meta (Optimizando subconsultas considerando exoneraciones)
+        $metaQuery = "
+            SELECT SUM(costo_usuario) FROM (
+                SELECT 
+                    (SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
+                     WHERE act.estado = 1 
+                     AND NOT EXISTS (
+                         SELECT 1 FROM DSI_salon_exoneraciones ex 
+                         WHERE ex.usuario_id = u.id AND ex.actividad_id = act.id
+                     )) as costo_usuario
+                FROM DSI_salon_usuarios u
+                WHERE u.rol IN ('Alumno', 'Admin') AND u.estado = 1 AND u.id != 1
+            ) t
+        ";
+        $metaTotal = (float)$pdo->query($metaQuery)->fetchColumn();
 
         $deudaPendiente = max(0, $metaTotal - $pagos);
         $progresoMeta = $metaTotal > 0 ? ($pagos / $metaTotal) : 0;
@@ -414,14 +441,19 @@ switch ($accion) {
         foreach ($stmtTgas->fetchAll() as $r) { $tendenciasGastos[(int)$r['mes'] - 1] = (float)$r['total']; }
 
         // 4. Usuarios Detallados para la Tabla (Filtrados por Estado si aplica)
-        // OPTIMIZACIÓN: Pasamos el costo base como parámetro en vez de hacer subquery por cada usuario
         $sqlUsuarios = "
             SELECT 
                 u.id, 
                 u.nombre, 
                 u.foto_url,
                 u.celular,
-                (? + (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
+                ((SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
+                  WHERE act.estado = 1 
+                  AND NOT EXISTS (
+                      SELECT 1 FROM DSI_salon_exoneraciones ex 
+                      WHERE ex.usuario_id = u.id AND ex.actividad_id = act.id
+                  )) + 
+                 (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1 AND YEAR(fecha_pago) = ?) as total_pagado,
                 (SELECT COUNT(1) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto') as faltas
             FROM DSI_salon_usuarios u
@@ -429,7 +461,7 @@ switch ($accion) {
             ORDER BY u.nombre ASC
         ";
         $stmtU = $pdo->prepare($sqlUsuarios);
-        $stmtU->execute([$costoTotalActividades, $anio]);
+        $stmtU->execute([$anio]);
         $resUsuarios = $stmtU->fetchAll();
         
         $usuariosFormateados = [];

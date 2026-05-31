@@ -47,6 +47,19 @@ function getDBConnection(): PDO {
 
     try {
         $pdo = new PDO($dsn, $user, $pass, $options);
+        
+        // Auto-creación de tabla de exoneraciones de actividades
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS DSI_salon_exoneraciones (
+                usuario_id INT NOT NULL,
+                actividad_id INT NOT NULL,
+                fecha_exoneracion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (usuario_id, actividad_id),
+                FOREIGN KEY (usuario_id) REFERENCES DSI_salon_usuarios(id) ON DELETE CASCADE,
+                FOREIGN KEY (actividad_id) REFERENCES DSI_salon_actividades(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+        
         return $pdo;
     } catch (\PDOException $e) {
         http_response_code(500);

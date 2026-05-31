@@ -150,7 +150,7 @@ class AppPalettes {
     return MaterialColor(color.toARGB32(), swatch);
   }
 
-  // 2. COLORES PERSONALIZADOS PREMIUM (7 Duotonos Vibrantes de Alto Impacto)
+  // 2. COLORES PERSONALIZADOS PREMIUM (10 Duotonos Vibrantes de Alto Impacto)
   static final MaterialColor insoftBlue = _createMaterialColor(const Color(0xFF003162));      // 1. 🌌 Azul Eclipse Corporativo
   static final MaterialColor verdeBosque = _createMaterialColor(const Color(0xFF1B4D3E));     // 2. 🌲 Verde Bosque Místico
   static final MaterialColor moradoCosmico = _createMaterialColor(const Color(0xFF3F2B96));   // 3. 🔮 Morado Amatista Cósmico
@@ -158,11 +158,14 @@ class AppPalettes {
   static final MaterialColor rojoRubi = _createMaterialColor(const Color(0xFF8D0801));        // 5. 🍷 Rojo Rubí Imperial
   static final MaterialColor carbonTech = _createMaterialColor(const Color(0xFF212529));      // 6. 🖤 Negro Carbón Industrial
   static final MaterialColor bronceLatte = _createMaterialColor(const Color(0xFF7E6B5A));     // 7. 🍂 Bronce Latte Escandinavo
+  static final MaterialColor cerezoSakura = _createMaterialColor(const Color(0xFFD81B60));    // 8. 🌸 Cerezo Sakura Japonés
+  static final MaterialColor azulOceano = _createMaterialColor(const Color(0xFF006064));      // 9. 🌊 Azul Océano Profundo
+  static final MaterialColor trigoDorado = _createMaterialColor(const Color(0xFFE65100));     // 10. 🌾 Trigo Dorado Atardecer
 
   static const Color defaultPrimary = Color(0xFF003162); // Por defecto: Azul Insoft Corporativo para evitar transiciones feas al cargar
   static const Color defaultSecondary = Color(0xFFFD9703); // Por defecto: Ámbar Insoft
 
-  // 3. LISTA OFICIAL DE LOS 7 COLORES CORPORATIVOS DISPONIBLES
+  // 3. LISTA OFICIAL DE LOS 10 COLORES CORPORATIVOS DISPONIBLES
   static final List<Color> coloresDisponibles = [
     insoftBlue,         // 1. Azul Eclipse Corporativo
     verdeBosque,        // 2. Verde Bosque Místico
@@ -171,6 +174,9 @@ class AppPalettes {
     rojoRubi,           // 5. Rojo Rubí Imperial
     carbonTech,         // 6. Negro Carbón Industrial
     bronceLatte,        // 7. Bronce Latte Escandinavo
+    cerezoSakura,       // 8. Cerezo Sakura Japonés
+    azulOceano,         // 9. Azul Océano Profundo
+    trigoDorado,        // 10. Trigo Dorado Atardecer
   ];
 
   // ===========================================================================
@@ -200,10 +206,58 @@ class AppPalettes {
     // 7. 🍂 Bronce Latte Escandinavo (#7E6B5A) -> Compañero: Oro Champagne Calma (#E8C547) (Elegancia minimalista y relajante)
     if (value == bronceLatte.toARGB32()) return const Color(0xFFE8C547);
 
+    // 8. 🌸 Cerezo Sakura Japonés (#D81B60) -> Compañero: Menta Turquesa (#26A69A)
+    if (value == cerezoSakura.toARGB32()) return const Color(0xFF26A69A);
+
+    // 9. 🌊 Azul Océano Profundo (#006064) -> Compañero: Coral Naranja (#FF7043)
+    if (value == azulOceano.toARGB32()) return const Color(0xFFFF7043);
+
+    // 10. 🌾 Trigo Dorado Atardecer (#E65100) -> Compañero: Midnight Indigo (#1A237E)
+    if (value == trigoDorado.toARGB32()) return const Color(0xFF1A237E);
+
     // Fallback por defecto si no coincide ninguno (Azul Insoft -> Ámbar)
     return const Color(0xFFFD9703);
   }
 
+  // ===========================================================================
+  // ✨ TERCER COLOR DE ENFOQUE (ACENTO VIVO ADICIONAL)
+  // ===========================================================================
+  static Color obtenerColorTerciario(Color colorPrimario) {
+    final int value = colorPrimario.toARGB32();
+
+    if (value == insoftBlue.toARGB32()) return const Color(0xFFFF4081);       // Fucsia brillante
+    if (value == verdeBosque.toARGB32()) return const Color(0xFFE9C46A);      // Oro Cálido
+    if (value == moradoCosmico.toARGB32()) return const Color(0xFF00E5FF);    // Celeste Neón
+    if (value == naranjaCobre.toARGB32()) return const Color(0xFF27AE60);     // Esmeralda
+    if (value == rojoRubi.toARGB32()) return const Color(0xFFE9C46A);         // Oro Imperial
+    if (value == carbonTech.toARGB32()) return const Color(0xFF00B4D8);       // Cian Eléctrico
+    if (value == bronceLatte.toARGB32()) return const Color(0xFFD81B60);      // Rosado Cereza
+    if (value == cerezoSakura.toARGB32()) return const Color(0xFFFFB300);     // Miel Dulce
+    if (value == azulOceano.toARGB32()) return const Color(0xFF9CCC65);       // Verde Lima
+    if (value == trigoDorado.toARGB32()) return const Color(0xFF43A047);      // Verde Hoja
+
+    return const Color(0xFFFF4081); // Fallback
+  }
+
+  // ===========================================================================
+  // ✨ FONDOS CÁLIDOS PERSONALIZADOS (Evitan pantallas frías / blancas genéricas)
+  // ===========================================================================
+  static Color obtenerFondoCalido(Color colorPrimario) {
+    final int value = colorPrimario.toARGB32();
+
+    if (value == insoftBlue.toARGB32()) return const Color(0xFFFAF9F5);       // Blanco Alabastro eclipse
+    if (value == verdeBosque.toARGB32()) return const Color(0xFFF4F6F4);      // Salvia místico suave
+    if (value == moradoCosmico.toARGB32()) return const Color(0xFFF9F5FB);    // Bruma orquídea cálida
+    if (value == naranjaCobre.toARGB32()) return const Color(0xFFFAF5F0);     // Arena cobriza cálida
+    if (value == rojoRubi.toARGB32()) return const Color(0xFFFAF4F4);         // Rosa rubí cálida
+    if (value == carbonTech.toARGB32()) return const Color(0xFFF6F6F6);       // Platino cálido industrial
+    if (value == bronceLatte.toARGB32()) return const Color(0xFFF7F5F2);      // Cashmere Latte cálido
+    if (value == cerezoSakura.toARGB32()) return const Color(0xFFFCF5F7);     // Crema de cerezo
+    if (value == azulOceano.toARGB32()) return const Color(0xFFF2F7F7);       // Sal marina / menta clara
+    if (value == trigoDorado.toARGB32()) return const Color(0xFFFDF8F2);      // Trigo dorado cálido
+
+    return const Color(0xFFFAF9F5); // Fallback
+  }
 
   // ===========================================================================
   // ✨ SURFACE TINTING: FONDOS OSCUROS DINÁMICOS
@@ -213,34 +267,31 @@ class AppPalettes {
   }
 
   static ThemeConfig light({Color primary = defaultPrimary, AppStyle style = AppStyle.standard}) {
-    // Restaurando fondo blanco puro para máximo contraste (Estilo InSOFT limpio)
-    const Color plainBackground = Color(0xFFF5F7FA); // Gris muy tenue para fondo (AppColors.backgroundLight)
-    const Color plainSurface = Colors.white; // Blanco puro para tarjetas
+    // Generación dinámica del fondo cálido personalizado según el color seleccionado
+    final Color warmBackground = obtenerFondoCalido(primary);
+    const Color plainSurface = Colors.white; // Tarjetas blancas nítidas para alto contraste sobre fondo cálido
 
-    // Aplicamos la lógica del secundario dinámico
     final Color dynamicSecondary = obtenerColorSecundario(primary);
 
     return ThemeConfig(
       brightness: Brightness.light,
       primary: primary,
       secondary: dynamicSecondary,
-      background: plainBackground,
+      background: warmBackground,
       surface: plainSurface,
-      onBackground: const Color(0xFF1E293B), // Slate 800 para mejor lectura
+      onBackground: const Color(0xFF1E293B), // Slate 800 para legibilidad premium
       style: style,
     );
   }
 
   static ThemeConfig dark({Color primary = const Color(0xFF64B5F6), AppStyle style = AppStyle.standard}) {
-    // 1. Fondos menos oscuros para aliviar la vista
-    const Color darkBackgroundBase = Color(0xFF1E293B); // Slate 800 (Fondo principal más suave)
-    const Color darkSurfaceBase = Color(0xFF334155);    // Slate 700 (Fondo de tarjetas, ligeramente más claro)
+    // Fondos oscuros cálidos slate con Surface Tinting del color primario
+    const Color darkBackgroundBase = Color(0xFF161E2D); // Base azulada/oscura muy profunda
+    const Color darkSurfaceBase = Color(0xFF222F43);    // Tarjetas ligeramente más claras
     
-    // 2. Aplicamos Surface Tinting muy suave
-    final Color tintedBackground = _tintarSuperficie(darkBackgroundBase, primary, 0.03);
-    final Color tintedSurface = _tintarSuperficie(darkSurfaceBase, primary, 0.05);
+    final Color tintedBackground = _tintarSuperficie(darkBackgroundBase, primary, 0.04);
+    final Color tintedSurface = _tintarSuperficie(darkSurfaceBase, primary, 0.06);
 
-    // Aplicamos la lógica del secundario dinámico
     final Color dynamicSecondary = obtenerColorSecundario(primary);
 
     return ThemeConfig(
@@ -249,7 +300,7 @@ class AppPalettes {
       secondary: dynamicSecondary,
       background: tintedBackground,
       surface: tintedSurface,
-      onBackground: ColoresApp.textoOscuro, // Blanco tiza para perfecta legibilidad
+      onBackground: ColoresApp.textoOscuro, // Blanco tiza legible
       style: style,
     );
   }

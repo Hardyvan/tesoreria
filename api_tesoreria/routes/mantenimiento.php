@@ -95,6 +95,18 @@ switch ($accion) {
         }
         break;
 
+    case 'obtenerControlVersion':
+        // Control de versiones para Google Play Store
+        echo json_encode([
+            'ok' => true,
+            'version_actual' => '1.2.0',
+            'version_minima' => '1.1.0',
+            'url_play_store' => 'https://play.google.com/store/apps/details?id=pe.insoft.tesoreria.dsi',
+            'mensaje_opcional' => 'Nueva versión disponible en Google Play Store con mejoras gráficas 3D y estabilidad.',
+            'mensaje_obligatorio' => 'Actualización obligatoria requerida para poder seguir utilizando la aplicación de forma segura.'
+        ]);
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['ok' => false, 'msj' => "Accion desconocida en Mantenimiento: '$accion'"]);

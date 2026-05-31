@@ -123,114 +123,145 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       _indiceActual = 0;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(botonesVavegacion[_indiceActual].label),
+        title: Text(
+          botonesVavegacion[_indiceActual].label,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 20,
+            letterSpacing: 1.0,
+          ),
+        ),
         centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'DSI Tesorería',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary, 
-                      fontSize: 24, 
-                      fontWeight: FontWeight.bold
-                    ),
+      drawer: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        child: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).primaryColor,
+                      Theme.of(context).colorScheme.secondary,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    auth.usuarioActual?.nombre ?? '',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8), 
-                      fontSize: 16
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // NOTA: Mis Pagos y Ayuda ya está en la barra inferior para acceso rápido.
-            ListTile(
-              leading: const Icon(Icons.dashboard_outlined),
-              title: const Text('Portal Financiero', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Centro de control y descargas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
-              iconColor: Theme.of(context).primaryColor,
-              textColor: Theme.of(context).primaryColor,
-              onTap: () {
-                Navigator.pop(context); 
-                Navigator.pushNamed(context, '/portal_financiero');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.assessment_outlined),
-              title: const Text('Reporte Financiero', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Kardex global', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
-              iconColor: Theme.of(context).primaryColor,
-              textColor: Theme.of(context).primaryColor,
-              onTap: () {
-                Navigator.pop(context); 
-                Navigator.pushNamed(context, '/reportes');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.bar_chart),
-              title: const Text('Reportes Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Gráficas y estadísticas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
-              iconColor: Theme.of(context).primaryColor,
-              textColor: Theme.of(context).primaryColor,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/reportes_avanzados');
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.analytics, color: Colors.teal),
-              title: const Text('InSOFT Analytics', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
-              subtitle: const Text('Inteligencia de Datos', style: TextStyle(color: Colors.teal)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/insoft_analytics');
-              },
-            ),
-            if (auth.usuarioActual?.rol == 'SuperAdmin' || auth.usuarioActual?.rol == 'Admin') ...[
-              const Divider(),
-              if (auth.usuarioActual?.rol == 'SuperAdmin')
-                ListTile(
-                  leading: Icon(Icons.security, color: Theme.of(context).colorScheme.error),
-                  title: Text(
-                    'Panel de Auditoría', 
-                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)
-                  ),
-                  subtitle: Text('Rastreo de sistema', style: TextStyle(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7))),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/auditoria');
-                  },
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'DSI Tesorería',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: Colors.white, 
+                        fontSize: 24, 
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      auth.usuarioActual?.nombre ?? '',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: Colors.white.withValues(alpha: 0.85), 
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.dashboard_outlined),
+                title: const Text('Control de Caja', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Saldo y descarga de reportes', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+                iconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                textColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                onTap: () {
+                  Navigator.pop(context); 
+                  Navigator.pushNamed(context, '/portal_financiero');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.assessment_outlined),
+                title: const Text('Kardex de Movimientos', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Historial completo de caja', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+                iconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                textColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                onTap: () {
+                  Navigator.pop(context); 
+                  Navigator.pushNamed(context, '/reportes');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.bar_chart),
+                title: const Text('Balance por Fechas', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Ingresos, gastos y utilidades', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+                iconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                textColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/reportes_avanzados');
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.analytics, color: Colors.teal),
+                title: const Text('Recaudación y Deudores', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                subtitle: const Text('Metas de cobro y lista de deudas', style: TextStyle(color: Colors.teal)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/insoft_analytics');
+                },
+              ),
+              if (auth.usuarioActual?.rol == 'SuperAdmin' || auth.usuarioActual?.rol == 'Admin') ...[
+                const Divider(),
+                if (auth.usuarioActual?.rol == 'SuperAdmin')
+                  ListTile(
+                    leading: Icon(Icons.security, color: Theme.of(context).colorScheme.error),
+                    title: Text(
+                      'Auditoría de Sistema', 
+                      style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)
+                    ),
+                    subtitle: Text('Corte de caja y logs de seguridad', style: TextStyle(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7))),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/auditoria');
+                    },
+                  ),
+              ],
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Cerrar Sesión', style: TextStyle(fontWeight: FontWeight.bold)),
+                iconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                textColor: isDark ? Colors.white : Theme.of(context).primaryColor,
+                onTap: () {
+                   auth.cerrarSesion();
+                   Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false);
+                },
+              ),
             ],
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Cerrar Sesión', style: TextStyle(fontWeight: FontWeight.bold)),
-              iconColor: Theme.of(context).primaryColor,
-              textColor: Theme.of(context).primaryColor,
-              onTap: () {
-                 auth.cerrarSesion();
-                 Navigator.pushNamedAndRemoveUntil(context, '/inicio_sesion', (route) => false);
-              },
-            ),
-          ],
+          ),
         ),
       ),
       body: IndexedStack(
@@ -239,8 +270,16 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       ),
       floatingActionButton: _construirFAB(context, auth),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.only(top: 4),  // Sutil separación
-        color: Theme.of(context).colorScheme.surface,
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: isDark 
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.05),
+              width: 1,
+            ),
+          ),
+        ),
         child: NavigationBar(
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           selectedIndex: _indiceActual,

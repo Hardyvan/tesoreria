@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../myPagesTema/a_tema.dart';
 import '../myPagesTema/c_formatos.dart';
+import '../myPagesTema/b_ui_kit.dart';
 import '../myPagesBack/b_logica_estado_financiero.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import '../myPagesBack/a_logica_inicio_sesion.dart';
 import '../myPagesBack/k_servicio_auditoria.dart';
+
 
 class ReportesAvanzados extends StatefulWidget {
   const ReportesAvanzados({super.key});
@@ -102,11 +104,20 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Reportes Avanzados'),
+        title: const Text('Balance por Fechas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Balance General'),
             Tab(text: 'Por Actividad'),
@@ -117,37 +128,42 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
         children: [
           // FILTRO DE FECHAS PREMIUM
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1)))
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+              border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)))
             ),
-            child: InkWell(
-              onTap: _seleccionarFechas,
-              borderRadius: BorderRadius.circular(30),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                InkWell(
+                  onTap: _seleccionarFechas,
                   borderRadius: BorderRadius.circular(30),
-                  boxShadow: ColoresApp.sombraSuave,
-                  border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.1))
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min, // Que el botón abrace su contenido
-                  children: [
-                    Icon(Icons.calendar_month_rounded, size: 20, color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${_rangoFechas.start.toFechaUsuario()}  →  ${_rangoFechas.end.toFechaUsuario()}',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.15) : Theme.of(context).primaryColor.withValues(alpha: 0.2)),
+                      boxShadow: isDark ? [] : AppTokens.sombraSuave,
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.unfold_more_rounded, size: 20, color: ColoresApp.textoSecundarioClaro),
-                  ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min, // Que el botón abrace su contenido
+                      children: [
+                        Icon(Icons.calendar_month_rounded, size: 20, color: isDark ? Colors.white : Theme.of(context).primaryColor),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${_rangoFechas.start.toFechaUsuario()}  →  ${_rangoFechas.end.toFechaUsuario()}',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: isDark ? Colors.white : Theme.of(context).primaryColor),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.unfold_more_rounded, size: 20, color: isDark ? Colors.white70 : Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
 
@@ -162,8 +178,8 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
                 return TabBarView(
                   controller: _tabController,
                   children: [
-                    _construirBalanceGeneral(),
-                    _construirDesgloseActividad(),
+                    KeepAliveWrapper(child: _construirBalanceGeneral()),
+                    KeepAliveWrapper(child: _construirDesgloseActividad()),
                   ],
                 );
               },
@@ -185,58 +201,78 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
     final double maxVal = ingresos > gastos ? ingresos : gastos;
     final double scale = maxVal > 0 ? maxVal : 1;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text('Resumen del Periodo', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'Resumen del Periodo',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: isDark ? Colors.white : Theme.of(context).primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 24),
         
-        // GRÁFICO DE BARRAS SIMPLE
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _barra('Ingresos', ingresos, ColoresApp.exito, ingresos / scale),
-            _barra('Gastos', gastos, ColoresApp.error, gastos / scale),
-          ],
+        // GRÁFICO DE BARRAS 3D PREMIUM (CILINDROS)
+        RepaintBoundary(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _barra3D('Ingresos', ingresos, ColoresApp.exito, ingresos / scale),
+              _barra3D('Gastos', gastos, ColoresApp.error, gastos / scale),
+            ],
+          ),
         ),
         
         const SizedBox(height: 40),
 
         // TARJETAS DE RESULTADOS
-        _cardResultado('Total Recaudado', ingresos, ColoresApp.exito, Icons.arrow_downward),
+        _cardResultado('Total Recaudado', ingresos, ColoresApp.exito, Icons.arrow_upward),
         const SizedBox(height: 16),
-        _cardResultado('Total Gastado', gastos, ColoresApp.error, Icons.arrow_upward),
+        _cardResultado('Total Gastado', gastos, ColoresApp.error, Icons.arrow_downward),
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 16),
         _cardResultado('Utilidad Neta', utilidad, utilidad >= 0 ? Theme.of(context).primaryColor : ColoresApp.estadoPendiente, Icons.account_balance_wallet, destacado: true),
         
         const SizedBox(height: 32),
-        Text('Recaudado por Administrador', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Recaudado por Administrador',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: isDark ? Colors.white : Theme.of(context).primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 16),
         ...(_datosReporte['recaudacionAdmins'] as List<dynamic>? ?? []).map((admin) {
           final nombre = admin['admin_nombre'].toString();
           final total = (admin['total'] as num).toDouble();
           return Container(
-            margin: const EdgeInsets.only(bottom: 8),
+            margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05)),
+              boxShadow: isDark ? [] : AppTokens.sombraSuave,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.person, size: 20, color: Colors.blueGrey),
+                    Icon(Icons.person, size: 20, color: isDark ? Colors.white70 : Colors.black54),
                     const SizedBox(width: 8),
-                    Text(nombre, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                    Text(
+                      nombre,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
+                    ),
                   ],
                 ),
-                Text(total.toSoles(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: ColoresApp.exito)),
+                Text(total.toSoles(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: isDark ? Colors.greenAccent : ColoresApp.exito)),
               ],
             ),
           );
@@ -245,52 +281,150 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
     );
   }
 
-  Widget _barra(String label, double monto, Color color, double porcentajeHeight) {
+  Widget _barra3D(String label, double monto, Color color, double porcentajeHeight) {
+    final double baseHeight = 180.0;
+    final double barHeight = baseHeight * porcentajeHeight;
+    final double width = 50.0;
+    final double capHeight = 12.0;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
+        // Etiqueta del monto
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12)
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
           child: Text(
             monto.toSoles(), 
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: color)
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold, 
+              fontSize: 13, 
+              color: color
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          width: 50,
-          height: 180 * porcentajeHeight, // Altura base
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color.withValues(alpha: 0.8), color.withValues(alpha: 0.4)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-               BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))
+        const SizedBox(height: 16),
+        // Contenedor del gráfico 3D
+        SizedBox(
+          width: width + 20,
+          height: baseHeight + capHeight + 10,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              // Sombra en la base de la barra
+              Positioned(
+                bottom: 4,
+                child: Container(
+                  width: width + 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.all(Radius.elliptical(width + 8, 8)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.2),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      )
+                    ],
+                  ),
+                ),
+              ),
+              if (barHeight > 0) ...[
+                // Cuerpo de la barra 3D (Cilindro)
+                Positioned(
+                  bottom: 8,
+                  child: SizedBox(
+                    width: width,
+                    height: barHeight + (capHeight / 2),
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // El cuerpo principal del cilindro
+                        Container(
+                          width: width,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                color.withValues(alpha: 0.9), // Lado brillante
+                                color.withValues(alpha: 0.75),
+                                color.withValues(alpha: 0.5),  // Lado sombreado
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.vertical(
+                              bottom: Radius.elliptical(width / 2, capHeight / 2),
+                            ),
+                          ),
+                        ),
+                        // El cap superior (tapa del cilindro)
+                        Positioned(
+                          top: -(capHeight / 2),
+                          child: Container(
+                            width: width,
+                            height: capHeight,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.4),
+                                  color.withValues(alpha: 0.95),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                              borderRadius: BorderRadius.all(
+                                Radius.elliptical(width / 2, capHeight / 2),
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Text(label, style: GoogleFonts.inter(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
+        const SizedBox(height: 8),
+        Text(
+          label, 
+          style: GoogleFonts.inter(
+            color: isDark ? Colors.white70 : Colors.black87, 
+            fontWeight: FontWeight.bold, 
+            fontSize: 13
+          )
+        ),
       ],
     );
   }
 
   Widget _cardResultado(String label, double monto, Color color, IconData icon, {bool destacado = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: destacado ? color.withValues(alpha: 0.05) : Theme.of(context).colorScheme.surface,
+        color: destacado 
+            ? color.withValues(alpha: isDark ? 0.15 : 0.1) 
+            : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: destacado ? color.withValues(alpha: 0.3) : Colors.transparent),
-        boxShadow: destacado ? ColoresApp.sombraSuave : [
-           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 8))
-        ]
+        border: Border.all(
+          color: destacado 
+              ? color.withValues(alpha: 0.4) 
+              : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05))
+        ),
+        boxShadow: isDark ? [] : AppTokens.sombraSuave,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -299,17 +433,24 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 22),
               ),
               const SizedBox(width: 16),
-              Text(label, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor)),
+              Text(
+                label, 
+                style: GoogleFonts.inter(
+                  fontSize: 15, 
+                  fontWeight: FontWeight.w600, 
+                  color: isDark ? Colors.white : Colors.black87
+                )
+              ),
             ],
           ),
           Text(
             monto.toSoles(), 
             style: GoogleFonts.outfit(
-              fontSize: 22, 
+              fontSize: 20, 
               fontWeight: FontWeight.w800,
               color: color,
               letterSpacing: -0.5
@@ -348,7 +489,7 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.event_busy, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text('No hay datos en este rango'),
           ]
@@ -356,6 +497,8 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
 
       );
     }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -369,39 +512,60 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: ColoresApp.sombraSuave,
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05)),
+            boxShadow: isDark ? [] : AppTokens.sombraSuave,
           ),
           child: ExpansionTile(
+            collapsedIconColor: isDark ? Colors.white : Colors.black87,
+            iconColor: isDark ? Colors.white : Theme.of(context).primaryColor,
             shape: const Border(), // Remueve las líneas superior e inferior feas de Material
             tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            title: Text(item['titulo'], style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 17, color: Theme.of(context).primaryColor)),
-            subtitle: Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                 color: (util >= 0 ? ColoresApp.exito : ColoresApp.error).withValues(alpha: 0.1),
-                 borderRadius: BorderRadius.circular(12)
-              ),
-              child: Text(
-                util >= 0 ? 'Utilidad: ${util.toSoles()}' : 'Pérdida: ${util.toSoles()}',
-                style: GoogleFonts.inter(color: util >= 0 ? ColoresApp.exito : ColoresApp.error, fontWeight: FontWeight.bold, fontSize: 13),
+            title: Text(
+              item['titulo'], 
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold, 
+                fontSize: 17, 
+                color: isDark ? Colors.white : Colors.black87
+              )
+            ),
+            subtitle: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                   color: (util >= 0 ? ColoresApp.exito : ColoresApp.error).withValues(alpha: 0.15),
+                   borderRadius: BorderRadius.circular(12)
+                ),
+                child: Text(
+                  util >= 0 ? 'Utilidad: ${util.toSoles()}' : 'Pérdida: ${util.toSoles()}',
+                  style: GoogleFonts.inter(
+                    color: util >= 0 ? (isDark ? Colors.greenAccent : ColoresApp.exito) : ColoresApp.error, 
+                    fontWeight: FontWeight.bold, 
+                    fontSize: 13
+                  ),
+                ),
               ),
             ),
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
+                  color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02),
                   borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20))
                 ),
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _datoMini('Ingresos', ingresos, ColoresApp.exito, Icons.arrow_downward),
-                    Container(height: 40, width: 1, color: Colors.grey.withValues(alpha: 0.2)),
-                    _datoMini('Gastos', gastos, ColoresApp.error, Icons.arrow_upward),
+                    _datoMini('Ingresos', ingresos, ColoresApp.exito, Icons.arrow_upward),
+                    Container(
+                      height: 40, 
+                      width: 1, 
+                      color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08)
+                    ),
+                    _datoMini('Gastos', gastos, ColoresApp.error, Icons.arrow_downward),
                   ],
                 ),
               )
@@ -413,13 +577,14 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
   }
 
   Widget _datoMini(String label, double monto, Color color, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Row(
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Text(label, style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 13)),
+            Text(label, style: GoogleFonts.inter(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
           ],
         ),
         const SizedBox(height: 4),
@@ -504,11 +669,16 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
     }
 
     final dateFormat = DateFormat('dd MMM yyyy HH:mm');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Panel de Auditoría'),
+        title: const Text('Auditoría de Sistema', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           // BOTÓN VACIAR (Solo SuperAdmin)
           if (auth.usuarioActual?.rol == 'SuperAdmin')
@@ -518,7 +688,7 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
               onPressed: () => _confirmarVaciado(auth),
             ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _cargarDatos,
           )
         ],
@@ -529,22 +699,42 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- SECCIÓN CORTE DE CAJA (NUEVO) ---
-            const Text('Corte de Caja (Hoy)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'Corte de Caja (Hoy)', 
+              style: TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold, 
+                color: isDark ? Colors.white : Theme.of(context).primaryColor
+              )
+            ),
             const SizedBox(height: 10),
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _futureCaja,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const LinearProgressIndicator();
-                if (snapshot.data!.isEmpty) return const Text('No hay cobros registrados hoy.', style: TextStyle(color: Colors.grey));
+                if (snapshot.data!.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'No hay cobros registrados hoy.', 
+                      style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)
+                    ),
+                  );
+                }
                 
                 final caja = snapshot.data!;
                 double totalDia = caja.fold(0, (sum, item) => sum + (item['total'] as double));
 
-                return Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05)),
+                    boxShadow: isDark ? [] : AppTokens.sombraSuave,
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(0),
                     child: Column(
                       children: [
                         ...caja.map((item) => Padding(
@@ -552,17 +742,27 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(item['admin'], style: const TextStyle(fontWeight: FontWeight.w500)),
-                              Text((item['total'] as double).toSoles(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(item['admin'], style: TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87)),
+                              Text((item['total'] as double).toSoles(), style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
                             ],
                           ),
                         )),
-                        const Divider(),
+                        Divider(color: isDark ? Colors.white24 : Colors.black12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('TOTAL RECAUDADO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                            Text(totalDia.toSoles(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
+                            Text(
+                              'TOTAL RECAUDADO', 
+                              style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.greenAccent : ColoresApp.exito)
+                            ),
+                            Text(
+                              totalDia.toSoles(), 
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold, 
+                                fontSize: 18, 
+                                color: isDark ? Colors.greenAccent : ColoresApp.exito
+                              )
+                            ),
                           ],
                         )
                       ],
@@ -573,7 +773,14 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
             ),
             
             const SizedBox(height: 24),
-            const Text('Historial de Acciones', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'Historial de Acciones', 
+              style: TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold, 
+                color: isDark ? Colors.white : Theme.of(context).primaryColor
+              )
+            ),
             const SizedBox(height: 10),
 
             // --- LISTA DE LOGS ---
@@ -585,10 +792,13 @@ class _AuditoriaAdminState extends State<AuditoriaAdmin> {
                 }
                 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text('No hay registros de auditoría aún.'),
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'No hay registros de auditoría aún.',
+                        style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      ),
                     ),
                   );
                 }
@@ -628,15 +838,17 @@ class _TarjetaLog extends StatelessWidget {
     final dispositivo = log['dispositivo'];
     final detalle = log['detalle'];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     IconData icono;
     Color color;
 
     if (accion.contains('Pago')) {
       icono = Icons.payments;
-      color = Colors.green;
+      color = isDark ? Colors.greenAccent : ColoresApp.exito;
     } else if (accion.contains('Gasto')) {
       icono = Icons.money_off;
-      color = Colors.red;
+      color = ColoresApp.error;
     } else if (accion.contains('Usuario') || accion.contains('Rol')) {
       icono = Icons.manage_accounts;
       color = Colors.orange;
@@ -645,56 +857,62 @@ class _TarjetaLog extends StatelessWidget {
       color = Colors.grey;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: ColoresApp.sombraSuave,
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: color.withValues(alpha: 0.1),
-                  child: Icon(icono, color: color, size: 16),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    accion, 
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)
-                  ),
-                ),
-                Text(
-                  dateFormat.format(fecha),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(color: Colors.black87, fontSize: 13),
+    return RepaintBoundary(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05)),
+          boxShadow: isDark ? [] : AppTokens.sombraSuave,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  const TextSpan(text: 'Admin: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                  TextSpan(text: '$admin '),
-                  TextSpan(text: '($dispositivo)', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                ]
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: color.withValues(alpha: 0.2),
+                    child: Icon(icono, color: color, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      accion, 
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 15, 
+                        color: isDark ? Colors.white : Colors.black87
+                      )
+                    ),
+                  ),
+                  Text(
+                    dateFormat.format(fecha),
+                    style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              detalle,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-            ),
-          ],
+              Divider(height: 20, color: isDark ? Colors.white24 : Colors.black12),
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+                  children: [
+                    const TextSpan(text: 'Admin: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                    TextSpan(text: '$admin '),
+                    TextSpan(text: '($dispositivo)', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 11)),
+                  ]
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                detalle,
+                style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 13),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -96,14 +96,14 @@ function registrarPagoSheets(ss, payload) {
   
   // Aplicar formato a la última fila insertada
   estilizarUltimaFila(sheet, [
-    DocumentApp.HorizontalAlignment.CENTER,
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.CENTER,
+    "center",
+    "left",
+    "left",
+    "center",
     "S/ #,##0.00",
     "S/ #,##0.00",
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.CENTER
+    "left",
+    "center"
   ]);
 }
 
@@ -128,13 +128,13 @@ function registrarGastoSheets(ss, payload) {
   ]);
   
   estilizarUltimaFila(sheet, [
-    DocumentApp.HorizontalAlignment.CENTER,
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.LEFT,
+    "center",
+    "left",
+    "left",
+    "left",
     "S/ #,##0.00",
-    DocumentApp.HorizontalAlignment.CENTER,
-    DocumentApp.HorizontalAlignment.CENTER
+    "center",
+    "center"
   ]);
 }
 
@@ -155,11 +155,11 @@ function registrarIngresoExtraSheets(ss, payload) {
   ]);
   
   estilizarUltimaFila(sheet, [
-    DocumentApp.HorizontalAlignment.CENTER,
-    DocumentApp.HorizontalAlignment.LEFT,
+    "center",
+    "left",
     "S/ #,##0.00",
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.CENTER
+    "left",
+    "center"
   ]);
 }
 
@@ -179,8 +179,8 @@ function actualizarFondoBase(ss, payload) {
   
   estilizarUltimaFila(sheet, [
     "S/ #,##0.00",
-    DocumentApp.HorizontalAlignment.LEFT,
-    DocumentApp.HorizontalAlignment.CENTER
+    "left",
+    "center"
   ]);
 }
 
@@ -306,9 +306,9 @@ function formatsMapping(formatInput) {
   
   // Mapear alineaciones
   var valString = "left";
-  if (formatInput === DocumentApp.HorizontalAlignment.CENTER) {
+  if (formatInput === "center") {
     valString = "center";
-  } else if (formatInput === DocumentApp.HorizontalAlignment.RIGHT) {
+  } else if (formatInput === "right") {
     valString = "right";
   }
   

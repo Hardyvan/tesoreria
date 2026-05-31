@@ -218,6 +218,9 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
       maxLength: widget.maxLength,
       textAlign: widget.textAlign,
       onChanged: widget.onChanged,
+      enableInteractiveSelection: true, // Habilita copiado, pegado y selección interactiva
+      enableSuggestions: true, // Muestra sugerencias en teclados de Android/iOS
+      autocorrect: true, // Permite autocorrección sin saltos de cursor
       buildCounter: (widget.maxLength != null)
           ? (_, {required currentLength, maxLength, required isFocused}) => null
           : null,
@@ -646,4 +649,26 @@ class ContenedorMaximoLectura extends StatelessWidget {
       ),
     );
   }
+}
+
+// =============================================================================
+// 9. KEEP ALIVE WRAPPER (Optimización de Rendimiento y Cero Lag en Pestañas)
+// =============================================================================
+class KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const KeepAliveWrapper({super.key, required this.child});
+
+  @override
+  State<KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<KeepAliveWrapper> with AutomaticKeepAliveClientMixin {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 }

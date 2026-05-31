@@ -7,57 +7,44 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:311039555974:android:1ada27d45452da536e1407",
-        "android_client_info": {
-          "package_name": "pe.insoft.dsi"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "311039555974-h6pfj6955nbajbqja1u6p1j2e5umpmhe.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "pe.insoft.dsi",
-            "certificate_hash": "f99e35e2a88038791f220d05058310fcc99ce8a0"
-          }
-        },
-        {
-          "client_id": "311039555974-qchtidamc8ivaoghq1tmlv7rarh1ln7l.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "pe.insoft.dsi",
-            "certificate_hash": "791909af4385dce0a407551fbb440c8aa91a9b8c"
-          }
-        },
-        {
-          "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBR4Y5ThpoqppLIDTcTQPZQ9RkTsQtjHaM"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:311039555974:android:49a07fa47a15f90d6e1407",
         "android_client_info": {
           "package_name": "pe.insoft.tesoreria.dsi"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "311039555974-7orpl3fall6g31v5jg237o66jsofqh9e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "pe.insoft.tesoreria.dsi",
+            "certificate_hash": "8ed73c743eb05d1d4e6346a456c8872baafbcfbc"
+          }
+        },
+        {
+          "client_id": "311039555974-ck6couqqkk8dl59a5lr29r5rko3aioe1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "pe.insoft.tesoreria.dsi",
+            "certificate_hash": "e4b3f4a988f28b32f85e3709d45b0c822c9b7b99"
+          }
+        },
+        {
+          "client_id": "311039555974-ki7556gguflni2aje2aji895qeili1bo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "pe.insoft.tesoreria.dsi",
+            "certificate_hash": "f99e35e2a88038791f220d05058310fcc99ce8a0"
+          }
+        },
+        {
+          "client_id": "311039555974-mjae6f9dus292ltu1gebg38a68n3jcg2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "pe.insoft.tesoreria.dsi",
+            "certificate_hash": "791909af4385dce0a407551fbb440c8aa91a9b8c"
+          }
+        },
         {
           "client_id": "311039555974-8aen347qf8du9n7s7n5su5usqsi0lk68.apps.googleusercontent.com",
           "client_type": 3

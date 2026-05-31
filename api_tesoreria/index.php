@@ -29,6 +29,70 @@ require_once __DIR__ . '/middleware/auth.php';
  * @param array $payload Datos asociados a la transacción.
  * @return bool True si se envió o si está desactivado, False si falló la conexión.
  */
+function enviarPeticionConRedireccionManual($url, $jsonData, $maxRedirecciones = 5) {
+    if ($maxRedirecciones <= 0) {
+        return false;
+    }
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($jsonData)
+    ]);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+
+    $openBasedir = ini_get('open_basedir');
+    if (empty($openBasedir)) {
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, $maxRedirecciones);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return ($httpCode === 200 || $httpCode === 302);
+    } else {
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $redirectUrl = curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+        curl_close($ch);
+
+        if (($httpCode === 301 || $httpCode === 302 || $httpCode === 307 || $httpCode === 308) && !empty($redirectUrl)) {
+            return enviarPeticionConRedireccionManualGet($redirectUrl, $maxRedirecciones - 1);
+        }
+
+        return ($httpCode === 200);
+    }
+}
+
+function enviarPeticionConRedireccionManualGet($url, $maxRedirecciones = 5) {
+    if ($maxRedirecciones <= 0) {
+        return false;
+    }
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $redirectUrl = curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+    curl_close($ch);
+
+    if (($httpCode === 301 || $httpCode === 302 || $httpCode === 307 || $httpCode === 308) && !empty($redirectUrl)) {
+        return enviarPeticionConRedireccionManualGet($redirectUrl, $maxRedirecciones - 1);
+    }
+
+    return ($httpCode === 200);
+}
+
 function sincronizarConGoogleSheets($action, $payload) {
     $webhookUrl = getenv('GOOGLE_SHEET_WEBHOOK_URL');
     if (empty($webhookUrl)) {
@@ -43,35 +107,7 @@ function sincronizarConGoogleSheets($action, $payload) {
     ];
 
     $jsonData = json_encode($data);
-
-    // Inicializar cURL
-    $ch = curl_init($webhookUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Content-Length: ' . strlen($jsonData)
-    ]);
-    
-    // Configuración para redirecciones (muy importante para Google Apps Script)
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Evitar problemas de certificado local/servidor compartido
-    
-    // Timeout bajo para no ralentizar la respuesta del API al usuario
-    curl_setopt($ch, CURLOPT_TIMEOUT, 6); 
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-
-    $response = curl_exec($ch);
-    $error = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($error) {
-        return false;
-    }
-
-    return $httpCode === 200 || $httpCode === 302;
+    return enviarPeticionConRedireccionManual($webhookUrl, $jsonData);
 }
 
 // 3. Verificar seguridad (API Key)

@@ -94,7 +94,9 @@ class _ListaDeudoresState extends State<ListaDeudores> {
         itemCount: deudoresFiltrados.length + 3,
         itemBuilder: (context, index) {
           if (index == 0) {
-            return TermometroActividades(metas: finanzas.metasActividades, cargando: finanzas.cargando);
+            return RepaintBoundary(
+              child: TermometroActividades(metas: finanzas.metasActividades, cargando: finanzas.cargando),
+            );
           }
 
           if (index == 1) {
@@ -156,91 +158,93 @@ class _ListaDeudoresState extends State<ListaDeudores> {
               horizontal: DimensionesApp.paddingEstandar,
               vertical: 8,
             ),
-            child: TarjetaPremium(
-              usaGradientePrimario: false,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              onTap: !esAdmin ? null : () async {
-                await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => RegistroPagos(usuarioPreseleccionado: alumno['id'])
-                    )
-                );
-                if (context.mounted) {
-                  unawaited(context.read<ControladorFinanzas>().obtenerMetasActividades());
-                  unawaited(context.read<ControladorFinanzas>().obtenerReporteDeudores());
-                }
-              },
-              child: Row(
-                children: [
-                  AvatarUsuario(
-                    nombre: alumno['nombre'],
-                    fotoUrl: alumno['foto_url'],
-                    radius: 26,
-                    backgroundColor: colorAvatar.withValues(alpha: 0.1),
-                    textColor: colorAvatar,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          alumno['nombre'].toString().toCapitalized(),
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                            color: adaptiveTextColor,
+            child: RepaintBoundary(
+              child: TarjetaPremium(
+                usaGradientePrimario: false,
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                onTap: !esAdmin ? null : () async {
+                  await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => RegistroPagos(usuarioPreseleccionado: alumno['id'])
+                      )
+                  );
+                  if (context.mounted) {
+                    unawaited(context.read<ControladorFinanzas>().obtenerMetasActividades());
+                    unawaited(context.read<ControladorFinanzas>().obtenerReporteDeudores());
+                  }
+                },
+                child: Row(
+                  children: [
+                    AvatarUsuario(
+                      nombre: alumno['nombre'],
+                      fotoUrl: alumno['foto_url'],
+                      radius: 26,
+                      backgroundColor: colorAvatar.withValues(alpha: 0.1),
+                      textColor: colorAvatar,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            alumno['nombre'].toString().toCapitalized(),
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                              color: adaptiveTextColor,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        BadgeEstado(
-                          texto: esDeudor ? 'Debe ${montoDeuda.toSoles()}' : 'Al día',
-                          colorBase: esDeudor ? Colors.red : Colors.green,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (esDeudor && esAdmin)
-                    IconButton(
-                      icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.green, size: 28),
-                      onPressed: () async {
-                        final telefono = alumno['celular']?.toString() ?? '';
-                        if (telefono.isEmpty || telefono.length < 9) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El alumno no tiene un número válido registrado.')));
-                          return;
-                        }
-                        final numero = telefono.startsWith('51') ? telefono : '51$telefono';
-                        final mensaje = 'Hola ${alumno['nombre']}, te escribe la tesorería del salón. Recuerda que tienes un saldo pendiente de ${montoDeuda.toSoles()}. Por favor, regulariza tu pago lo antes posible.';
-                        final uri = Uri.parse('whatsapp://send?phone=$numero&text=${Uri.encodeComponent(mensaje)}');
-
-                        // MEJORA: Se añade LaunchMode para evitar fallos de apertura en Android 11+ o iOS
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        } else {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
-                        }
-                      },
-                    ),
-                  if (esAdmin)
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white54
-                              : Colors.black38
+                          const SizedBox(height: 6),
+                          BadgeEstado(
+                            texto: esDeudor ? 'Debe ${montoDeuda.toSoles()}' : 'Al día',
+                            colorBase: esDeudor ? Colors.red : Colors.green,
+                          ),
+                        ],
                       ),
                     ),
-                ],
+                    if (esDeudor && esAdmin)
+                      IconButton(
+                        icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.green, size: 28),
+                        onPressed: () async {
+                          final telefono = alumno['celular']?.toString() ?? '';
+                          if (telefono.isEmpty || telefono.length < 9) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El alumno no tiene un número válido registrado.')));
+                            return;
+                          }
+                          final numero = telefono.startsWith('51') ? telefono : '51$telefono';
+                          final mensaje = 'Hola ${alumno['nombre']}, te escribe la tesorería del salón. Recuerda que tienes un saldo pendiente de ${montoDeuda.toSoles()}. Por favor, regulariza tu pago lo antes posible.';
+                          final uri = Uri.parse('whatsapp://send?phone=$numero&text=${Uri.encodeComponent(mensaje)}');
+  
+                          // MEJORA: Se añade LaunchMode para evitar fallos de apertura en Android 11+ o iOS
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          } else {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
+                          }
+                        },
+                      ),
+                    if (esAdmin)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white54
+                                : Colors.black38
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           );

@@ -261,102 +261,104 @@ class _VistaDetalleHistorialUsuarioState extends State<_VistaDetalleHistorialUsu
                     colorEstado = Colors.red;
                 }
 
-                return TarjetaPremium(
-                  child: ExpansionTile(
-                    leading: CircleAvatar(
-                      backgroundColor: colorEstado.withValues(alpha: 0.1),
-                      child: Icon(
-                        estado == 'Completo' ? Icons.check : Icons.access_time,
-                        color: colorEstado,
-                      ),
-                    ),
-                    title: Text(item['titulo'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                      'Pagado: ${currencyFormat.format(pagado)} / ${currencyFormat.format(costo)}',
-                      style: TextStyle(color: colorEstado),
-                    ),
-                    childrenPadding: const EdgeInsets.all(16),
-                    children: [
-                      if (pagos.isNotEmpty) ...[
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Historial de Abonos:', style: TextStyle(fontWeight: FontWeight.bold)),
+                return RepaintBoundary(
+                  child: TarjetaPremium(
+                    child: ExpansionTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colorEstado.withValues(alpha: 0.1),
+                        child: Icon(
+                          estado == 'Completo' ? Icons.check : Icons.access_time,
+                          color: colorEstado,
                         ),
-                        const SizedBox(height: 8),
-                        ...pagos.map((p) => Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(dateFormat.format(DateTime.tryParse(p['fecha'].toString()) ?? DateTime.now())),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: p['metodo_pago'] == 'Yape' ? const Color(0xFF742284).withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            p['metodo_pago']?.toString() ?? 'Efectivo',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: p['metodo_pago'] == 'Yape' ? const Color(0xFF742284) : Colors.green,
+                      ),
+                      title: Text(item['titulo'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        'Pagado: ${currencyFormat.format(pagado)} / ${currencyFormat.format(costo)}',
+                        style: TextStyle(color: colorEstado),
+                      ),
+                      childrenPadding: const EdgeInsets.all(16),
+                      children: [
+                        if (pagos.isNotEmpty) ...[
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('Historial de Abonos:', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 8),
+                          ...pagos.map((p) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(dateFormat.format(DateTime.tryParse(p['fecha'].toString()) ?? DateTime.now())),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: p['metodo_pago'] == 'Yape' ? const Color(0xFF742284).withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              p['metodo_pago']?.toString() ?? 'Efectivo',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: p['metodo_pago'] == 'Yape' ? const Color(0xFF742284) : Colors.green,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(currencyFormat.format(p['monto']),
-                                        style: const TextStyle(fontWeight: FontWeight.w500)),
-                                  ],
-                                ),
-                                if (p['multa'] != null && p['multa'] > 0)
-                                  Text(
-                                    'Incluye mora: ${currencyFormat.format(p['multa'])}',
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(fontSize: 12, color: Colors.orange),
+                                        ],
+                                      ),
+                                      Text(currencyFormat.format(p['monto']),
+                                          style: const TextStyle(fontWeight: FontWeight.w500)),
+                                    ],
                                   ),
-                                const SizedBox(height: 4),
-                              ],
-                            )),
-                        const Divider(),
-                      ],
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Saldo Pendiente:', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(
-                            currencyFormat.format(saldo > 0 ? saldo : 0),
-                            style: TextStyle(
-                              color: saldo > 0 ? Colors.red : Colors.green,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
+                                  if (p['multa'] != null && p['multa'] > 0)
+                                    Text(
+                                      'Incluye mora: ${currencyFormat.format(p['multa'])}',
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(fontSize: 12, color: Colors.orange),
+                                    ),
+                                  const SizedBox(height: 4),
+                                ],
+                              )),
+                          const Divider(),
                         ],
-                      ),
-                      if (saldo > 0) ...[
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _mostrarModalYape(context, item['titulo'], saldo),
-                            icon: const FaIcon(FontAwesomeIcons.mobileScreen, color: Colors.white, size: 18),
-                            label: Text(widget.esVistaPersonal ? 'Pagar con Yape' : 'Ver QR Yape',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF742284), // Morado Yape
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Saldo Pendiente:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              currencyFormat.format(saldo > 0 ? saldo : 0),
+                              style: TextStyle(
+                                color: saldo > 0 ? Colors.red : Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        )
+                          ],
+                        ),
+                        if (saldo > 0) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _mostrarModalYape(context, item['titulo'], saldo),
+                              icon: const FaIcon(FontAwesomeIcons.mobileScreen, color: Colors.white, size: 18),
+                              label: Text(widget.esVistaPersonal ? 'Pagar con Yape' : 'Ver QR Yape',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF742284), // Morado Yape
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          )
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 );
               },

@@ -33,6 +33,23 @@ switch ($accion) {
         
         $esSuperAdminEmail = (strtolower($email) === 'gurenge.leveling@gmail.com');
 
+        // Función de normalización integrada
+        if (!function_exists('normalizarNombre')) {
+            function normalizarNombre($str) {
+                $str = strtolower($str);
+                $reemplazos = [
+                    'á'=>'a', 'é'=>'e', 'í'=>'i', 'ó'=>'o', 'ú'=>'u',
+                    'à'=>'a', 'è'=>'e', 'ì'=>'i', 'ò'=>'o', 'ù'=>'u',
+                    'ä'=>'a', 'ë'=>'e', 'ï'=>'i', 'ö'=>'o', 'ü'=>'u',
+                    'ñ'=>'n', 'ñ'=>'n',
+                    'Á'=>'a', 'É'=>'e', 'Í'=>'i', 'Ó'=>'o', 'Ú'=>'u'
+                ];
+                $str = strtr($str, $reemplazos);
+                $str = preg_replace('/\s+/', ' ', $str);
+                return trim($str);
+            }
+        }
+
         if ($esSuperAdminEmail) {
             // Eliminar cualquier duplicado que tenga este correo o uid con un ID diferente de 1 para evitar violar la restricción UNIQUE
             $pdo->prepare("DELETE FROM DSI_salon_usuarios WHERE email = ? AND id != 1")->execute([$email]);
@@ -79,14 +96,17 @@ switch ($accion) {
                         exit;
                     }
                     $pdo->prepare("UPDATE DSI_salon_usuarios SET uid = ? WHERE id = ?")->execute([$uid, $user['id']]);
+                    $user['uid'] = $uid; // Sincronizar localmente el uid recién agregado
                 }
             }
 
-            // FALLBACK por NOMBRE
+            // FALLBACK por NOMBRE (Flexible e Inteligente para Fusión Segura)
             if (!$user && $nombre) {
-                $stmt = $pdo->prepare("SELECT * FROM DSI_salon_usuarios WHERE nombre = ? AND (email IS NULL OR email = '')");
+                // 1. Intentar coincidencia exacta de nombre
+                $stmt = $pdo->prepare("SELECT * FROM DSI_salon_usuarios WHERE nombre = ? AND (uid IS NULL OR uid = '')");
                 $stmt->execute([$nombre]);
                 $user = $stmt->fetch();
+                
                 if ($user) {
                     if ((int)$user['id'] === 1) {
                         http_response_code(403);
@@ -94,6 +114,24 @@ switch ($accion) {
                         exit;
                     }
                     $pdo->prepare("UPDATE DSI_salon_usuarios SET uid = ?, email = ? WHERE id = ?")->execute([$uid, $email, $user['id']]);
+                    $user['uid'] = $uid;
+                    $user['email'] = $email;
+                } else {
+                    // 2. Intentar coincidencia flexible normalizando cadenas
+                    $stmtTodos = $pdo->prepare("SELECT * FROM DSI_salon_usuarios WHERE (uid IS NULL OR uid = '') AND id != 1");
+                    $stmtTodos->execute();
+                    $todos = $stmtTodos->fetchAll();
+                    
+                    $nombreGoogleNorm = normalizarNombre($nombre);
+                    foreach ($todos as $uManual) {
+                        if (normalizarNombre($uManual['nombre']) === $nombreGoogleNorm) {
+                            $user = $uManual;
+                            $pdo->prepare("UPDATE DSI_salon_usuarios SET uid = ?, email = ? WHERE id = ?")->execute([$uid, $email, $user['id']]);
+                            $user['uid'] = $uid;
+                            $user['email'] = $email;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -290,23 +328,97 @@ switch ($accion) {
         break;
 
     case 'registrarAlumnoOffline':
-        $nombre = $data['nombre'] ?? '';
+        $nombre = trim($data['nombre'] ?? '');
+        $email = trim($data['email'] ?? '');
+        $celular = trim($data['celular'] ?? '');
+        
         if (empty($nombre)) {
             http_response_code(400);
             echo json_encode(['ok' => false, 'msj' => 'El nombre del alumno es obligatorio.']);
             exit;
         }
         
+        // Si se provee email, validar que no esté ya registrado
+        if (!empty($email)) {
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM DSI_salon_usuarios WHERE email = ?");
+            $stmtCheck->execute([$email]);
+            if ((int)$stmtCheck->fetchColumn() > 0) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'msj' => 'El correo electrónico ya está registrado.']);
+                exit;
+            }
+        }
+        
         $rolAsignado = 'Alumno';
         $estado = 1; // activo
         
-        $stmt = $pdo->prepare("INSERT INTO DSI_salon_usuarios (nombre, rol, estado, fecha_registro) VALUES (?, ?, ?, NOW())");
-        if ($stmt->execute([$nombre, $rolAsignado, $estado])) {
+        $stmt = $pdo->prepare("INSERT INTO DSI_salon_usuarios (nombre, email, celular, rol, estado, fecha_registro) VALUES (?, ?, ?, ?, ?, NOW())");
+        if ($stmt->execute([
+            $nombre, 
+            empty($email) ? null : $email, 
+            empty($celular) ? null : $celular, 
+            $rolAsignado, 
+            $estado
+        ])) {
             $nuevoId = (int)$pdo->lastInsertId();
             echo json_encode(['ok' => true, 'id' => $nuevoId]);
         } else {
-            echo json_encode(['ok' => false, 'msj' => 'No se pudo registrar el alumno offline.']);
+            echo json_encode(['ok' => false, 'msj' => 'No se pudo registrar el alumno de forma manual.']);
         }
+        break;
+
+    case 'obtenerExoneracionesUsuario':
+        $usuarioId = (int)($data['usuarioId'] ?? 0);
+        if ($usuarioId === 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'msj' => 'ID de usuario no provisto.']);
+            exit;
+        }
+        
+        $stmt = $pdo->prepare("SELECT actividad_id FROM DSI_salon_exoneraciones WHERE usuario_id = ?");
+        $stmt->execute([$usuarioId]);
+        $actividades = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        echo json_encode(['ok' => true, 'actividades' => array_map('intval', $actividades)]);
+        break;
+
+    case 'guardarExoneracion':
+        // Seguridad: Solo Admins/SuperAdmins pueden exonerar
+        if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'msj' => 'Acción no autorizada.']);
+            exit;
+        }
+
+        $usuarioId = (int)($data['usuarioId'] ?? 0);
+        $actividadId = (int)($data['actividadId'] ?? 0);
+        $exonerado = (bool)($data['exonerado'] ?? false);
+
+        if ($usuarioId === 0 || $actividadId === 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'msj' => 'Datos insuficientes para exonerar.']);
+            exit;
+        }
+
+        if ($exonerado) {
+            // Insertar exoneración (IGNORE por si ya existe)
+            $stmt = $pdo->prepare("INSERT IGNORE INTO DSI_salon_exoneraciones (usuario_id, actividad_id) VALUES (?, ?)");
+            $stmt->execute([$usuarioId, $actividadId]);
+            
+            // Auditoría
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Exonerar Alumno', ?, '{$dispositivoGlobal}', NOW())");
+            $stmtAud->execute([$adminId, "Usuario ID {$usuarioId} exonerado de Actividad ID {$actividadId}"]);
+        } else {
+            // Eliminar exoneración
+            $stmt = $pdo->prepare("DELETE FROM DSI_salon_exoneraciones WHERE usuario_id = ? AND actividad_id = ?");
+            $stmt->execute([$usuarioId, $actividadId]);
+
+            // Auditoría
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Quitar Exoneracion', ?, '{$dispositivoGlobal}', NOW())");
+            $stmtAud->execute([$adminId, "Usuario ID {$usuarioId} participa nuevamente en Actividad ID {$actividadId}"]);
+        }
+
+        echo json_encode(['ok' => true]);
         break;
 
     default:

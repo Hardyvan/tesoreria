@@ -13,6 +13,7 @@ import '../myPages/g_portal_financiero.dart';
 import '../myPages/e_actividades.dart';
 import '../myPages/h_insoft_analytics.dart';
 import '../myPages/i_control_asistencia.dart';
+import '../myPages/j_terminos_condiciones.dart';
 import '../myPagesBack/modelo_actividad.dart';
 
 class RutasApp {
@@ -26,6 +27,7 @@ class RutasApp {
   static const String reportes = '/reportes';
   static const String auditoria = '/auditoria';
   static const String portalFinanciero = '/portal_financiero';
+  static const String terminosCondiciones = '/terminos_condiciones';
 
   // Mapa de Rutas
   static Map<String, WidgetBuilder> obtenerRutas() {
@@ -44,6 +46,7 @@ class RutasApp {
       portalFinanciero: (_) => const PortalFinanciero(),
       '/crear_actividad': (_) => const CrearActividad(),
       '/insoft_analytics': (_) => const InsoftAnalyticsDemo(),
+      terminosCondiciones: (_) => const PantallaTerminos(),
       '/control_asistencia': (context) {
         final arg = ModalRoute.of(context)!.settings.arguments;
         return PantallaAsistencia(actividad: arg as Actividad);

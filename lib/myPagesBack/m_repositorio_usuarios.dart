@@ -165,4 +165,38 @@ class RepositorioUsuarios {
       return null;
     }
   }
+
+  //-------------------------------------------------------------------------
+  // 5. EXONERACIONES DE ACTIVIDADES
+  //-------------------------------------------------------------------------
+  Future<List<int>> obtenerExoneracionesUsuario(int usuarioId) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('obtenerExoneracionesUsuario', {
+        'usuarioId': usuarioId,
+      });
+      if (res['ok'] == true && res['actividades'] != null) {
+        return List<int>.from(res['actividades']);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error obteniendo exoneraciones del repositorio: $e');
+      return [];
+    }
+  }
+
+  Future<bool> guardarExoneracion(int usuarioId, int actividadId, bool exonerado) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('guardarExoneracion', {
+        'usuarioId': usuarioId,
+        'actividadId': actividadId,
+        'exonerado': exonerado,
+      });
+      return res['ok'] == true;
+    } catch (e) {
+      debugPrint('Error guardando exoneración en el repositorio: $e');
+      return false;
+    }
+  }
 }

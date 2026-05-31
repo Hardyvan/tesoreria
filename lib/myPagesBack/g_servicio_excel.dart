@@ -204,7 +204,98 @@ class ServicioExcel {
       autoAjustarColumnas(sheetResumen);
 
       // -----------------------------------------------------
-      // 1. PESTAÑA: DEUDORES (ESTADO DE ALUMNOS)
+      // 1. PESTAÑA: CUADRO GENERAL DE PAGOS (MATRIZ PREMIUM AUTOMÁTICA)
+      // -----------------------------------------------------
+      Sheet sheetMatriz = excel['Cuadro General Pagos'];
+      
+      final actividadesLista = List<Map<String, dynamic>>.from(res['actividades'] ?? []);
+      
+      // Crear cabecera de columnas
+      List<CellValue> headersMatriz = [
+        TextCellValue('N°'),
+        TextCellValue('NOMBRES Y APELLIDOS'),
+      ];
+      for (var act in actividadesLista) {
+        headersMatriz.add(TextCellValue(act['titulo']?.toString() ?? ''));
+      }
+      headersMatriz.add(TextCellValue('Total General (S/)'));
+      sheetMatriz.appendRow(headersMatriz);
+
+      // Agrupar los pagos por alumno y actividad
+      Map<String, double> mapaPagos = {};
+      final todosLosPagos = List<Map<String, dynamic>>.from(res['pagos'] ?? []);
+      
+      for (var pago in todosLosPagos) {
+        String alumno = pago['alumno']?.toString() ?? '';
+        String actividad = pago['actividad']?.toString() ?? '';
+        double monto = double.tryParse(pago['monto']?.toString() ?? '0') ?? 0.0;
+        
+        String key = '${alumno}_$actividad';
+        mapaPagos[key] = (mapaPagos[key] ?? 0.0) + monto;
+      }
+
+      int correlativoMatriz = 1;
+      List<double> totalesColumnasActividades = List.filled(actividadesLista.length, 0.0);
+      double totalGeneralTodosAlumnos = 0.0;
+
+      for (var user in deudoresLista) {
+        String nombreAlumno = user['nombre']?.toString() ?? '';
+        
+        List<CellValue> rowCells = [
+          IntCellValue(correlativoMatriz++),
+          TextCellValue(nombreAlumno),
+        ];
+        
+        double totalPagadoPorAlumno = 0.0;
+        
+        for (int i = 0; i < actividadesLista.length; i++) {
+          var act = actividadesLista[i];
+          String tituloAct = act['titulo']?.toString() ?? '';
+          
+          String key = '${nombreAlumno}_$tituloAct';
+          double montoPagado = mapaPagos[key] ?? 0.0;
+          
+          totalPagadoPorAlumno += montoPagado;
+          totalesColumnasActividades[i] += montoPagado;
+          
+          if (montoPagado > 0) {
+            rowCells.add(DoubleCellValue(montoPagado));
+          } else {
+            rowCells.add(TextCellValue('')); // Celda vacía como en su Excel
+          }
+        }
+        
+        totalGeneralTodosAlumnos += totalPagadoPorAlumno;
+        rowCells.add(DoubleCellValue(totalPagadoPorAlumno));
+        sheetMatriz.appendRow(rowCells);
+      }
+
+      // Fila de Totales de Columnas al final
+      List<CellValue> footerRow = [
+        TextCellValue(''),
+        TextCellValue('Total'),
+      ];
+      for (double totAct in totalesColumnasActividades) {
+        footerRow.add(DoubleCellValue(totAct));
+      }
+      footerRow.add(DoubleCellValue(totalGeneralTodosAlumnos));
+      sheetMatriz.appendRow(footerRow);
+
+      // Estilizar la Matriz de Pagos
+      List<HorizontalAlign> alignmentsMatriz = [
+        HorizontalAlign.Center, // N°
+        HorizontalAlign.Left,   // Nombres y Apellidos
+      ];
+      for (int i = 0; i < actividadesLista.length; i++) {
+        alignmentsMatriz.add(HorizontalAlign.Right);
+      }
+      alignmentsMatriz.add(HorizontalAlign.Right); // Total General
+      
+      estilizarTabular(sheetMatriz, alignmentsMatriz);
+      autoAjustarColumnas(sheetMatriz);
+
+      // -----------------------------------------------------
+      // 2. PESTAÑA: DEUDORES (ESTADO DE ALUMNOS)
       // -----------------------------------------------------
       Sheet sheetAlumnos = excel['Estado Alumnos'];
       sheetAlumnos.appendRow([

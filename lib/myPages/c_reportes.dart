@@ -73,13 +73,22 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
     final dateFormat = DateFormat('dd/MM HH:mm');
     final esAdmin = context.read<ControladorAuth>().esAdmin;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Reporte Financiero'),
+        title: const Text(
+          'Kardex de Movimientos',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           if (esAdmin)
             IconButton(
-              icon: const Icon(Icons.download_for_offline_outlined),
+              icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
               tooltip: 'Centro de Descargas Premium (Excel/PDF)',
               onPressed: () {
                 ServicioDescargas.mostrarMenuDescargas(context);
@@ -148,7 +157,10 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                     padding: const EdgeInsets.only(top: 24, bottom: 12),
                     child: Text(
                       'Movimientos Recientes', 
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                      )
                     ),
                   );
                 }
@@ -191,33 +203,40 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
   // --- WIDGETS DE APOYO ---
 
   Widget _buildWalletCard(ControladorFinanzas finanzas) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withAlpha(200),
-            const Color(0xFF1E3C72),
+    return RepaintBoundary(
+      child: Transform(
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.001)
+          ..rotateY(-0.04)
+          ..rotateX(0.02),
+        alignment: FractionalOffset.center,
+        child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).primaryColor,
+              Theme.of(context).primaryColor.withAlpha(200),
+              const Color(0xFF1E3C72),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 20,
+              offset: const Offset(5, 10),
+            )
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          // EFECTO PREMIUM: Borde interno sutil para simular volumen (Glassmorphism sutil)
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.5),
         ),
-        borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          )
-        ],
-        // EFECTO PREMIUM: Borde interno sutil para simular volumen (Glassmorphism sutil)
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -280,7 +299,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
-                          child: const Icon(Icons.arrow_downward, color: Colors.greenAccent, size: 14),
+                          child: const Icon(Icons.arrow_upward, color: Colors.greenAccent, size: 14),
                         ),
                         const SizedBox(width: 8),
                         Text('Pagos Alumnos', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
@@ -331,7 +350,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
-                            child: const Icon(Icons.arrow_upward, color: Colors.redAccent, size: 14),
+                            child: const Icon(Icons.arrow_downward, color: Colors.redAccent, size: 14),
                           ),
                           const SizedBox(width: 8),
                           Text('Gastos', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
@@ -350,8 +369,10 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
           )
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   // --- DIÁLOGO DE APERTURA DE CAJA (SOLO SUPERADMIN) ---
   void _mostrarDialogoFondoBase(BuildContext context, ControladorFinanzas finanzas) {
@@ -448,23 +469,30 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
       return const SizedBox.shrink();
     }
     
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return RepaintBoundary(
+      child: Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4)
-          )
-        ]
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05), 
+          width: 1,
+        ),
+        boxShadow: isDark ? [] : AppTokens.sombraSuave,
       ),
       child: Column(
         children: [
-          Text('Resumen de Gestión', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Resumen de Gestión',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Theme.of(context).primaryColor,
+            ),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 200,
@@ -507,9 +535,10 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
             ),
           ),
         ],
-      )
-    );
-  }
+      ),
+    ),
+  );
+}
 
   Widget _buildEmptyState() {
     return Center(
@@ -553,20 +582,19 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
             ? Colors.teal
             : ColoresApp.error;
     final colorFondoIcono = colorIcono.withValues(alpha: 0.1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4)
-          )
-        ]
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05), 
+          width: 1,
+        ),
+        boxShadow: isDark ? [] : AppTokens.sombraSuave,
       ),
       child: Material(
         color: Colors.transparent, // Asegura que el InkWell muestre el efecto Ripple
@@ -593,7 +621,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    esPositivo ? Icons.arrow_downward : Icons.arrow_upward, 
+                    esPositivo ? Icons.arrow_upward : Icons.arrow_downward, 
                     color: colorIcono,
                     size: 20
                   ),
@@ -605,12 +633,19 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                     children: [
                       Text(
                         mov['descripcion'].toString().toCapitalized(), 
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: isDark ? Colors.white : Colors.black87,
+                        )
                       ),
                       const SizedBox(height: 4),
                       Text(
                         dateFormat.format(mov['fecha']),
-                        style: GoogleFonts.inter(color: Colors.grey, fontSize: 12)
+                        style: GoogleFonts.inter(
+                          color: isDark ? Colors.white70 : Colors.black54, 
+                          fontSize: 12,
+                        )
                       ),
                     ],
                   ),
@@ -637,8 +672,9 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ContadorAnimado extends StatelessWidget {

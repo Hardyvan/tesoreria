@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_client.dart' as api_ext;
 import 'modelo_usuario.dart';
+import 'm_repositorio_usuarios.dart';
 
 import 'dart:async';
 
@@ -162,6 +163,32 @@ class ControladorUsuarios extends ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint('Error eliminando usuario: $e');
+      return false;
+    }
+  }
+
+  // Obtener exoneraciones de un usuario
+  Future<List<int>> obtenerExoneraciones(int usuarioId) async {
+    try {
+      final repo = RepositorioUsuarios();
+      return await repo.obtenerExoneracionesUsuario(usuarioId);
+    } catch (e) {
+      debugPrint('Error en obtenerExoneraciones: $e');
+      return [];
+    }
+  }
+
+  // Guardar exoneración
+  Future<bool> guardarExoneracion(int usuarioId, int actividadId, bool exonerado) async {
+    try {
+      final repo = RepositorioUsuarios();
+      final exito = await repo.guardarExoneracion(usuarioId, actividadId, exonerado);
+      if (exito) {
+        notifyListeners();
+      }
+      return exito;
+    } catch (e) {
+      debugPrint('Error en guardarExoneracion: $e');
       return false;
     }
   }
