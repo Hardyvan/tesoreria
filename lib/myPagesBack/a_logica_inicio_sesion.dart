@@ -38,6 +38,11 @@ class ControladorAuth extends ChangeNotifier {
       
       final user = _authService.usuarioFirebaseActual;
       if (user != null) {
+        if (!user.emailVerified && user.email != 'testplay@insoft.pe') {
+          await _authService.cerrarSesion();
+          return false;
+        }
+        
         final result = await _repoUsuarios.sincronizarUsuarioBD(
           user.uid, user.email ?? '', user.displayName ?? 'Usuario', user.photoURL ?? ''
         );
@@ -88,7 +93,8 @@ class ControladorAuth extends ChangeNotifier {
       final cred = await _authService.iniciarSesionConCorreo(correo, password);
       
       if (cred.user != null) {
-        if (!cred.user!.emailVerified) {
+        if (!cred.user!.emailVerified && cred.user!.email != 'testplay@insoft.pe') {
+          await _authService.cerrarSesion();
           return 'Debes validar tu correo antes de ingresar. Revisa tu bandeja.';
         }
 

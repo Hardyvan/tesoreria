@@ -18,14 +18,14 @@ class Usuario {
     required this.nombre,
     required this.celular,
     required this.email,
-    required this.fotoUrl,
+    required String fotoUrl,
     required this.rol,
     this.direccion = '',
     this.edad = 0,
     this.sexo = '',
     this.estado = 'activo', // Por defecto
     this.updatedAt,
-  });
+  }) : fotoUrl = (fotoUrl == 'null' || fotoUrl.trim().isEmpty) ? '' : fotoUrl;
   
   Usuario copyWith({
     int? id, String? uid, String? nombre, String? celular, String? email, 

@@ -216,12 +216,18 @@ class _PantallaTerminosState extends State<PantallaTerminos> {
         '3. REGISTRO Y SEGURIDAD DE LA CUENTA\n'
         'a) Para acceder a la plataforma, cada alumno debe verificar su correo institucional o personal y completar su perfil con datos verídicos (nombre completo, número de celular e inasistencias).\n'
         'b) El acceso es personal e intransferible. Cada usuario es responsable de mantener la seguridad de sus credenciales y de notificar inmediatamente cualquier uso no autorizado.\n\n'
-        '4. SANCIONES, MULTAS Y EXONERACIONES\n'
+        '4. PRIVACIDAD Y SEGURIDAD DE DATOS (DATA SAFETY)\n'
+        'De acuerdo con las normativas de protección de datos y las directrices de Google Play:\n'
+        'a) Recopilación Exclusiva: La información de carácter personal (nombre completo, correo electrónico, número de celular, dirección, edad y sexo) e información financiera (historial de aportaciones y pagos) recopilada por la aplicación se utiliza única y exclusivamente para el funcionamiento operativo, administración interna, envío de notificaciones y transparencia de cuentas del salón.\n'
+        'b) Cifrado y Seguridad: Toda la información de usuario se transmite de forma cifrada bajo protocolos seguros HTTPS en tránsito y se almacena de forma privada.\n'
+        'c) No compartición: Bajo ninguna circunstancia sus datos personales serán vendidos, compartidos o transferidos a terceras empresas o anunciantes comerciales.\n'
+        'd) Eliminación de Datos: El usuario conserva el derecho de solicitar la eliminación definitiva de su cuenta y sus datos personales enviando una solicitud a la administración.\n\n'
+        '5. SANCIONES, MULTAS Y EXONERACIONES\n'
         'a) De acuerdo a las políticas internas establecidas democráticamente por el salón de clases, se registrarán inasistencias y se computarán multas o cargos correspondientes a aquellos alumnos que no asistan o no colaboren con las actividades programadas.\n'
         'b) Cualquier solicitud de exoneración de pagos deberá ser presentada formalmente ante el Administrador de Tesorería, quien evaluará e ingresará la exoneración en el sistema de acuerdo a las directrices de la sección.\n\n'
-        '5. RESPONSABILIDAD DE LOS ADMINISTRADORES\n'
+        '6. RESPONSABILIDAD DE LOS ADMINISTRADORES\n'
         'Los administradores asignados al salón de clases son responsables del registro fiel, oportuno y documentado de cada ingreso de dinero, gasto y corte de caja. Todo movimiento sospechoso o erróneo será registrado en el sistema de auditoría integral y podrá ser objeto de revisión inmediata.\n\n'
-        '6. ACEPTACIÓN GENERAL\n'
+        '7. ACEPTACIÓN GENERAL\n'
         'Al marcar la casilla de aceptación y presionar el botón "Aceptar y Entrar", confirmas que has leído, entendido y aceptado todos los puntos descritos en este acuerdo. Si no estás de acuerdo con estos términos, deberás presionar "Rechazar", lo cual impedirá tu acceso al sistema.';
   }
 }

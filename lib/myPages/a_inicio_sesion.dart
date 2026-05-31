@@ -175,11 +175,7 @@ class _InicioSesionState extends State<InicioSesion> {
             );
           }
       ),
-    ).then((_) {
-      // Nos aseguramos de destruir los controladores al cerrar el diálogo
-      usuarioCtrl.dispose();
-      passCtrl.dispose();
-    });
+    );
   }
 
   void _mostrarRecuperarPassword(String correoRecomendado) {
@@ -245,7 +241,7 @@ class _InicioSesionState extends State<InicioSesion> {
           ],
         );
       },
-    ).then((_) => correoCtrl.dispose());
+    );
   }
 
   @override
