@@ -155,7 +155,8 @@ class ControladorFinanzas extends ChangeNotifier {
               'costo': (row['costo'] as num? ?? 0.0).toDouble(),
               'pagos': <Map<String, dynamic>>[],
               'total_pagado': 0.0,
-              'estado': 'Pendiente'
+              'estado': 'Pendiente',
+              'exonerado': (row['exonerado'] as num? ?? 0) == 1,
             };
           }
 
@@ -174,14 +175,19 @@ class ControladorFinanzas extends ChangeNotifier {
         }
 
         agrupado.forEach((key, value) {
-          double costo = value['costo'];
-          double pagado = value['total_pagado'];
-          if (pagado >= costo) {
-            value['estado'] = 'Completo';
-          } else if (pagado > 0) {
-            value['estado'] = 'Parcial';
+          bool exonerado = value['exonerado'] ?? false;
+          if (exonerado) {
+            value['estado'] = 'Exonerado';
           } else {
-            value['estado'] = 'Pendiente';
+            double costo = value['costo'];
+            double pagado = value['total_pagado'];
+            if (pagado >= costo) {
+              value['estado'] = 'Completo';
+            } else if (pagado > 0) {
+              value['estado'] = 'Parcial';
+            } else {
+              value['estado'] = 'Pendiente';
+            }
           }
         });
 
@@ -333,7 +339,14 @@ class ControladorFinanzas extends ChangeNotifier {
   // EDICIÓN / ELIMINACIÓN UNIVERSAL (KARDEX)
   // ---------------------------------------------------------------------------
 
-  Future<bool> editarMovimiento(String tipo, int movId, double nuevoMonto, Usuario adminEjecutor) async {
+  Future<bool> editarMovimiento(
+    String tipo, 
+    int movId, 
+    double nuevoMonto, 
+    Usuario adminEjecutor, {
+    String? nuevaDescripcion,
+    int? nuevaActividadId,
+  }) async {
     if (tipo == 'I') {
       return editarPago(movId, nuevoMonto, adminEjecutor);
     }
@@ -346,13 +359,24 @@ class ControladorFinanzas extends ChangeNotifier {
       final endpoint = tipo == 'E' ? 'editarGasto' : 'editarIngresoExtra';
       final paramId = tipo == 'E' ? 'gastoId' : 'ingresoId';
 
-      final res = await api.post(endpoint, {
+      final Map<String, dynamic> body = {
         paramId: movId,
         'nuevoMonto': nuevoMonto,
         'adminRol': adminEjecutor.rol,
         'adminId': adminEjecutor.id,
         'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
-      });
+      };
+
+      if (nuevaDescripcion != null) {
+        body['nuevaDescripcion'] = nuevaDescripcion;
+      }
+      if (nuevaActividadId != null) {
+        body['nuevaActividadId'] = nuevaActividadId;
+      } else if (tipo == 'E') {
+        body['nuevaActividadId'] = 0; // para marcarlo como general
+      }
+
+      final res = await api.post(endpoint, body);
 
       if (res['ok'] == true) {
         invalidarCache();
@@ -639,6 +663,7 @@ class ControladorFinanzas extends ChangeNotifier {
           'descripcion': fila['descripcion'],
           'monto': (fila['monto'] as num).toDouble(),
           'fecha': DateTime.tryParse(fila['fecha']) ?? DateTime.now(),
+          'actividad_id': fila['actividad_id'],
         }).toList();
 
         if (nuevos.isEmpty || nuevos.length < _kardexItemsPerPage) {
@@ -657,15 +682,18 @@ class ControladorFinanzas extends ChangeNotifier {
   }
 
   // 4. Reporte de Deudores
-  Future<void> obtenerReporteDeudores() async {
-    if (_listaDeudores.isEmpty) {
-      _cargando = true;
-      notifyListeners();
-    }
+  Future<void> obtenerReporteDeudores({int? actividadId}) async {
+    // Siempre mostramos el cargando cuando se cambia de actividad o se refresca
+    _cargando = true;
+    notifyListeners();
     
     try {
       final api = api_ext.ApiClient();
-      final res = await api.post('obtenerReporteDeudores', {});
+      final Map<String, dynamic> body = {};
+      if (actividadId != null) {
+        body['actividad_id'] = actividadId;
+      }
+      final res = await api.post('obtenerReporteDeudores', body);
       
       if (res['ok'] == true) {
         final results = res['datos'] as List<dynamic>;
@@ -736,6 +764,7 @@ class ControladorFinanzas extends ChangeNotifier {
         _metasActividades = results.map((fila) => {
           'id': fila['id'],
           'titulo': fila['titulo'].toString(),
+          'costo': (fila['costo'] as num? ?? 0.0).toDouble(),
           'meta_total': (fila['meta_total'] as num).toDouble(),
           'recaudado': (fila['recaudado'] as num).toDouble(),
           'gastado': (fila['gastado'] as num).toDouble(),

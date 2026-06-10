@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
+import 'package:intl/intl.dart';
 import '../myPagesBack/g_servicio_excel.dart';
 import '../myPagesBack/h_servicio_pdf.dart';
 import 'b_ui_kit.dart';
@@ -82,7 +84,7 @@ class _MenuDescargasBottomSheetState extends State<_MenuDescargasBottomSheet> wi
     });
     await HapticFeedback.lightImpact();
 
-    final exito = await ServicioPdf.exportarYCompartir(opcion);
+    final bytes = await ServicioPdf.generarPdfBytes(opcion);
 
     if (mounted) {
       setState(() {
@@ -92,8 +94,24 @@ class _MenuDescargasBottomSheetState extends State<_MenuDescargasBottomSheet> wi
           _indicePdfGenerando = null;
         }
       });
-      if (exito) {
-        ManejadorErrores.mostrarMensajeExito(context, '¡Reporte PDF "$titulo" generado!');
+      if (bytes != null) {
+        // Cerrar el Bottom Sheet primero
+        Navigator.pop(context);
+        
+        String timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+        String nomArchivo = 'Reporte_${titulo.replaceAll(' ', '_')}_$timestamp.pdf';
+        
+        // Navegar a la pantalla de vista previa del PDF
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VistaPreviaPdfPage(
+              pdfBytes: bytes,
+              titulo: titulo,
+              nombreArchivo: nomArchivo,
+            ),
+          ),
+        );
       } else {
         ManejadorErrores.mostrarErrorMensaje(context, 'Error al generar el PDF de "$titulo"');
       }
@@ -430,6 +448,44 @@ class _MenuDescargasBottomSheetState extends State<_MenuDescargasBottomSheet> wi
                   ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class VistaPreviaPdfPage extends StatelessWidget {
+  final Uint8List pdfBytes;
+  final String titulo;
+  final String nombreArchivo;
+
+  const VistaPreviaPdfPage({
+    super.key,
+    required this.pdfBytes,
+    required this.titulo,
+    required this.nombreArchivo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Vista Previa: $titulo',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: PdfPreview(
+        build: (format) => pdfBytes,
+        pdfFileName: nombreArchivo,
+        allowPrinting: true,
+        allowSharing: true,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        canDebug: false,
       ),
     );
   }

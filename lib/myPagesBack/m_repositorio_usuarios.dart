@@ -56,6 +56,7 @@ class RepositorioUsuarios {
           edad: uMap['edad'] is int ? uMap['edad'] : int.tryParse(uMap['edad']?.toString() ?? '0') ?? 0,
           sexo: uMap['sexo']?.toString() ?? '',
           estado: uMap['estado']?.toString() ?? 'activo',
+          terminosAceptados: uMap['terminos_aceptados'] == 1 || uMap['terminos_aceptados'] == true,
         );
 
         if (res['status'] == 'UsuarioNuevo' || usuarioLocal.celular.isEmpty) {
@@ -196,6 +197,22 @@ class RepositorioUsuarios {
       return res['ok'] == true;
     } catch (e) {
       debugPrint('Error guardando exoneración en el repositorio: $e');
+      return false;
+    }
+  }
+
+  //-------------------------------------------------------------------------
+  // 6. ACEPTAR TÉRMINOS Y CONDICIONES (PERSISTENCIA REMOTA)
+  //-------------------------------------------------------------------------
+  Future<bool> aceptarTerminos(int usuarioId) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('aceptarTerminos', {
+        'usuarioId': usuarioId,
+      });
+      return res['ok'] == true;
+    } catch (e) {
+      debugPrint('Error aceptando términos en el repositorio: $e');
       return false;
     }
   }

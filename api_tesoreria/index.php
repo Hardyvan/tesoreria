@@ -247,6 +247,10 @@ try {
         case 'sincronizarLoteOffline':
         case 'registrarAlumnoOffline':
         case 'verificarCelularEnUso':
+        case 'aceptarTerminos':
+        case 'fusionarUsuarios':
+        case 'obtenerExoneracionesUsuario':
+        case 'guardarExoneracion':
             require_once __DIR__ . '/routes/usuarios.php';
             break;
 
@@ -258,6 +262,8 @@ try {
         case 'vaciarAuditoria':
         case 'obtenerResumenCaja':
         case 'obtenerIdAdminActual':
+        case 'verificar_estado_usuarios':
+        case 'obtenerControlVersion':
             require_once __DIR__ . '/routes/mantenimiento.php';
             break;
 

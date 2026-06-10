@@ -1,4 +1,3 @@
-import 'package:dsi/myPagesTema/a_tema.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -15,15 +14,7 @@ class HistorialPagos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<ControladorAuth>();
-    final esAdmin = auth.usuarioActual?.rol == 'Admin' || auth.usuarioActual?.rol == 'SuperAdmin';
-
-    if (esAdmin) {
-      return const _VistaListadoUsuarios();
-    } else {
-      final id = auth.usuarioActual?.id ?? 0;
-      return _VistaDetalleHistorialUsuario(usuarioId: id, esVistaPersonal: true);
-    }
+    return const _VistaListadoUsuarios();
   }
 }
 
@@ -61,8 +52,35 @@ class _VistaListadoUsuariosState extends State<_VistaListadoUsuarios> {
             return palabrasBusqueda.every((palabra) => nombreCompleto.contains(palabra));
           }).toList();
 
+    final auth = context.watch<ControladorAuth>();
+    final esAdmin = auth.usuarioActual?.rol == 'Admin' || auth.usuarioActual?.rol == 'SuperAdmin';
+
     return Column(
       children: [
+        if (!esAdmin && auth.usuarioActual != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12).copyWith(bottom: 0),
+            child: BotonGradiente(
+              text: 'VER MIS PAGOS 💳',
+              icon: Icons.person,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Scaffold(
+                      appBar: AppBar(
+                        title: const Text('Mis Pagos', style: TextStyle(fontSize: 16)),
+                      ),
+                      body: VistaDetalleHistorialUsuario(
+                        usuarioId: auth.usuarioActual!.id,
+                        esVistaPersonal: true,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: TextField(
@@ -101,15 +119,19 @@ class _VistaListadoUsuariosState extends State<_VistaListadoUsuarios> {
                   final alumno = deudoresFiltrados[index];
                   final double deuda = double.tryParse(alumno['deuda'].toString()) ?? 0.0;
                   final esDeudor = deuda > 0;
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
 
-                  return InkWell(
+                  return TarjetaPremium(
+                    usaGradientePrimario: false,
+                    leftAccentColor: esDeudor ? Colors.red : Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => Scaffold(
                             appBar: AppBar(title: Text('Pagos: ${alumno['nombre'].toString().toCapitalized()}', style: const TextStyle(fontSize: 16))),
-                            body: _VistaDetalleHistorialUsuario(
+                            body: VistaDetalleHistorialUsuario(
                               usuarioId: alumno['id'],
                               esVistaPersonal: false,
                             ),
@@ -117,57 +139,75 @@ class _VistaListadoUsuariosState extends State<_VistaListadoUsuarios> {
                         )
                       );
                     },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-                        boxShadow: ColoresApp.sombraSuave,
-                      ),
-                      child: Row(
-                        children: [
-                          AvatarUsuario(
-                            nombre: alumno['nombre'],
-                            fotoUrl: alumno['foto_url'],
-                            radius: 24,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  alumno['nombre'].toString().toCapitalized(),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    child: Row(
+                      children: [
+                        AvatarUsuario(
+                          nombre: alumno['nombre'],
+                          fotoUrl: alumno['foto_url'],
+                          radius: 24,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                alumno['nombre'].toString().toCapitalized(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isDark ? Colors.white : Colors.black87,
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: (esDeudor ? Colors.red : Colors.green).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        esDeudor ? 'Deuda: ${deuda.toSoles()}' : 'Al día',
-                                        style: TextStyle(
-                                          color: esDeudor ? Colors.red : Colors.green,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.phone_android,
+                                    size: 11,
+                                    color: (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                        ? (isDark ? Colors.white54 : Colors.black45)
+                                        : Colors.orange.withValues(alpha: 0.8),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                        ? alumno['celular'].toString()
+                                        : 'Sin celular',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                          ? (isDark ? Colors.white54 : Colors.black54)
+                                          : Colors.orange.withValues(alpha: 0.8),
+                                      fontFamily: 'Inter',
+                                      fontStyle: (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                          ? FontStyle.normal
+                                          : FontStyle.italic,
                                     ),
-                                  ],
-                                )
-                              ],
-                            ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              BadgeEstado(
+                                texto: esDeudor ? 'Debe ${deuda.toSoles()}' : 'Al día',
+                                colorBase: esDeudor ? Colors.red : Colors.green,
+                              ),
+                            ],
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                        ],
-                      ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
+                            color: isDark ? Colors.white54 : Colors.black38,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -179,20 +219,21 @@ class _VistaListadoUsuariosState extends State<_VistaListadoUsuarios> {
 }
 
 
-class _VistaDetalleHistorialUsuario extends StatefulWidget {
+class VistaDetalleHistorialUsuario extends StatefulWidget {
   final int usuarioId;
   final bool esVistaPersonal;
 
-  const _VistaDetalleHistorialUsuario({
+  const VistaDetalleHistorialUsuario({
+    super.key,
     required this.usuarioId,
     required this.esVistaPersonal,
   });
 
   @override
-  State<_VistaDetalleHistorialUsuario> createState() => _VistaDetalleHistorialUsuarioState();
+  State<VistaDetalleHistorialUsuario> createState() => VistaDetalleHistorialUsuarioState();
 }
 
-class _VistaDetalleHistorialUsuarioState extends State<_VistaDetalleHistorialUsuario> {
+class VistaDetalleHistorialUsuarioState extends State<VistaDetalleHistorialUsuario> {
   late Future<List<Map<String, dynamic>>> _futureHistorial;
 
   @override
@@ -247,7 +288,7 @@ class _VistaDetalleHistorialUsuarioState extends State<_VistaDetalleHistorialUsu
                 final estado = item['estado'];
                 final costo = item['costo'];
                 final pagado = item['total_pagado'];
-                final saldo = costo - pagado;
+                final saldo = estado == 'Exonerado' ? 0.0 : costo - pagado;
 
                 Color colorEstado;
                 switch (estado) {
@@ -256,6 +297,9 @@ class _VistaDetalleHistorialUsuarioState extends State<_VistaDetalleHistorialUsu
                     break;
                   case 'Parcial':
                     colorEstado = Colors.orange;
+                    break;
+                  case 'Exonerado':
+                    colorEstado = Colors.blue;
                     break;
                   default:
                     colorEstado = Colors.red;
@@ -267,13 +311,15 @@ class _VistaDetalleHistorialUsuarioState extends State<_VistaDetalleHistorialUsu
                       leading: CircleAvatar(
                         backgroundColor: colorEstado.withValues(alpha: 0.1),
                         child: Icon(
-                          estado == 'Completo' ? Icons.check : Icons.access_time,
+                          estado == 'Completo' ? Icons.check : (estado == 'Exonerado' ? Icons.info_outline : Icons.access_time),
                           color: colorEstado,
                         ),
                       ),
                       title: Text(item['titulo'], style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text(
-                        'Pagado: ${currencyFormat.format(pagado)} / ${currencyFormat.format(costo)}',
+                        estado == 'Exonerado'
+                            ? 'Exonerado (Sin Deuda)'
+                            : 'Pagado: ${currencyFormat.format(pagado)} / ${currencyFormat.format(costo)}',
                         style: TextStyle(color: colorEstado),
                       ),
                       childrenPadding: const EdgeInsets.all(16),

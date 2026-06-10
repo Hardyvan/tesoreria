@@ -11,6 +11,7 @@ class Usuario {
   final String sexo;      // Nuevo: Registro Híbrido
   final String estado;    // Nuevo: Bloqueo de usuarios
   final DateTime? updatedAt; // Nuevo: Control de sincronización offline
+  final bool terminosAceptados; // Nuevo: Control de términos y condiciones en la nube
 
   Usuario({
     required this.id,
@@ -25,12 +26,13 @@ class Usuario {
     this.sexo = '',
     this.estado = 'activo', // Por defecto
     this.updatedAt,
+    this.terminosAceptados = false,
   }) : fotoUrl = (fotoUrl == 'null' || fotoUrl.trim().isEmpty) ? '' : fotoUrl;
   
   Usuario copyWith({
     int? id, String? uid, String? nombre, String? celular, String? email, 
     String? fotoUrl, String? rol, String? direccion, int? edad, String? sexo,
-    String? estado, DateTime? updatedAt
+    String? estado, DateTime? updatedAt, bool? terminosAceptados
   }) {
     return Usuario(
       id: id ?? this.id,
@@ -45,6 +47,7 @@ class Usuario {
       sexo: sexo ?? this.sexo,
       estado: estado ?? this.estado,
       updatedAt: updatedAt ?? this.updatedAt,
+      terminosAceptados: terminosAceptados ?? this.terminosAceptados,
     );
   }
 
@@ -62,6 +65,7 @@ class Usuario {
       edad: mapa['edad'] ?? 0,
       sexo: mapa['sexo'] ?? '',
       estado: mapa['estado'] ?? 'activo',
+      terminosAceptados: mapa['terminos_aceptados'] == 1 || mapa['terminos_aceptados'] == true,
     );
   }
 
@@ -79,6 +83,7 @@ class Usuario {
       'edad': edad,
       'sexo': sexo,
       'estado': estado,
+      'terminos_aceptados': terminosAceptados ? 1 : 0,
     };
   }
 }

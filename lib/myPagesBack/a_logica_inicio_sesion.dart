@@ -273,6 +273,17 @@ class ControladorAuth extends ChangeNotifier {
     return false;
   }
 
+  Future<String?> aceptarTerminos() async {
+    if (_usuarioActual == null) return 'Usuario no logueado.';
+    final exito = await _repoUsuarios.aceptarTerminos(_usuarioActual!.id);
+    if (exito) {
+      _usuarioActual = _usuarioActual!.copyWith(terminosAceptados: true);
+      notifyListeners();
+      return null;
+    }
+    return 'Error al registrar la aceptación en el servidor.';
+  }
+
   Future<String?> subirImagenStorage(File imagen) async {
     _cargando = true;
     notifyListeners();

@@ -634,9 +634,21 @@ class _TarjetaUsuario extends StatelessWidget {
     final esAdmin = usuario.rol == 'Admin';
     final esActivo = usuario.estado == 'activo';
 
+    Color? leftAccent;
+    if (!esActivo) {
+      leftAccent = Colors.grey;
+    } else if (usuario.rol == 'SuperAdmin') {
+      leftAccent = Colors.purple;
+    } else if (esAdmin) {
+      leftAccent = theme.primaryColor;
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TarjetaPremium(
+        usaGradientePrimario: false,
+        leftAccentColor: leftAccent,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
         child: Row(
           children: [
             // AVATAR CON INDICADOR DE ESTADO INTEGRADO
@@ -645,10 +657,10 @@ class _TarjetaUsuario extends StatelessWidget {
               fotoUrl: usuario.fotoUrl,
               radius: 24,
               backgroundColor: esAdmin
-                  ? Theme.of(context).primaryColor
-                  : Theme.of(context).colorScheme.surface,
+                  ? theme.primaryColor.withValues(alpha: 0.12)
+                  : theme.colorScheme.surface,
               textColor: esAdmin
-                  ? Colors.white
+                  ? theme.primaryColor
                   : ColoresApp.textoSecundarioClaro,
               activo: esActivo, // NUEVO: El widget maneja el puntito verde/rojo
             ),
@@ -669,55 +681,63 @@ class _TarjetaUsuario extends StatelessWidget {
                       color: !esActivo ? Colors.grey : null,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     usuario.email.isNotEmpty ? usuario.email : 'Sin correo',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.hintColor,
                     ),
                   ),
-                  if (usuario.celular.isNotEmpty)
-                    Text(
-                      'Cel: ${usuario.celular}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.primaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  if (usuario.celular.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.phone_android, size: 11, color: theme.primaryColor.withValues(alpha: 0.8)),
+                        const SizedBox(width: 4),
+                        Text(
+                          usuario.celular,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 4),
+                  ],
+                  const SizedBox(height: 6),
                   // CHIP DE ROL
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ), // MÁS AIRE
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: usuario.rol == 'SuperAdmin'
-                          ? Colors.purple.withValues(alpha: 0.1)
+                          ? Colors.purple.withValues(alpha: 0.12)
                           : (esAdmin
-                                ? Theme.of(
-                                    context,
-                                  ).primaryColor.withValues(alpha: 0.1)
-                                : Colors.grey.shade100),
-                      borderRadius: BorderRadius.circular(4),
+                                ? theme.primaryColor.withValues(alpha: 0.12)
+                                : Colors.blueGrey.withValues(alpha: 0.1)),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: esAdmin
-                            ? Theme.of(
-                                context,
-                              ).primaryColor.withValues(alpha: 0.3)
-                            : Colors.grey.shade300,
-                        width: 0.5,
+                        color: usuario.rol == 'SuperAdmin'
+                            ? Colors.purple.withValues(alpha: 0.4)
+                            : (esAdmin
+                                  ? theme.primaryColor.withValues(alpha: 0.4)
+                                  : Colors.blueGrey.withValues(alpha: 0.3)),
+                        width: 0.8,
                       ),
                     ),
                     child: Text(
                       usuario.rol.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                         color: usuario.rol == 'SuperAdmin'
                             ? Colors.purple
                             : (esAdmin
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey.shade600),
+                                  ? theme.primaryColor
+                                  : Colors.blueGrey),
                       ),
                     ),
                   ),
@@ -773,6 +793,13 @@ class _TarjetaUsuario extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(Icons.lock_reset),
                     title: Text('Restablecer Pass'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'fusionar',
+                  child: ListTile(
+                    leading: Icon(Icons.merge_type),
+                    title: Text('Fusionar Cuenta'),
                   ),
                 ),
                 const PopupMenuItem(
@@ -832,6 +859,9 @@ class _TarjetaUsuario extends StatelessWidget {
             );
           }
         });
+        break;
+      case 'fusionar':
+        _mostrarDialogoFusion(context, usuario);
         break;
       case 'delete':
         _confirmarEliminacion(context, usuario);
@@ -1128,10 +1158,11 @@ class _TarjetaUsuario extends StatelessWidget {
                               final actId = act['id'] is int ? act['id'] : int.tryParse(act['id'].toString()) ?? 0;
                               final titulo = act['titulo']?.toString() ?? '';
                               final participa = !exoneradas.contains(actId);
+                              final costoVal = act['costo'] is num ? (act['costo'] as num).toDouble() : (double.tryParse(act['costo']?.toString() ?? '') ?? 0.0);
 
                               return CheckboxListTile(
                                 title: Text(titulo),
-                                subtitle: Text('Costo: S/ ${act['costo'] ?? act['costo_usuario'] ?? '0.00'}'),
+                                subtitle: Text('Costo: S/ ${costoVal.toStringAsFixed(2)}'),
                                 value: participa,
                                 activeColor: Colors.green,
                                 onChanged: (value) async {
@@ -1172,6 +1203,201 @@ class _TarjetaUsuario extends StatelessWidget {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _mostrarDialogoFusion(BuildContext context, Usuario usuarioOrigen) {
+    final ctrlUsuarios = Provider.of<ControladorUsuarios>(context, listen: false);
+    final finanzas = Provider.of<ControladorFinanzas>(context, listen: false);
+
+    // Listar todos los otros usuarios
+    final otrosUsuarios = ctrlUsuarios.usuarios.where((u) => u.id != usuarioOrigen.id).toList();
+
+    if (otrosUsuarios.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Fusión de Cuentas'),
+          content: const Text('No hay otros usuarios registrados en el salón para realizar la fusión.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    Usuario? usuarioDestino;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+          title: const Row(
+            children: [
+              Icon(Icons.merge_type, color: Colors.blueAccent),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Fusionar Cuenta',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: StatefulBuilder(
+            builder: (statefulCtx, setStateLocal) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13),
+                      children: [
+                        const TextSpan(text: 'Vas a fusionar la cuenta de '),
+                        TextSpan(
+                          text: usuarioOrigen.nombre,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const TextSpan(text: ' en otra cuenta. Todos sus '),
+                        const TextSpan(text: 'pagos, asistencias y exoneraciones', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                        const TextSpan(text: ' serán transferidos, y esta cuenta temporal será '),
+                        const TextSpan(text: 'eliminada permanentemente.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Selecciona la cuenta de destino (Google):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<Usuario>(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    isExpanded: true,
+                    hint: const Text('Seleccionar Alumno Destino'),
+                    initialValue: usuarioDestino,
+                    items: otrosUsuarios.map((u) {
+                      final displayEmail = u.email.isEmpty ? 'Sin correo' : u.email;
+                      return DropdownMenuItem<Usuario>(
+                        value: u,
+                        child: Text(
+                          '${u.nombre} ($displayEmail)',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setStateLocal(() {
+                        usuarioDestino = val;
+                      });
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                if (usuarioDestino == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Por favor, selecciona un alumno de destino.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
+                // Confirmación de seguridad final
+                final confirmar = await showDialog<bool>(
+                  context: context,
+                  builder: (confirmCtx) => AlertDialog(
+                    title: const Text('¿Confirmar Fusión?'),
+                    content: Text(
+                      '¿Estás seguro de que deseas fusionar a ${usuarioOrigen.nombre} en ${usuarioDestino!.nombre}?\n\nEsta operación moverá todos los registros y ELIMINARÁ la cuenta de ${usuarioOrigen.nombre}. Esta acción no se puede deshacer.'
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(confirmCtx, false),
+                        child: const Text('No, Cancelar'),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                        onPressed: () => Navigator.pop(confirmCtx, true),
+                        child: const Text('Sí, Fusionar'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirmar != true) return;
+
+                if (context.mounted) {
+                  unawaited(showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (loadingCtx) => const AlertDialog(
+                      title: Text('Procesando Fusión...'),
+                      content: SizedBox(
+                        height: 50,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                  ));
+                }
+
+                final exito = await ctrlUsuarios.fusionarUsuarios(usuarioOrigen.id, usuarioDestino!.id);
+
+                if (context.mounted) {
+                  Navigator.pop(context); // Cerrar loading dialog
+                  Navigator.pop(dialogCtx); // Cerrar merge dialog
+                  
+                  if (exito) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Fusión completada con éxito. Cuenta de ${usuarioOrigen.nombre} unificada en ${usuarioDestino!.nombre}.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    // Actualizar reportes y metas de recaudación
+                    unawaited(finanzas.obtenerReporteDeudores());
+                    unawaited(finanzas.obtenerMetasActividades());
+                    unawaited(finanzas.obtenerResumenFinanciero());
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error al procesar la fusión de cuentas en el servidor.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Fusionar'),
+            ),
+          ],
         );
       },
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../myPagesBack/a_logica_inicio_sesion.dart';
@@ -27,12 +26,21 @@ class _PantallaTerminosState extends State<PantallaTerminos> {
       final auth = Provider.of<ControladorAuth>(context, listen: false);
       final usuario = auth.usuarioActual;
       if (usuario != null) {
-        final prefs = await SharedPreferences.getInstance();
-        // Clave única por usuario para evitar conflictos si se cambia de cuenta
-        await prefs.setBool('terms_accepted_${usuario.id}', true);
+        final error = await auth.aceptarTerminos();
         
-        if (mounted) {
-          await Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal);
+        if (error != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(error),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            await Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal);
+          }
         }
       }
     } catch (e) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../myPagesBack/b_logica_estado_financiero.dart';
 import '../../myPagesBack/a_logica_inicio_sesion.dart';
 import '../../myPagesTema/a_tema.dart';
@@ -15,6 +16,7 @@ import '../../myPagesBack/e_logica_actividades.dart';
 import '../../myPagesBack/modelo_usuario.dart';
 import '../../myPagesBack/modelo_actividad.dart';
 import '../../myPagesBack/modelo_pago.dart';
+import '../myMenu/d_historial_pagos.dart';
 
 class ListaDeudores extends StatefulWidget {
   const ListaDeudores({super.key});
@@ -26,6 +28,7 @@ class ListaDeudores extends StatefulWidget {
 class _ListaDeudoresState extends State<ListaDeudores> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  int? _actividadSeleccionadaId;
 
   @override
   void initState() {
@@ -95,19 +98,64 @@ class _ListaDeudoresState extends State<ListaDeudores> {
         itemBuilder: (context, index) {
           if (index == 0) {
             return RepaintBoundary(
-              child: TermometroActividades(metas: finanzas.metasActividades, cargando: finanzas.cargando),
+              child: TermometroActividades(
+                metas: finanzas.metasActividades,
+                cargando: finanzas.cargando,
+                actividadSeleccionadaId: _actividadSeleccionadaId,
+                onActividadSelected: (id) async {
+                  setState(() {
+                    _actividadSeleccionadaId = id;
+                  });
+                  await finanzas.obtenerReporteDeudores(actividadId: id);
+                },
+              ),
             );
           }
 
           if (index == 1) {
+            final tieneFiltro = _actividadSeleccionadaId != null;
+            String tituloFiltro = 'Estado Financiero';
+            if (tieneFiltro) {
+              final meta = finanzas.metasActividades.firstWhere(
+                (m) => m['id'] == _actividadSeleccionadaId,
+                orElse: () => {'titulo': 'Actividad'},
+              );
+              tituloFiltro = 'Filtro: ${meta['titulo']}';
+            }
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: DimensionesApp.paddingEstandar, vertical: 8).copyWith(bottom: 0),
-              child: Text(
-                  'Estado Financiero',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: esModoOscuro ? Colors.white : colorPrimarioBase,
-                  )
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      tituloFiltro,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: esModoOscuro ? Colors.white : colorPrimarioBase,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (tieneFiltro)
+                    TextButton.icon(
+                      onPressed: () async {
+                        setState(() {
+                          _actividadSeleccionadaId = null;
+                        });
+                        await finanzas.obtenerReporteDeudores();
+                      },
+                      icon: const Icon(Icons.clear, size: 16),
+                      label: Text(
+                        'Limpiar',
+                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                ],
               ),
             );
           }
@@ -161,17 +209,41 @@ class _ListaDeudoresState extends State<ListaDeudores> {
             child: RepaintBoundary(
               child: TarjetaPremium(
                 usaGradientePrimario: false,
+                leftAccentColor: alumno['estado'] == 'Exonerado'
+                    ? Colors.purple
+                    : (esDeudor ? Colors.red : Colors.green),
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                onTap: !esAdmin ? null : () async {
-                  await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => RegistroPagos(usuarioPreseleccionado: alumno['id'])
-                      )
-                  );
-                  if (context.mounted) {
-                    unawaited(context.read<ControladorFinanzas>().obtenerMetasActividades());
-                    unawaited(context.read<ControladorFinanzas>().obtenerReporteDeudores());
+                onTap: () async {
+                  if (esAdmin) {
+                    await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => RegistroPagos(usuarioPreseleccionado: alumno['id'])
+                        )
+                    );
+                    if (context.mounted) {
+                      unawaited(context.read<ControladorFinanzas>().obtenerMetasActividades());
+                      unawaited(context.read<ControladorFinanzas>().obtenerReporteDeudores(actividadId: _actividadSeleccionadaId));
+                    }
+                  } else {
+                    // Si no es admin, abrir el historial de pagos del alumno en modo lectura
+                    await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => Scaffold(
+                              appBar: AppBar(
+                                title: Text(
+                                  'Pagos: ${alumno['nombre'].toString().toCapitalized()}',
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              body: VistaDetalleHistorialUsuario(
+                                usuarioId: alumno['id'],
+                                esVistaPersonal: false,
+                              ),
+                            )
+                        )
+                    );
                   }
                 },
                 child: Row(
@@ -198,41 +270,87 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                               color: adaptiveTextColor,
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.phone_android,
+                                size: 12,
+                                color: (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                    ? (esModoOscuro ? Colors.white54 : Colors.black45)
+                                    : Colors.orange.withValues(alpha: 0.8),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                    ? alumno['celular'].toString()
+                                    : 'Sin celular',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                      ? (esModoOscuro ? Colors.white54 : Colors.black54)
+                                      : Colors.orange.withValues(alpha: 0.8),
+                                  fontFamily: 'Inter',
+                                  fontStyle: (alumno['celular'] != null && alumno['celular'].toString().isNotEmpty)
+                                      ? FontStyle.normal
+                                      : FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 6),
                           BadgeEstado(
-                            texto: esDeudor ? 'Debe ${montoDeuda.toSoles()}' : 'Al día',
-                            colorBase: esDeudor ? Colors.red : Colors.green,
+                            texto: alumno['estado'] == 'Exonerado'
+                                ? 'Exonerado'
+                                : (esDeudor ? 'Debe ${montoDeuda.toSoles()}' : 'Al día'),
+                            colorBase: alumno['estado'] == 'Exonerado'
+                                ? Colors.purple
+                                : (esDeudor ? Colors.red : Colors.green),
                           ),
                         ],
                       ),
                     ),
-                    if (esDeudor && esAdmin)
-                      IconButton(
-                        icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.green, size: 28),
-                        onPressed: () async {
-                          final telefono = alumno['celular']?.toString() ?? '';
-                          if (telefono.isEmpty || telefono.length < 9) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El alumno no tiene un número válido registrado.')));
-                            return;
-                          }
-                          final numero = telefono.startsWith('51') ? telefono : '51$telefono';
-                          final mensaje = 'Hola ${alumno['nombre']}, te escribe la tesorería del salón. Recuerda que tienes un saldo pendiente de ${montoDeuda.toSoles()}. Por favor, regulariza tu pago lo antes posible.';
-                          final uri = Uri.parse('whatsapp://send?phone=$numero&text=${Uri.encodeComponent(mensaje)}');
-  
-                          // MEJORA: Se añade LaunchMode para evitar fallos de apertura en Android 11+ o iOS
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          } else {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
-                          }
-                        },
+                    if (esDeudor && esAdmin) ...[
+                      Material(
+                        color: Colors.green.withValues(alpha: 0.12),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () async {
+                            final telefono = alumno['celular']?.toString() ?? '';
+                            if (telefono.isEmpty || telefono.length < 9) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El alumno no tiene un número válido registrado.')));
+                              return;
+                            }
+                            final numero = telefono.startsWith('51') ? telefono : '51$telefono';
+                            final mensaje = 'Hola ${alumno['nombre']}, te escribe la tesorería del salón. Recuerda que tienes un saldo pendiente de ${montoDeuda.toSoles()}. Por favor, regulariza tu pago lo antes posible.';
+                            final uri = Uri.parse('whatsapp://send?phone=$numero&text=${Uri.encodeComponent(mensaje)}');
+    
+                            // MEJORA: Se añade LaunchMode para evitar fallos de apertura en Android 11+ o iOS
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            } else {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
+                            }
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.all(10.0),
+                            child: FaIcon(
+                              FontAwesomeIcons.whatsapp,
+                              color: Colors.green,
+                              size: 20,
+                            ),
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                    ],
                     if (esAdmin)
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
+                          color: esModoOscuro ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -257,7 +375,7 @@ class _ListaDeudoresState extends State<ListaDeudores> {
     final finanzas = context.read<ControladorFinanzas>();
     await Future.wait([
       finanzas.obtenerMetasActividades(),
-      finanzas.obtenerReporteDeudores(),
+      finanzas.obtenerReporteDeudores(actividadId: _actividadSeleccionadaId),
     ]);
   }
 
@@ -578,12 +696,44 @@ class EditarPago extends StatefulWidget {
 
 class _EditarPagoState extends State<EditarPago> {
   late TextEditingController _montoCtrl;
+  late TextEditingController _descCtrl;
+  int? _selectedActividadId;
+  List<Map<String, dynamic>> _actividades = [];
+  bool _cargandoActividades = false;
   final ValueNotifier<bool> _guardando = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
     _montoCtrl = TextEditingController(text: (widget.pago['monto'] as num).toDouble().toStringAsFixed(2));
+    _descCtrl = TextEditingController(text: widget.pago['descripcion']?.toString() ?? '');
+    _selectedActividadId = widget.pago['actividad_id'] as int?;
+
+    String tipoMov = widget.pago['tipo'] ?? 'I';
+    if (tipoMov == 'E') {
+      _cargarActividades();
+    }
+  }
+
+  @override
+  void dispose() {
+    _montoCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargarActividades() async {
+    setState(() => _cargandoActividades = true);
+    try {
+      final lista = await context.read<ControladorFinanzas>().obtenerActividadesSimplificadas();
+      setState(() {
+        _actividades = lista;
+      });
+    } catch (e) {
+      debugPrint('Error cargando actividades en diálogo: $e');
+    } finally {
+      setState(() => _cargandoActividades = false);
+    }
   }
 
   @override
@@ -593,25 +743,69 @@ class _EditarPagoState extends State<EditarPago> {
 
     return AlertDialog(
       title: Text('Editar $etiqTipo'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Concepto: ${widget.pago['descripcion']}", style: const TextStyle(fontSize: 14)),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _montoCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            decoration: const InputDecoration(
-              labelText: 'Nuevo Monto',
-              border: OutlineInputBorder(),
-              prefixText: 'S/ ',
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (tipoMov == 'I') 
+              Text("Concepto: ${widget.pago['descripcion']}", style: const TextStyle(fontSize: 14))
+            else
+              const SizedBox.shrink(),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _montoCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Monto (S/)',
+                border: OutlineInputBorder(),
+                prefixText: 'S/ ',
+              ),
             ),
-          ),
-        ],
+            if (tipoMov == 'E' || tipoMov == 'X') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Descripción / Concepto',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+            if (tipoMov == 'E') ...[
+              const SizedBox(height: 12),
+              _cargandoActividades 
+                ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()))
+                : DropdownButtonFormField<int?>(
+                    initialValue: _selectedActividadId,
+                    decoration: const InputDecoration(
+                      labelText: 'Actividad Destinada',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.event),
+                    ),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Gasto General / Ninguna (Caja Safe)'),
+                      ),
+                      ..._actividades.map((act) => DropdownMenuItem<int?>(
+                        value: act['id'] as int?,
+                        child: Text(act['titulo'].toString()),
+                      )),
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedActividadId = val;
+                      });
+                    },
+                  ),
+            ],
+          ],
+        ),
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
@@ -716,7 +910,28 @@ class _EditarPagoState extends State<EditarPago> {
 
     int pagoId = int.tryParse((widget.pago['id_movimiento'] ?? widget.pago['id']).toString()) ?? 0;
     String tipoMov = widget.pago['tipo'] ?? 'I';
-    final exito = await finanzas.editarMovimiento(tipoMov, pagoId, nuevoMonto, auth.usuarioActual!);
+
+    bool exito = false;
+    if (tipoMov == 'E') {
+      exito = await finanzas.editarMovimiento(
+        tipoMov, 
+        pagoId, 
+        nuevoMonto, 
+        auth.usuarioActual!,
+        nuevaDescripcion: _descCtrl.text.trim(),
+        nuevaActividadId: _selectedActividadId,
+      );
+    } else if (tipoMov == 'X') {
+      exito = await finanzas.editarMovimiento(
+        tipoMov, 
+        pagoId, 
+        nuevoMonto, 
+        auth.usuarioActual!,
+        nuevaDescripcion: _descCtrl.text.trim(),
+      );
+    } else {
+      exito = await finanzas.editarMovimiento(tipoMov, pagoId, nuevoMonto, auth.usuarioActual!);
+    }
 
     if (mounted) {
       _guardando.value = false;

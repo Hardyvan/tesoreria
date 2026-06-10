@@ -295,6 +295,7 @@ class TarjetaPremium extends StatefulWidget {
   final Color? backgroundColor;
   final bool esBordeBrillante;
   final bool usaGradientePrimario; // 🔥 NUEVO: Control para activar el degradado
+  final Color? leftAccentColor; // ✨ NUEVO: Color para la barra vertical de acento izquierda
 
   const TarjetaPremium({
     super.key,
@@ -304,6 +305,7 @@ class TarjetaPremium extends StatefulWidget {
     this.backgroundColor,
     this.esBordeBrillante = false,
     this.usaGradientePrimario = false, // 🔥 NUEVO: Por defecto es falso para no romper tu UI actual
+    this.leftAccentColor,
   });
 
   @override
@@ -365,40 +367,55 @@ class _TarjetaPremiumState extends State<TarjetaPremium> with SingleTickerProvid
           } : null,
           splashColor: Colors.white.withValues(alpha: 0.2),
           highlightColor: Colors.white.withValues(alpha: 0.1),
-          child: Theme(
-            data: theme.copyWith(
-              iconTheme: IconThemeData(
-                color: widget.usaGradientePrimario ? Colors.white : null,
-              ),
-              dividerTheme: theme.dividerTheme.copyWith(
-                color: widget.usaGradientePrimario ? Colors.white.withValues(alpha: 0.2) : null,
-              ),
-              iconButtonTheme: IconButtonThemeData(
-                style: IconButton.styleFrom(
-                  foregroundColor: widget.usaGradientePrimario ? Colors.white : null,
+          child: Stack(
+            children: [
+              if (widget.leftAccentColor != null)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 5,
+                    color: widget.leftAccentColor,
+                  ),
+                ),
+              Theme(
+                data: theme.copyWith(
+                  iconTheme: IconThemeData(
+                    color: widget.usaGradientePrimario ? Colors.white : null,
+                  ),
+                  dividerTheme: theme.dividerTheme.copyWith(
+                    color: widget.usaGradientePrimario ? Colors.white.withValues(alpha: 0.2) : null,
+                  ),
+                  iconButtonTheme: IconButtonThemeData(
+                    style: IconButton.styleFrom(
+                      foregroundColor: widget.usaGradientePrimario ? Colors.white : null,
+                    ),
+                  ),
+                  listTileTheme: ListTileThemeData(
+                    iconColor: widget.usaGradientePrimario ? Colors.white : null,
+                    textColor: widget.usaGradientePrimario ? Colors.white : null,
+                    titleTextStyle: theme.textTheme.titleMedium!.copyWith(
+                      color: widget.usaGradientePrimario ? Colors.white : null,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    subtitleTextStyle: theme.textTheme.bodySmall!.copyWith(
+                      color: widget.usaGradientePrimario ? Colors.white70 : null,
+                    ),
+                  ),
+                ),
+                child: DefaultTextStyle(
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    color: widget.usaGradientePrimario ? Colors.white : null,
+                  ),
+                  child: Padding(
+                    padding: (widget.padding ?? const EdgeInsets.all(AppTokens.paddingEstandar))
+                        .add(widget.leftAccentColor != null ? const EdgeInsets.only(left: 6) : EdgeInsets.zero),
+                    child: widget.child,
+                  ),
                 ),
               ),
-              listTileTheme: ListTileThemeData(
-                iconColor: widget.usaGradientePrimario ? Colors.white : null,
-                textColor: widget.usaGradientePrimario ? Colors.white : null,
-                titleTextStyle: theme.textTheme.titleMedium!.copyWith(
-                  color: widget.usaGradientePrimario ? Colors.white : null,
-                  fontWeight: FontWeight.bold,
-                ),
-                subtitleTextStyle: theme.textTheme.bodySmall!.copyWith(
-                  color: widget.usaGradientePrimario ? Colors.white70 : null,
-                ),
-              ),
-            ),
-            child: DefaultTextStyle(
-              style: theme.textTheme.bodyMedium!.copyWith(
-                color: widget.usaGradientePrimario ? Colors.white : null,
-              ),
-              child: Padding(
-                padding: widget.padding ?? const EdgeInsets.all(AppTokens.paddingEstandar),
-                child: widget.child,
-              ),
-            ),
+            ],
           ),
         ),
       ),
@@ -471,20 +488,21 @@ class BadgeEstado extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: colorBase.withValues(alpha: 0.15), // Fondo translúcido muy sutil
-        borderRadius: BorderRadius.circular(16),
+        color: colorBase.withValues(alpha: 0.12), // Fondo translúcido muy elegante
+        borderRadius: BorderRadius.circular(20), // Más redondeado, estilo píldora
         border: Border.all(
-          color: colorBase.withValues(alpha: 0.5), // Borde suave
-          width: 1,
+          color: colorBase.withValues(alpha: 0.4), // Borde más suave
+          width: 0.8,
         ),
       ),
       child: Text(
         texto,
         style: TextStyle(
-          color: colorBase, // Texto con alto contraste relativo a su fondo translúcido
+          color: colorBase,
           fontWeight: FontWeight.bold,
-          fontSize: 12,
+          fontSize: 11, // Un poco más pequeño y elegante
           fontFamily: 'Inter',
+          letterSpacing: 0.2,
         ),
       ),
     );
@@ -589,7 +607,7 @@ class AvatarUsuario extends StatelessWidget {
     String iniciales = nombre != null && nombre!.isNotEmpty ? nombre!.substring(0, 1).toUpperCase() : '?';
     final hasImage = fotoUrl != null && fotoUrl!.isNotEmpty && fotoUrl != 'null';
     
-    return CircleAvatar(
+    final avatar = CircleAvatar(
       radius: radius,
       backgroundColor: backgroundColor,
       backgroundImage: hasImage ? NetworkImage(fotoUrl!) : null,
@@ -597,6 +615,43 @@ class AvatarUsuario extends StatelessWidget {
         iniciales,
         style: TextStyle(color: textColor ?? Colors.white, fontWeight: FontWeight.bold, fontSize: radius * 0.8),
       ),
+    );
+
+    if (activo == null) return avatar;
+
+    final dotColor = activo! ? const Color(0xFF00E676) : const Color(0xFF9E9E9E);
+    final dotSize = radius * 0.5;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          bottom: -1,
+          right: -1,
+          child: Container(
+            width: dotSize,
+            height: dotSize,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.surface,
+                width: 1.5,
+              ),
+              boxShadow: activo!
+                  ? [
+                      BoxShadow(
+                        color: dotColor.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : [],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

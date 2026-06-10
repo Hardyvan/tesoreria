@@ -27,6 +27,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
   Future<void>? _futureCarga;
   final ScrollController _scrollController = ScrollController();
   int _seccionTocada = -1;
+  String _filtroSeleccionado = 'todos'; // 'todos', 'pagos', 'gastos', 'extras'
 
   @override
   void initState() {
@@ -74,6 +75,29 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
     final esAdmin = context.read<ControladorAuth>().esAdmin;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final listaFiltrada = finanzas.kardex.where((mov) {
+      if (_filtroSeleccionado == 'todos') return true;
+      if (_filtroSeleccionado == 'pagos') return mov['tipo'] == 'I';
+      if (_filtroSeleccionado == 'gastos') return mov['tipo'] == 'E';
+      if (_filtroSeleccionado == 'extras') return mov['tipo'] == 'X';
+      return true;
+    }).toList();
+
+    // Auto-paginado inteligente: si el filtro actual tiene pocos elementos pero hay más registros
+    // en el servidor, solicitamos la siguiente página automáticamente en segundo plano.
+    if (_filtroSeleccionado != 'todos' && listaFiltrada.length < 8 && finanzas.hayMasKardex && !finanzas.cargando) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<ControladorFinanzas>().obtenerMovimientosKardex(reset: false);
+        }
+      });
+    }
+
+    final mostrarCargandoMas = finanzas.hayMasKardex && _filtroSeleccionado == 'todos';
+    final itemCount = listaFiltrada.isEmpty 
+      ? 5 
+      : listaFiltrada.length + 4 + (mostrarCargandoMas ? 1 : 0);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -129,13 +153,6 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
               );
             }
 
-            // Usamos ListView.builder para mejorar el rendimiento
-            // Sumamos 3 items extra para la cabecera (Wallet + Gráfico + Título)
-            // Y 1 adicional al final si hay más por cargar
-            final itemCount = finanzas.kardex.isEmpty 
-              ? 4 
-              : finanzas.kardex.length + 3 + (finanzas.hayMasKardex ? 1 : 0);
-
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.only(
@@ -154,7 +171,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                 }
                 if (index == 2) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 24, bottom: 12),
+                    padding: const EdgeInsets.only(top: 24, bottom: 4),
                     child: Text(
                       'Movimientos Recientes', 
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -164,13 +181,16 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                     ),
                   );
                 }
+                if (index == 3) {
+                  return _buildFiltrosFila();
+                }
                 
-                if (finanzas.kardex.isEmpty && index == 3) {
+                if (listaFiltrada.isEmpty && index == 4) {
                   return _buildEmptyState();
                 }
 
-                if (index - 3 < finanzas.kardex.length) {
-                  final mov = finanzas.kardex[index - 3];
+                if (index - 4 < listaFiltrada.length) {
+                  final mov = listaFiltrada[index - 4];
                   return _buildMovimientoItem(mov, esAdmin, dateFormat, currencyFormat);
                 } else {
                   // Elemento de cargando más...
@@ -201,6 +221,58 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
   }
 
   // --- WIDGETS DE APOYO ---
+
+  Widget _buildFiltrosFila() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    Widget buildChip(String label, String valor, IconData icon, Color color) {
+      final seleccionado = _filtroSeleccionado == valor;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+          avatar: Icon(
+            icon, 
+            color: seleccionado ? Colors.white : color.withValues(alpha: 0.8),
+            size: 16
+          ),
+          label: Text(
+            label,
+            style: GoogleFonts.inter(
+              color: seleccionado ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+              fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12
+            ),
+          ),
+          selected: seleccionado,
+          selectedColor: color,
+          backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100,
+          onSelected: (bool selected) {
+            if (selected) {
+              setState(() {
+                _filtroSeleccionado = valor;
+              });
+            }
+          },
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            buildChip('Todos', 'todos', Icons.grid_view, Theme.of(context).primaryColor),
+            buildChip('Pagos', 'pagos', Icons.arrow_upward, ColoresApp.exito),
+            buildChip('Gastos', 'gastos', Icons.arrow_downward, ColoresApp.error),
+            buildChip('Aportes Extras', 'extras', Icons.star, Colors.teal),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildWalletCard(ControladorFinanzas finanzas) {
     return RepaintBoundary(
@@ -581,100 +653,137 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
         : esExtra
             ? Colors.teal
             : ColoresApp.error;
-    final colorFondoIcono = colorIcono.withValues(alpha: 0.1);
+    final colorFondoIcono = colorIcono.withValues(alpha: 0.12);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return RepaintBoundary(
       child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05), 
-          width: 1,
-        ),
-        boxShadow: isDark ? [] : AppTokens.sombraSuave,
-      ),
-      child: Material(
-        color: Colors.transparent, // Asegura que el InkWell muestre el efecto Ripple
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: !esAdmin ? null : () async {
-            final resultado = await showDialog<bool>(
-              context: context, 
-              builder: (_) => EditarPago(pago: mov)
-            );
-            if (resultado == true && mounted) {
-               unawaited(_cargarDatos());
-            }
-          },
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorFondoIcono,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    esPositivo ? Icons.arrow_upward : Icons.arrow_downward, 
-                    color: colorIcono,
-                    size: 20
-                  ),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05), 
+            width: 1,
+          ),
+          boxShadow: isDark ? [] : AppTokens.sombraSuave,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // Barra vertical acentuada en la izquierda
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 5,
+                  color: colorIcono,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        mov['descripcion'].toString().toCapitalized(), 
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: isDark ? Colors.white : Colors.black87,
+              ),
+              Material(
+                color: Colors.transparent, // Efecto Ripple correcto
+                child: InkWell(
+                  onTap: !esAdmin ? null : () async {
+                    final resultado = await showDialog<bool>(
+                      context: context, 
+                      builder: (_) => EditarPago(pago: mov)
+                    );
+                    if (resultado == true && mounted) {
+                       unawaited(_cargarDatos());
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14).copyWith(left: 20),
+                    child: Row(
+                      children: [
+                        // Icono circular
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: colorFondoIcono,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            esPositivo ? Icons.arrow_upward : Icons.arrow_downward, 
+                            color: colorIcono,
+                            size: 18
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mov['descripcion'].toString().toCapitalized(), 
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                )
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                dateFormat.format(mov['fecha']),
+                                style: GoogleFonts.inter(
+                                  color: isDark ? Colors.white70 : Colors.black54, 
+                                  fontSize: 12,
+                                )
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${esPositivo ? "+" : "-"} ${currencyFormat.format(mov['monto'])}',
+                              style: GoogleFonts.inter(
+                                color: colorIcono,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15
+                              ),
+                            ),
+                            if (esAdmin) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.edit, size: 10, color: Theme.of(context).primaryColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Editar',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        color: Theme.of(context).primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ]
+                          ],
                         )
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        dateFormat.format(mov['fecha']),
-                        style: GoogleFonts.inter(
-                          color: isDark ? Colors.white70 : Colors.black54, 
-                          fontSize: 12,
-                        )
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${esPositivo ? "+" : "-"} ${currencyFormat.format(mov['monto'])}',
-                      style: GoogleFonts.inter(
-                        color: colorIcono,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15
-                      ),
+                      ],
                     ),
-                    if (esAdmin) ...[
-                      const SizedBox(height: 4),
-                      Text('Editar', style: GoogleFonts.inter(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600)),
-                    ]
-                  ],
-                )
-              ],
-            ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _ContadorAnimado extends StatelessWidget {

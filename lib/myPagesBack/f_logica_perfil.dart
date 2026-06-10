@@ -192,4 +192,26 @@ class ControladorUsuarios extends ChangeNotifier {
       return false;
     }
   }
+
+  // Fusionar usuarios (origen se elimina, destino hereda aportes/asistencias)
+  Future<bool> fusionarUsuarios(int idOrigen, int idDestino) async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('fusionarUsuarios', {
+        'idOrigen': idOrigen,
+        'idDestino': idDestino,
+      });
+
+      if (res['ok'] == true) {
+        // Remover el usuario origen de la lista local
+        _usuarios.removeWhere((u) => u.id == idOrigen);
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error fusionando usuarios: $e');
+      return false;
+    }
+  }
 }

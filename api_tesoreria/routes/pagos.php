@@ -44,29 +44,36 @@ switch ($accion) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cobro S/ $monto al usuario_id $usuarioId"]);
 
-            // Obtener el nombre del alumno y de la actividad para enviar al webhook
+            // Obtener el nombre del alumno, de la actividad y del cajero para enviar al webhook
             $stmtInfo = $pdo->prepare("
                 SELECT 
                     (SELECT nombre FROM DSI_salon_usuarios WHERE id = ?) as alumno_nombre, 
-                    (SELECT titulo FROM DSI_salon_actividades WHERE id = ?) as actividad_titulo
+                    (SELECT titulo FROM DSI_salon_actividades WHERE id = ?) as actividad_titulo,
+                    (SELECT nombre FROM DSI_salon_usuarios WHERE id = ?) as admin_nombre
             ");
-            $stmtInfo->execute([$usuarioId, $actividadId]);
+            $stmtInfo->execute([$usuarioId, $actividadId, $adminId]);
             $info = $stmtInfo->fetch();
             $alumnoNombre = $info ? $info['alumno_nombre'] : "ID: $usuarioId";
             $actividadTitulo = $info ? $info['actividad_titulo'] : "Actividad ID: $actividadId";
+            $adminNombre = $info ? $info['admin_nombre'] : "Admin ID: $adminId";
             
-            // Enviar datos de sincronización al webhook
+            // Enviar datos de sincronización al webhook (enviamos ambos formatos de llaves para compatibilidad 100%)
             sincronizarConGoogleSheets('PAGO_NUEVO', [
+                'id' => $pagoIdInsertado,
                 'pago_id' => $pagoIdInsertado,
                 'usuario_id' => $usuarioId,
+                'alumno' => $alumnoNombre,
                 'alumno_nombre' => $alumnoNombre,
                 'actividad_id' => $actividadId,
+                'actividad' => $actividadTitulo,
                 'actividad_titulo' => $actividadTitulo,
                 'monto' => $monto,
                 'monto_multa' => $montoMultaCalculada,
                 'metodo_pago' => $metodoPago,
                 'comprobante_url' => $comprobante,
+                'recaudador' => $adminNombre,
                 'registrado_por' => $adminId,
+                'registrado_por_nombre' => $adminNombre,
                 'fecha_pago' => date('Y-m-d H:i:s')
             ]);
 
@@ -88,6 +95,14 @@ switch ($accion) {
         if ($stmt->execute([$nuevoMonto, $pagoId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Cambió monto a S/ $nuevoMonto en Pago #$pagoId"]);
+
+            // Webhook Sync
+            sincronizarConGoogleSheets('PAGO_EDITADO', [
+                'id' => $pagoId,
+                'pago_id' => $pagoId,
+                'monto' => $nuevoMonto
+            ]);
+
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false]);
@@ -107,6 +122,16 @@ switch ($accion) {
         if ($stmt->execute([$pagoId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Pago', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Anuló Pago #$pagoId"]);
+
+            if ($pago) {
+                sincronizarConGoogleSheets('PAGO_ELIMINADO', [
+                    'id' => $pagoId,
+                    'pago_id' => $pagoId,
+                    'usuario_id' => $pago['usuario_id'],
+                    'monto' => $pago['monto']
+                ]);
+            }
+
             echo json_encode(['ok' => true, 'usuarioId' => $pago['usuario_id'], 'monto' => $pago['monto']]);
         } else {
             echo json_encode(['ok' => false]);
@@ -115,7 +140,19 @@ switch ($accion) {
 
     case 'obtenerDatosFinanzasUsuario':
         $usuarioId = isset($data['usuarioId']) ? (int)$data['usuarioId'] : 0;
-        $stmtCosto = $pdo->query("SELECT COALESCE(SUM(costo), 0) as total FROM DSI_salon_actividades");
+        $stmtCosto = $pdo->prepare("
+            SELECT 
+                (
+                    (SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
+                     WHERE act.estado = 1 
+                     AND NOT EXISTS (
+                         SELECT 1 FROM DSI_salon_exoneraciones ex 
+                         WHERE ex.usuario_id = :uid1 AND ex.actividad_id = act.id
+                     )) + 
+                    (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = :uid2 AND estado = 'falto')
+                ) as total
+        ");
+        $stmtCosto->execute([':uid1' => $usuarioId, ':uid2' => $usuarioId]);
         $totalCosto = (float)$stmtCosto->fetch()['total'];
         
         $stmtPagado = $pdo->prepare("SELECT COALESCE(SUM(monto), 0) as total FROM DSI_salon_pagos WHERE usuario_id = :uid AND confirmado = 1");
@@ -134,25 +171,27 @@ switch ($accion) {
         ");
         $stmtHist->execute([':uid' => $usuarioId]);
         $historial = $stmtHist->fetchAll();
-        foreach ($historial as &$h) { $h['monto'] = (float)$h['monto']; }
+        foreach ($historial as &$h) { $h['monto'] = (float)$h['h']['monto'] ?? (float)$h['monto']; }
         
         echo json_encode([ 'ok' => true, 'deudaTotal' => $deudaTotal, 'totalPagado' => $totalPagado, 'misPagos' => $historial ]);
         break;
-
+ 
     case 'obtenerDetallePagosPorActividad':
         $usuarioId = isset($data['usuarioId']) ? (int)$data['usuarioId'] : 0;
         $stmt = $pdo->prepare("
-            SELECT a.id as actividad_id, a.titulo, a.costo, p.id as pago_id, p.monto, p.monto_multa, p.fecha_pago
+            SELECT a.id as actividad_id, a.titulo, a.costo, p.id as pago_id, p.monto, p.monto_multa, p.fecha_pago,
+                   (SELECT COUNT(1) FROM DSI_salon_exoneraciones WHERE usuario_id = :uid1 AND actividad_id = a.id) as exonerado
             FROM DSI_salon_actividades a
-            LEFT JOIN DSI_salon_pagos p ON a.id = p.actividad_id AND p.usuario_id = :uid AND p.confirmado = 1
+            LEFT JOIN DSI_salon_pagos p ON a.id = p.actividad_id AND p.usuario_id = :uid2 AND p.confirmado = 1
             ORDER BY a.fecha_creacion DESC, p.fecha_pago DESC
         ");
-        $stmt->execute([':uid' => $usuarioId]);
+        $stmt->execute([':uid1' => $usuarioId, ':uid2' => $usuarioId]);
         $resultados = $stmt->fetchAll();
         foreach ($resultados as &$r) {
             if ($r['costo'] !== null) $r['costo'] = (float)$r['costo'];
             if ($r['monto'] !== null) $r['monto'] = (float)$r['monto'];
             if ($r['monto_multa'] !== null) $r['monto_multa'] = (float)$r['monto_multa'];
+            $r['exonerado'] = isset($r['exonerado']) ? (int)$r['exonerado'] : 0;
         }
         echo json_encode(['ok' => true, 'datos' => $resultados]);
         break;

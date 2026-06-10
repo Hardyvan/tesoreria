@@ -160,7 +160,7 @@ switch ($accion) {
             echo json_encode([ 'ok' => true, 'status' => 'OK', 'usuario' => [
                 'id' => (int)$user['id'], 'uid' => $uid, 'nombre' => $user['nombre'], 'celular' => $user['celular'],
                 'email' => $user['email'], 'foto_url' => $user['foto_url'], 'rol' => $rol, 'direccion' => $user['direccion'],
-                'edad' => (int)$user['edad'], 'sexo' => $user['sexo'], 'estado' => $estadoStr
+                'edad' => (int)$user['edad'], 'sexo' => $user['sexo'], 'estado' => $estadoStr, 'terminos_aceptados' => (int)($user['terminos_aceptados'] ?? 0)
             ]]);
         } else {
             // Crear usuario nuevo (estado 1 = activo)
@@ -168,7 +168,7 @@ switch ($accion) {
             $stmt = $pdo->prepare("INSERT INTO DSI_salon_usuarios (uid, nombre, email, foto_url, rol, fecha_registro, estado) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
             $stmt->execute([$uid, $nombre, $email, $fotoGoogle, $rolAsignado]);
             echo json_encode([ 'ok' => true, 'status' => 'UsuarioNuevo', 'usuario' => [
-                'id' => (int)$pdo->lastInsertId(), 'uid' => $uid, 'nombre' => $nombre, 'email' => $email, 'foto_url' => $fotoGoogle, 'rol' => $rolAsignado, 'celular' => ''
+                'id' => (int)$pdo->lastInsertId(), 'uid' => $uid, 'nombre' => $nombre, 'email' => $email, 'foto_url' => $fotoGoogle, 'rol' => $rolAsignado, 'celular' => '', 'terminos_aceptados' => 0
             ]]);
         }
         break;
@@ -298,6 +298,100 @@ switch ($accion) {
         } else { echo json_encode(['ok' => false]); }
         break;
 
+    case 'fusionarUsuarios':
+        if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { 
+            echo json_encode(['ok' => false, 'msj' => 'No autorizado']); 
+            exit; 
+        }
+        $idOrigen = (int)$data['idOrigen'];
+        $idDestino = (int)$data['idDestino'];
+
+        if ($idOrigen === $idDestino) {
+            echo json_encode(['ok' => false, 'msj' => 'No se puede fusionar un usuario consigo mismo.']);
+            exit;
+        }
+        if ($idOrigen === 1 || $idDestino === 1) {
+            echo json_encode(['ok' => false, 'msj' => 'No se puede fusionar desde o hacia el SuperAdministrador Principal (ID = 1).']);
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            // 1. Obtener nombres para auditoría y sync
+            $stmtN = $pdo->prepare("SELECT nombre FROM DSI_salon_usuarios WHERE id = ?");
+            $stmtN->execute([$idOrigen]);
+            $nombreOrigen = $stmtN->fetchColumn() ?: "ID: $idOrigen";
+
+            $stmtN->execute([$idDestino]);
+            $nombreDestino = $stmtN->fetchColumn() ?: "ID: $idDestino";
+
+            // 2. Obtener lista de pagos que se van a migrar para sincronizar con Google Sheets después
+            $stmtP = $pdo->prepare("SELECT id, monto, actividad_id FROM DSI_salon_pagos WHERE usuario_id = ?");
+            $stmtP->execute([$idOrigen]);
+            $pagosMigrar = $stmtP->fetchAll();
+
+            // 3. Resolver duplicados en asistencias
+            // Si el destino ya tiene una asistencia registrada para la misma actividad, se borra la del origen
+            $pdo->prepare("
+                DELETE a FROM DSI_salon_asistencias a
+                WHERE a.usuario_id = :idOrigen
+                AND EXISTS (
+                    SELECT 1 FROM (SELECT * FROM DSI_salon_asistencias) b
+                    WHERE b.usuario_id = :idDestino AND b.actividad_id = a.actividad_id
+                )
+            ")->execute([':idOrigen' => $idOrigen, ':idDestino' => $idDestino]);
+
+            // Mover las asistencias restantes al destino
+            $pdo->prepare("UPDATE DSI_salon_asistencias SET usuario_id = :idDestino WHERE usuario_id = :idOrigen")
+                ->execute([':idOrigen' => $idOrigen, ':idDestino' => $idDestino]);
+
+            // 4. Resolver duplicados en exoneraciones
+            // Si el destino ya está exonerado de la misma actividad, se borra la del origen
+            $pdo->prepare("
+                DELETE e FROM DSI_salon_exoneraciones e
+                WHERE e.usuario_id = :idOrigen
+                AND EXISTS (
+                    SELECT 1 FROM (SELECT * FROM DSI_salon_exoneraciones) b
+                    WHERE b.usuario_id = :idDestino AND b.actividad_id = e.actividad_id
+                )
+            ")->execute([':idOrigen' => $idOrigen, ':idDestino' => $idDestino]);
+
+            // Mover las exoneraciones restantes al destino
+            $pdo->prepare("UPDATE DSI_salon_exoneraciones SET usuario_id = :idDestino WHERE usuario_id = :idOrigen")
+                ->execute([':idOrigen' => $idOrigen, ':idDestino' => $idDestino]);
+
+            // 5. Transferir los pagos
+            $pdo->prepare("UPDATE DSI_salon_pagos SET usuario_id = :idDestino WHERE usuario_id = :idOrigen")
+                ->execute([':idOrigen' => $idOrigen, ':idDestino' => $idDestino]);
+
+            // 6. Eliminar el usuario de origen
+            $pdo->prepare("DELETE FROM DSI_salon_usuarios WHERE id = ?")->execute([$idOrigen]);
+
+            // 7. Registrar auditoría
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Fusionar Usuarios', ?, '{$dispositivoGlobal}', NOW())");
+            $stmtAud->execute([$adminId, "Fusionó cuenta de '$nombreOrigen' (eliminada) en '$nombreDestino'"]);
+
+            $pdo->commit();
+
+            // 8. Sincronizar en Google Sheets (Fuera de la transacción)
+            foreach ($pagosMigrar as $pago) {
+                sincronizarConGoogleSheets('PAGO_EDITADO', [
+                    'id' => $pago['id'],
+                    'alumno' => $nombreDestino,
+                    'monto' => (float)$pago['monto']
+                ]);
+            }
+
+            echo json_encode(['ok' => true]);
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            echo json_encode(['ok' => false, 'msj' => 'Error al procesar la fusión: ' . $e->getMessage()]);
+        }
+        break;
+
     case 'actualizarElementoUsuario':
         $id = (int)$data['id'];
         // Seguridad: Solo el dueño del perfil o un admin puede editar
@@ -418,7 +512,24 @@ switch ($accion) {
             $stmtAud->execute([$adminId, "Usuario ID {$usuarioId} participa nuevamente en Actividad ID {$actividadId}"]);
         }
 
-        echo json_encode(['ok' => true]);
+    case 'aceptarTerminos':
+        $usuarioId = isset($data['usuarioId']) ? (int)$data['usuarioId'] : $adminId;
+        if ($usuarioId === 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'msj' => 'ID de usuario no identificado.']);
+            exit;
+        }
+        if ($usuarioId !== $adminId && $adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'msj' => 'Acción no autorizada.']);
+            exit;
+        }
+        $stmt = $pdo->prepare("UPDATE DSI_salon_usuarios SET terminos_aceptados = 1 WHERE id = ?");
+        if ($stmt->execute([$usuarioId])) {
+            echo json_encode(['ok' => true]);
+        } else {
+            echo json_encode(['ok' => false, 'msj' => 'Error al actualizar base de datos.']);
+        }
         break;
 
     default:

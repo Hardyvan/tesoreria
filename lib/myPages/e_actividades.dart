@@ -217,71 +217,173 @@ class _GestionActividadesState extends State<GestionActividades> {
           padding: const EdgeInsets.all(DimensionesApp.paddingEstandar),
           itemCount: ctrl.actividades.length,
           itemBuilder: (ctx, index) {
-              final actividad = ctrl.actividades[index];
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                    child: Icon(Icons.assessment, color: Theme.of(context).primaryColor),
-                  ),
-                  title: Text(actividad.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Costo: ${actividad.costo.toSoles()}'),
-                      if (actividad.fechaLimite != null)
-                        Text(
-                          '⚠️ Límite: ${actividad.fechaLimite!.day.toString().padLeft(2,'0')}/${actividad.fechaLimite!.month.toString().padLeft(2,'0')}/${actividad.fechaLimite!.year}',
-                          style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w500),
+            final actividad = ctrl.actividades[index];
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TarjetaPremium(
+                usaGradientePrimario: false,
+                leftAccentColor: Theme.of(context).primaryColor,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                          radius: 22,
+                          child: Icon(Icons.assignment_outlined, color: Theme.of(context).primaryColor),
                         ),
-                      if (actividad.fechaLimite != null && actividad.multaPorDia > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            'Mora: ${actividad.multaPorDia.toSoles()}/día',
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                actividad.titulo,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              
+                              // Detalles Costo
+                              Row(
+                                children: [
+                                  Icon(Icons.sell_outlined, size: 14, color: isDark ? Colors.white70 : Colors.black54),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Costo: ${actividad.costo.toSoles()}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isDark ? Colors.white70 : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              
+                              // Detalles Fecha Límite
+                              if (actividad.fechaLimite != null) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.event_available, size: 14, color: Colors.orange),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Límite: ${actividad.fechaLimite!.day.toString().padLeft(2,'0')}/${actividad.fechaLimite!.month.toString().padLeft(2,'0')}/${actividad.fechaLimite!.year}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+
+                              // Detalles Mora
+                              if (actividad.fechaLimite != null && actividad.multaPorDia > 0) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.redAccent),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Mora: ${actividad.multaPorDia.toSoles()} / día vencido',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      if (actividad.requiereAsistencia)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.teal,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 36),
+                        
+                        // Acciones (Editar/Eliminar)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.edit_outlined, size: 20, color: Theme.of(context).primaryColor),
+                              onPressed: () => _mostrarDialogoEditar(context, actividad),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
-                            icon: const Icon(Icons.checklist, size: 18),
-                            label: const Text('Llamar Lista'),
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/control_asistencia', arguments: actividad);
-                            },
-                          ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                              onPressed: () => _confirmarBorrado(context, actividad.id, actividad.titulo),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
-                    ],
-                  ),
-                  isThreeLine: actividad.fechaLimite != null || actividad.requiereAsistencia,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.edit, color: Theme.of(context).primaryColor),
-                        onPressed: () => _mostrarDialogoEditar(context, actividad),
+                      ],
+                    ),
+                    
+                    // Chips de características y Botón Asistencia
+                    if (actividad.requiereAsistencia || (actividad.fechaLimite != null && actividad.multaPorDia > 0)) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (actividad.requiereAsistencia) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.teal.withValues(alpha: 0.3), width: 0.8),
+                              ),
+                              child: const Text(
+                                'Control Asistencia',
+                                style: TextStyle(color: Colors.teal, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (actividad.fechaLimite != null && actividad.multaPorDia > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.3), width: 0.8),
+                              ),
+                              child: const Text(
+                                'Mora Activa',
+                                style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _confirmarBorrado(context, actividad.id, actividad.titulo),
+                    ],
+
+                    if (actividad.requiereAsistencia) ...[
+                      const SizedBox(height: 12),
+                      BotonGradiente(
+                        text: 'REGISTRAR ASISTENCIA',
+                        icon: Icons.fact_check_outlined,
+                        height: 38,
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/control_asistencia', arguments: actividad);
+                        },
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              );
-            },
-          );
+              ),
+            );
+          },
+        );
         },
       );
   }

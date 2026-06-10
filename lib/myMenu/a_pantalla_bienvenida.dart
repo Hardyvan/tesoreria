@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -109,13 +108,13 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
     }
   }
 
-  void _mostrarDialogoActualizacion({required bool obligatorio}) {
-    showDialog(
+  Future<void> _mostrarDialogoActualizacion({required bool obligatorio}) async {
+    await showDialog(
       context: context,
-      barrierDismissible: !obligatorio,
+      barrierDismissible: !obligatorio, // Si es opcional, se puede tocar fuera para cerrar
       builder: (context) {
         return PopScope(
-          canPop: !obligatorio,
+          canPop: !obligatorio, // Si es opcional, se puede retroceder con el botón atrás nativo
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Row(
@@ -141,7 +140,6 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context);
-                    _navegarSegunEstado();
                   },
                   child: Text(
                     'Más tarde',
@@ -154,7 +152,6 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
                   await _abrirPlayStore();
                   if (!obligatorio && mounted) {
                     navigator.pop();
-                    _navegarSegunEstado();
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -173,6 +170,11 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
         );
       },
     );
+
+    // Al cerrarse el diálogo por cualquier medio (clic en 'Más tarde', tocar fuera, botón atrás):
+    if (!obligatorio && mounted) {
+      _navegarSegunEstado();
+    }
   }
 
   Future<void> _iniciarSecuencia() async {
@@ -197,8 +199,7 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
       // Si hay sesión activa, verificar si aceptó los términos
       final usuario = auth.usuarioActual;
       if (usuario != null) {
-        final prefs = await SharedPreferences.getInstance();
-        _terminosAceptados = prefs.getBool('terms_accepted_${usuario.id}') ?? false;
+        _terminosAceptados = usuario.terminosAceptados;
       }
       
       // Procesar ingreso considerando la versión y términos
@@ -342,7 +343,7 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
-                                        'Gestión Financiera Escolar',
+                                        'Gestión Financiera',
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontFamily: 'Poppins',

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:ui';
 import '../myPagesTema/b_ui_kit.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:dsi/myPagesTema/a_tema.dart';
@@ -29,10 +28,7 @@ class _InicioSesionState extends State<InicioSesion> {
     super.dispose();
   }
 
-  Future<void> _redireccionarSegunTerminos(NavigatorState navigator, int usuarioId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final terminosAceptados = prefs.getBool('terms_accepted_$usuarioId') ?? false;
-
+  void _redireccionarSegunTerminos(NavigatorState navigator, bool terminosAceptados) {
     if (terminosAceptados) {
       unawaited(navigator.pushReplacementNamed(RutasApp.menuPrincipal));
     } else {
@@ -51,7 +47,7 @@ class _InicioSesionState extends State<InicioSesion> {
     if (!mounted) return;
 
     if (errorMsg == null) {
-      unawaited(_redireccionarSegunTerminos(navigator, auth.usuarioActual!.id));
+      _redireccionarSegunTerminos(navigator, auth.usuarioActual!.terminosAceptados);
     } else if (errorMsg == 'UsuarioNuevo' || errorMsg == 'UsuarioIncompleto') {
       unawaited(navigator.pushReplacementNamed('/completar_perfil'));
     } else {
@@ -154,7 +150,7 @@ class _InicioSesionState extends State<InicioSesion> {
                         Navigator.pop(innerContext);
 
                         // Navegamos a la siguiente pantalla usando la referencia capturada
-                         unawaited(_redireccionarSegunTerminos(navigatorPantalla, auth.usuarioActual!.id));
+                        _redireccionarSegunTerminos(navigatorPantalla, auth.usuarioActual!.terminosAceptados);
                       } else {
                         // Mostramos el snackbar usando la referencia capturada
                         scaffoldMsg.showSnackBar(
@@ -960,7 +956,12 @@ class _PantallaCompletarPerfilState extends State<PantallaCompletarPerfil> {
     setState(() => _cargando = false);
 
     if (errorMsg == null) {
-      unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
+      final user = auth.usuarioActual;
+      if (user != null && !user.terminosAceptados) {
+        unawaited(Navigator.pushReplacementNamed(context, RutasApp.terminosCondiciones));
+      } else {
+        unawaited(Navigator.pushReplacementNamed(context, RutasApp.menuPrincipal));
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMsg), backgroundColor: ColoresApp.error),

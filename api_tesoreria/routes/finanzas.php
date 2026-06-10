@@ -35,19 +35,19 @@ switch ($accion) {
         
         $sql = "
             SELECT 
-                'I' AS tipo, p.id AS id_movimiento, CONCAT('Pago: ', u.nombre) AS descripcion, p.monto AS monto, p.fecha_pago AS fecha
+                'I' AS tipo, p.id AS id_movimiento, CONCAT('Pago: ', u.nombre) AS descripcion, p.monto AS monto, p.fecha_pago AS fecha, p.actividad_id AS actividad_id
             FROM DSI_salon_pagos p
             JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
             WHERE p.confirmado = 1
 
             UNION ALL
 
-            SELECT 'E' AS tipo, g.id AS id_movimiento, g.descripcion AS descripcion, g.monto AS monto, g.fecha_gasto AS fecha
+            SELECT 'E' AS tipo, g.id AS id_movimiento, g.descripcion AS descripcion, g.monto AS monto, g.fecha_gasto AS fecha, g.actividad_id AS actividad_id
             FROM DSI_salon_gastos g
 
             UNION ALL
 
-            SELECT 'X' AS tipo, i.id AS id_movimiento, i.descripcion AS descripcion, i.monto AS monto, i.fecha_ingreso AS fecha
+            SELECT 'X' AS tipo, i.id AS id_movimiento, i.descripcion AS descripcion, i.monto AS monto, i.fecha_ingreso AS fecha, NULL AS actividad_id
             FROM DSI_salon_ingresos_extra i
 
             ORDER BY fecha DESC
@@ -61,42 +61,95 @@ switch ($accion) {
         $resultados = $stmt->fetchAll();
         foreach ($resultados as &$fila) {
             $fila['monto'] = (float)$fila['monto'];
+            $fila['actividad_id'] = $fila['actividad_id'] !== null ? (int)$fila['actividad_id'] : null;
         }
         echo json_encode(['ok' => true, 'datos' => $resultados]);
         break;
 
     case 'obtenerReporteDeudores':
         // Abierto a cualquier usuario autenticado (para llenar la pestaña "Estado" en la app)
-        $sql = "
-            SELECT 
-                u.id, 
-                u.nombre, 
-                u.foto_url,
-                u.celular,
-                ((SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
-                  WHERE act.estado = 1 
-                  AND NOT EXISTS (
-                      SELECT 1 FROM DSI_salon_exoneraciones ex 
-                      WHERE ex.usuario_id = u.id AND ex.actividad_id = act.id
-                  )) + 
-                 (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
-                (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
-            FROM DSI_salon_usuarios u
-            WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
-            ORDER BY u.nombre ASC
-        ";
-        $stmt = $pdo->query($sql);
-        $results = $stmt->fetchAll();
+        $actividadId = isset($data['actividad_id']) ? (int)$data['actividad_id'] : 0;
         
-        foreach ($results as &$fila) {
-            $totalPagar = (float)$fila['total_a_pagar'];
-            $totalPagado = (float)$fila['total_pagado'];
-            $deuda = $totalPagar - $totalPagado;
+        if ($actividadId > 0) {
+            // Obtener el costo de la actividad específica
+            $stmtAct = $pdo->prepare("SELECT costo FROM DSI_salon_actividades WHERE id = ?");
+            $stmtAct->execute([$actividadId]);
+            $actInfo = $stmtAct->fetch();
+            $costoActividad = $actInfo ? (float)$actInfo['costo'] : 0.0;
             
-            $fila['deuda'] = $deuda;
-            $fila['estado'] = $deuda > 0 ? 'Deudor' : 'Al día';
-            $fila['total_a_pagar'] = $totalPagar;
-            $fila['total_pagado'] = $totalPagado;
+            $sql = "
+                SELECT 
+                    u.id, 
+                    u.nombre, 
+                    u.foto_url,
+                    u.celular,
+                    -- Verificar si está exonerado
+                    (SELECT COUNT(1) FROM DSI_salon_exoneraciones WHERE usuario_id = u.id AND actividad_id = ?) as es_exonerado,
+                    -- Multas asociadas a esta actividad específica
+                    (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND actividad_id = ? AND estado = 'falto') as total_multas,
+                    -- Total pagado para esta actividad específica
+                    (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND actividad_id = ? AND confirmado = 1) as total_pagado
+                FROM DSI_salon_usuarios u
+                WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
+                ORDER BY u.nombre ASC
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$actividadId, $actividadId, $actividadId]);
+            $results = $stmt->fetchAll();
+            
+            foreach ($results as &$fila) {
+                $esExonerado = (int)$fila['es_exonerado'] > 0;
+                $costoBase = $esExonerado ? 0.0 : $costoActividad;
+                $totalMultas = (float)$fila['total_multas'];
+                
+                $totalPagar = $costoBase + $totalMultas;
+                $totalPagado = (float)$fila['total_pagado'];
+                $deuda = $totalPagar - $totalPagado;
+                if ($deuda < 0) $deuda = 0.0;
+                
+                $fila['deuda'] = $deuda;
+                
+                if ($esExonerado && $deuda <= 0) {
+                    $fila['estado'] = 'Exonerado';
+                } else {
+                    $fila['estado'] = $deuda > 0 ? 'Deudor' : 'Al día';
+                }
+                
+                $fila['total_a_pagar'] = $totalPagar;
+                $fila['total_pagado'] = $totalPagado;
+            }
+        } else {
+            $sql = "
+                SELECT 
+                    u.id, 
+                    u.nombre, 
+                    u.foto_url,
+                    u.celular,
+                    ((SELECT COALESCE(SUM(act.costo), 0) FROM DSI_salon_actividades act 
+                      WHERE act.estado = 1 
+                      AND NOT EXISTS (
+                          SELECT 1 FROM DSI_salon_exoneraciones ex 
+                          WHERE ex.usuario_id = u.id AND ex.actividad_id = act.id
+                      )) + 
+                     (SELECT COALESCE(SUM(monto_multa), 0) FROM DSI_salon_asistencias WHERE usuario_id = u.id AND estado = 'falto')) as total_a_pagar,
+                    (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE usuario_id = u.id AND confirmado = 1) as total_pagado
+                FROM DSI_salon_usuarios u
+                WHERE u.rol IN ('Alumno', 'Admin') AND u.id != 1
+                ORDER BY u.nombre ASC
+            ";
+            $stmt = $pdo->query($sql);
+            $results = $stmt->fetchAll();
+            
+            foreach ($results as &$fila) {
+                $totalPagar = (float)$fila['total_a_pagar'];
+                $totalPagado = (float)$fila['total_pagado'];
+                $deuda = $totalPagar - $totalPagado;
+                
+                $fila['deuda'] = $deuda;
+                $fila['estado'] = $deuda > 0 ? 'Deudor' : 'Al día';
+                $fila['total_a_pagar'] = $totalPagar;
+                $fila['total_pagado'] = $totalPagado;
+            }
         }
         echo json_encode(['ok' => true, 'datos' => $results]);
         break;
@@ -136,6 +189,7 @@ switch ($accion) {
             $lista[] = [
                 'id' => $fila['id'],
                 'titulo' => $fila['titulo'],
+                'costo' => $costo,
                 'meta_total' => $metaTotal,
                 'recaudado' => $recaudado,
                 'gastado' => $gastado,
@@ -493,16 +547,21 @@ switch ($accion) {
         $alertas = [];
         
         // Alerta: Actividades con baja recaudación (< 50%)
-        // OPTIMIZACIÓN: Usamos el contador de alumnos en memoria ($alumnosActivos)
         $sqlActAlert = "
             SELECT 
-                titulo, 
-                costo * ? as meta,
+                a.titulo, 
+                a.costo * (
+                    SELECT COUNT(1) FROM DSI_salon_usuarios u 
+                    WHERE u.rol IN ('Alumno', 'Admin') AND u.estado = 1 AND u.id != 1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM DSI_salon_exoneraciones ex 
+                        WHERE ex.usuario_id = u.id AND ex.actividad_id = a.id
+                    )
+                ) as meta,
                 (SELECT COALESCE(SUM(monto), 0) FROM DSI_salon_pagos WHERE actividad_id = a.id AND confirmado = 1) as rec
-            FROM DSI_salon_actividades a WHERE estado = 1
+            FROM DSI_salon_actividades a WHERE a.estado = 1
         ";
-        $stmtAct = $pdo->prepare($sqlActAlert);
-        $stmtAct->execute([$alumnosActivos]);
+        $stmtAct = $pdo->query($sqlActAlert);
         
         foreach ($stmtAct->fetchAll() as $ac) {
             $metaA = (float)$ac['meta'];

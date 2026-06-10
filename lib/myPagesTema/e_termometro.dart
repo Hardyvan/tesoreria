@@ -6,12 +6,20 @@ import 'a_tema.dart';
 class TermometroActividades extends StatelessWidget {
   final List<Map<String, dynamic>> metas;
   final bool cargando;
+  final int? actividadSeleccionadaId;
+  final ValueChanged<int?>? onActividadSelected;
 
-  const TermometroActividades({super.key, required this.metas, this.cargando = false});
+  const TermometroActividades({
+    super.key, 
+    required this.metas, 
+    this.cargando = false,
+    this.actividadSeleccionadaId,
+    this.onActividadSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (cargando) {
+    if (cargando && metas.isEmpty) {
       return const SizedBox(
         height: 220,
         child: Center(child: CircularProgressIndicator()),
@@ -47,70 +55,118 @@ class TermometroActividades extends StatelessWidget {
     double gastos = (meta['gastado'] as num).toDouble();
     double saldoDisponible = (meta['saldo_disponible'] as num).toDouble();
     String titulo = meta['titulo'];
+    int id = meta['id'];
     
     bool metaCumplida = porcentaje >= 1.0;
     bool enDeficit = saldoDisponible < 0;
+    bool estaSeleccionada = id == actividadSeleccionadaId;
 
-    return Container(
-      width: MediaQuery.of(context).size.width - (DimensionesApp.paddingEstandar * 2),
-      margin: EdgeInsets.only(right: isLast ? 0 : 16, bottom: 12, top: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: ColoresApp.sombraSuave,
-        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.1)),
-        gradient: metaCumplida 
-          ? LinearGradient(
-              colors: [ColoresApp.exito.withValues(alpha: 0.08), Theme.of(context).cardColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-          : null,
-      ),
-      child: Stack(
-        children: [
-          // Fondo decorativo sutil
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Icon(
-              Icons.trending_up,
-              size: 120,
-              color: metaCumplida 
-                 ? ColoresApp.exito.withValues(alpha: 0.05)
-                 : Theme.of(context).primaryColor.withValues(alpha: 0.03),
-            ),
+    return GestureDetector(
+      onTap: () {
+        if (onActividadSelected != null) {
+          if (estaSeleccionada) {
+            onActividadSelected!(null); // Deseleccionar
+          } else {
+            onActividadSelected!(id); // Seleccionar
+          }
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: MediaQuery.of(context).size.width - (DimensionesApp.paddingEstandar * 2),
+        margin: EdgeInsets.only(right: isLast ? 0 : 16, bottom: 12, top: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: estaSeleccionada 
+              ? [BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.25), blurRadius: 12, spreadRadius: 2)]
+              : ColoresApp.sombraSuave,
+          border: Border.all(
+            color: estaSeleccionada 
+                ? Theme.of(context).primaryColor 
+                : Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            width: estaSeleccionada ? 2.5 : 1.0,
           ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Cabecera: Título y Meta
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            titulo,
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).primaryColor),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Valor Total: ${currencyFormat.format(metaTotal)}',
-                            style: GoogleFonts.inter(fontSize: 12, color: ColoresApp.textoSecundarioClaro, fontWeight: FontWeight.w500),
-                          ),
-                        ],
+          gradient: metaCumplida 
+            ? LinearGradient(
+                colors: [ColoresApp.exito.withValues(alpha: 0.08), Theme.of(context).cardColor],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        ),
+        child: Stack(
+          children: [
+            // Fondo decorativo sutil
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Icon(
+                Icons.trending_up,
+                size: 120,
+                color: metaCumplida 
+                   ? ColoresApp.exito.withValues(alpha: 0.05)
+                   : Theme.of(context).primaryColor.withValues(alpha: 0.03),
+              ),
+            ),
+            // Badge de Filtro Activo
+            if (estaSeleccionada)
+              Positioned(
+                right: 16,
+                top: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.filter_alt, color: Colors.white, size: 12),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Filtrado',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Cabecera: Título y Meta
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              titulo,
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).primaryColor),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Valor Total: ${currencyFormat.format(metaTotal)}',
+                              style: GoogleFonts.inter(fontSize: 12, color: ColoresApp.textoSecundarioClaro, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 
                 // Centro: Progreso
                 Column(
@@ -164,6 +220,7 @@ class TermometroActividades extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _buildBalanceChip(
+                        context: context,
                         titulo: 'Gastado',
                         monto: gastos,
                         esNegativo: true,
@@ -173,6 +230,7 @@ class TermometroActividades extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildBalanceChip(
+                        context: context,
                         titulo: 'Caja Real',
                         monto: saldoDisponible,
                         esNegativo: enDeficit,
@@ -186,12 +244,21 @@ class TermometroActividades extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildBalanceChip({required String titulo, required double monto, required bool esNegativo, required NumberFormat formato}) {
+  Widget _buildBalanceChip({
+    required BuildContext context,
+    required String titulo,
+    required double monto,
+    required bool esNegativo,
+    required NumberFormat formato,
+  }) {
     final colorPrimario = esNegativo ? ColoresApp.error : ColoresApp.exito;
     final colorFondo = colorPrimario.withValues(alpha: 0.08);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white70 : Colors.black54;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -203,7 +270,7 @@ class TermometroActividades extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(titulo, style: GoogleFonts.inter(fontSize: 11, color: ColoresApp.textoOscuro.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
+          Text(titulo, style: GoogleFonts.inter(fontSize: 11, color: textColor, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(
             formato.format(monto), 

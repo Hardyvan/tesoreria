@@ -8,7 +8,7 @@ import '../services/api_client.dart' as api_ext;
 
 class ServicioPdf {
   
-  /// Genera y comparte un reporte en formato PDF
+  /// Genera un reporte en formato PDF y devuelve sus bytes
   /// [opcion]: 
   ///   0 -> Cierre Contable Completo
   ///   1 -> Resumen General
@@ -17,7 +17,7 @@ class ServicioPdf {
   ///   4 -> Historial de Gastos
   ///   5 -> Ingresos Extra
   ///   6 -> Detalle Apertura (Fondo Base)
-  static Future<bool> exportarYCompartir(int opcion) async {
+  static Future<Uint8List?> generarPdfBytes(int opcion) async {
     try {
       final api = api_ext.ApiClient();
       final res = await api.post('obtenerDatosExcel', {});
@@ -135,7 +135,7 @@ class ServicioPdf {
       }
 
       // 1. Resumen de Caja General Widget
-      pw.Widget buildResumenWidget() {
+      List<pw.Widget> buildResumenWidgets() {
         double deudaTotal = 0;
         for (var d in deudoresLista) {
           double tp = double.tryParse(d['total_a_pagar']?.toString() ?? '0') ?? 0.0;
@@ -151,47 +151,44 @@ class ServicioPdf {
           ['(*) Deuda Pendiente (Por Cobrar)', fmtMoney(deudaTotal)],
         ];
 
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Resumen Consolidado de Fondos', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
-            pw.SizedBox(height: 8),
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
-              columnWidths: {
-                0: const pw.FlexColumnWidth(3),
-                1: const pw.FlexColumnWidth(1),
-              },
-              children: [
-                pw.TableRow(
-                  decoration: tableHeaderDecoration,
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Concepto Financiero', style: headerStyle)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Monto (S/)', style: headerStyle, textAlign: pw.TextAlign.right)),
-                  ],
-                ),
-                ...items.map((it) {
-                  final bool esSaldo = it[0].contains('SALDO');
-                  final cellDecor = esSaldo ? const pw.BoxDecoration(color: PdfColors.grey100) : null;
-                  final textStyle = esSaldo ? dataStyleBold : const pw.TextStyle(fontSize: 8, color: PdfColors.black);
+        return [
+          pw.Text('Resumen Consolidado de Fondos', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
+          pw.SizedBox(height: 8),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3),
+              1: const pw.FlexColumnWidth(1),
+            },
+            children: [
+              pw.TableRow(
+                decoration: tableHeaderDecoration,
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Concepto Financiero', style: headerStyle)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Monto (S/)', style: headerStyle, textAlign: pw.TextAlign.right)),
+                ],
+              ),
+              ...items.map((it) {
+                final bool esSaldo = it[0].contains('SALDO');
+                final cellDecor = esSaldo ? const pw.BoxDecoration(color: PdfColors.grey100) : null;
+                final textStyle = esSaldo ? dataStyleBold : const pw.TextStyle(fontSize: 8, color: PdfColors.black);
 
-                  return pw.TableRow(
-                    decoration: cellDecor,
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(it[0], style: textStyle)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(it[1], style: textStyle, textAlign: pw.TextAlign.right)),
-                    ],
-                  );
-                }),
-              ],
-            ),
-            pw.SizedBox(height: 20),
-          ],
-        );
+                return pw.TableRow(
+                  decoration: cellDecor,
+                  children: [
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(it[0], style: textStyle)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(it[1], style: textStyle, textAlign: pw.TextAlign.right)),
+                  ],
+                );
+              }),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+        ];
       }
 
       // 2. Estado de Alumnos (Deudores) Widget
-      pw.Widget buildAlumnosWidget() {
+      List<pw.Widget> buildAlumnosWidgets() {
         double totalPagado = 0;
         double totalDeuda = 0;
 
@@ -202,13 +199,17 @@ class ServicioPdf {
           totalDeuda += (tp - tpagado);
         }
 
+        List<pw.Widget> widgets = [];
+        widgets.add(pw.Text('Estado Financiero de Alumnos', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))));
+        widgets.add(pw.SizedBox(height: 8));
+
+        const int filasPorHoja = 20;
         int index = 1;
 
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Estado Financiero de Alumnos', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
-            pw.SizedBox(height: 8),
+        for (var i = 0; i < deudoresLista.length; i += filasPorHoja) {
+          final chunk = deudoresLista.sublist(i, i + filasPorHoja > deudoresLista.length ? deudoresLista.length : i + filasPorHoja);
+
+          widgets.add(
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               columnWidths: {
@@ -233,7 +234,7 @@ class ServicioPdf {
                     pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Estado', style: headerStyle, textAlign: pw.TextAlign.center)),
                   ],
                 ),
-                ...deudoresLista.map((row) {
+                ...chunk.map((row) {
                   double tp = double.tryParse(row['total_a_pagar']?.toString() ?? '0') ?? 0.0;
                   double tpagado = double.tryParse(row['total_pagado']?.toString() ?? '0') ?? 0.0;
                   double deuda = tp - tpagado;
@@ -242,7 +243,7 @@ class ServicioPdf {
                   final cellDecor = pw.BoxDecoration(color: isCebra ? PdfColor.fromHex('#F8F9FA') : PdfColors.white);
                   final isDeudor = deuda > 0;
 
-                  final widgetRow = pw.TableRow(
+                  return pw.TableRow(
                     decoration: cellDecor,
                     children: [
                       pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('${index++}', style: dataStyle, textAlign: pw.TextAlign.center)),
@@ -258,29 +259,52 @@ class ServicioPdf {
                       )),
                     ],
                   );
-                  return widgetRow;
-                }), // Totales
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL GENERAL', style: dataStyleBold)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalPagado), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalDeuda), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                  ],
-                ),
+                }),
               ],
-            ),
-            pw.SizedBox(height: 20),
-          ],
+            )
+          );
+
+          if (i + filasPorHoja < deudoresLista.length) {
+            widgets.add(pw.NewPage());
+          }
+        }
+
+        // Totales al final
+        widgets.add(pw.SizedBox(height: 5));
+        widgets.add(
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(25),
+              1: const pw.FlexColumnWidth(3),
+              2: const pw.FixedColumnWidth(45),
+              3: const pw.FixedColumnWidth(60),
+              4: const pw.FixedColumnWidth(70),
+              5: const pw.FixedColumnWidth(70),
+              6: const pw.FixedColumnWidth(55),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL GENERAL', style: dataStyleBold)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalPagado), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalDeuda), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                ],
+              ),
+            ]
+          )
         );
+        widgets.add(pw.SizedBox(height: 20));
+        return widgets;
       }
 
       // 3. Historial de Pagos Widget
-      pw.Widget buildPagosWidget() {
+      List<pw.Widget> buildPagosWidgets() {
         double totalMonto = 0;
         double totalMora = 0;
 
@@ -289,13 +313,17 @@ class ServicioPdf {
           totalMora += double.tryParse(row['monto_multa']?.toString() ?? '0') ?? 0.0;
         }
 
+        List<pw.Widget> widgets = [];
+        widgets.add(pw.Text('Historial General de Pagos Recibidos', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))));
+        widgets.add(pw.SizedBox(height: 8));
+
+        const int filasPorHoja = 20;
         int index = 1;
 
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Historial General de Pagos Recibidos', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
-            pw.SizedBox(height: 8),
+        for (var i = 0; i < pagosLista.length; i += filasPorHoja) {
+          final chunk = pagosLista.sublist(i, i + filasPorHoja > pagosLista.length ? pagosLista.length : i + filasPorHoja);
+
+          widgets.add(
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               columnWidths: {
@@ -322,7 +350,7 @@ class ServicioPdf {
                     pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Fecha Pago', style: headerStyle, textAlign: pw.TextAlign.center)),
                   ],
                 ),
-                ...pagosLista.map((row) {
+                ...chunk.map((row) {
                   final isCebra = index % 2 == 0;
                   final cellDecor = pw.BoxDecoration(color: isCebra ? PdfColor.fromHex('#F8F9FA') : PdfColors.white);
                   
@@ -339,41 +367,70 @@ class ServicioPdf {
                       pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(row['fecha_pago']?.toString() ?? '', style: dataStyle, textAlign: pw.TextAlign.center)),
                     ],
                   );
-                }), // Totales
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL PAGADO', style: dataStyleBold)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMora), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                  ],
-                ),
+                }),
               ],
-            ),
-            pw.SizedBox(height: 20),
-          ],
+            )
+          );
+
+          if (i + filasPorHoja < pagosLista.length) {
+            widgets.add(pw.NewPage());
+          }
+        }
+
+        // Totales al final
+        widgets.add(pw.SizedBox(height: 5));
+        widgets.add(
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(20),
+              1: const pw.FlexColumnWidth(2),
+              2: const pw.FlexColumnWidth(2),
+              3: const pw.FixedColumnWidth(60),
+              4: const pw.FixedColumnWidth(55),
+              5: const pw.FixedColumnWidth(50),
+              6: const pw.FixedColumnWidth(55),
+              7: const pw.FixedColumnWidth(70),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL PAGADO', style: dataStyleBold)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMora), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                ],
+              ),
+            ]
+          )
         );
+        widgets.add(pw.SizedBox(height: 20));
+        return widgets;
       }
 
       // 4. Historial de Gastos Widget
-      pw.Widget buildGastosWidget() {
+      List<pw.Widget> buildGastosWidgets() {
         double totalMonto = 0;
         for (var row in gastosLista) {
           totalMonto += double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
         }
 
+        List<pw.Widget> widgets = [];
+        widgets.add(pw.Text('Historial General de Egresos (Gastos)', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))));
+        widgets.add(pw.SizedBox(height: 8));
+
+        const int filasPorHoja = 20;
         int index = 1;
 
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Historial General de Egresos (Gastos)', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
-            pw.SizedBox(height: 8),
+        for (var i = 0; i < gastosLista.length; i += filasPorHoja) {
+          final chunk = gastosLista.sublist(i, i + filasPorHoja > gastosLista.length ? gastosLista.length : i + filasPorHoja);
+
+          widgets.add(
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               columnWidths: {
@@ -398,7 +455,7 @@ class ServicioPdf {
                     pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Fecha Gasto', style: headerStyle, textAlign: pw.TextAlign.center)),
                   ],
                 ),
-                ...gastosLista.map((row) {
+                ...chunk.map((row) {
                   final isCebra = index % 2 == 0;
                   final cellDecor = pw.BoxDecoration(color: isCebra ? PdfColor.fromHex('#F8F9FA') : PdfColors.white);
                   final stringUrl = row['comprobante_url']?.toString().trim() ?? '';
@@ -420,40 +477,68 @@ class ServicioPdf {
                       pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(row['fecha_gasto']?.toString() ?? '', style: dataStyle, textAlign: pw.TextAlign.center)),
                     ],
                   );
-                }), // Totales
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL GASTOS', style: dataStyleBold)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                  ],
-                ),
+                }),
               ],
-            ),
-            pw.SizedBox(height: 20),
-          ],
+            )
+          );
+
+          if (i + filasPorHoja < gastosLista.length) {
+            widgets.add(pw.NewPage());
+          }
+        }
+
+        // Totales al final
+        widgets.add(pw.SizedBox(height: 5));
+        widgets.add(
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(20),
+              1: const pw.FlexColumnWidth(3),
+              2: const pw.FlexColumnWidth(2),
+              3: const pw.FlexColumnWidth(2),
+              4: const pw.FixedColumnWidth(60),
+              5: const pw.FixedColumnWidth(60),
+              6: const pw.FixedColumnWidth(70),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL GASTOS', style: dataStyleBold)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                ],
+              ),
+            ]
+          )
         );
+        widgets.add(pw.SizedBox(height: 20));
+        return widgets;
       }
 
       // 5. Ingresos Extra Widget
-      pw.Widget buildExtrasWidget() {
+      List<pw.Widget> buildExtrasWidgets() {
         double totalMonto = 0;
         for (var row in extrasLista) {
           totalMonto += double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
         }
 
+        List<pw.Widget> widgets = [];
+        widgets.add(pw.Text('Detalle de Ingresos Extras y Donaciones', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))));
+        widgets.add(pw.SizedBox(height: 8));
+
+        const int filasPorHoja = 20;
         int index = 1;
 
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Detalle de Ingresos Extras y Donaciones', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
-            pw.SizedBox(height: 8),
+        for (var i = 0; i < extrasLista.length; i += filasPorHoja) {
+          final chunk = extrasLista.sublist(i, i + filasPorHoja > extrasLista.length ? extrasLista.length : i + filasPorHoja);
+
+          widgets.add(
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               columnWidths: {
@@ -474,7 +559,7 @@ class ServicioPdf {
                     pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Fecha Registro', style: headerStyle, textAlign: pw.TextAlign.center)),
                   ],
                 ),
-                ...extrasLista.map((row) {
+                ...chunk.map((row) {
                   final isCebra = index % 2 == 0;
                   final cellDecor = pw.BoxDecoration(color: isCebra ? PdfColor.fromHex('#F8F9FA') : PdfColors.white);
 
@@ -488,38 +573,64 @@ class ServicioPdf {
                       pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(row['fecha_ingreso']?.toString() ?? '', style: dataStyle, textAlign: pw.TextAlign.center)),
                     ],
                   );
-                }), // Totales
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL INGRESOS EXTRA', style: dataStyleBold)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                  ],
-                ),
+                }),
               ],
-            ),
-            pw.SizedBox(height: 20),
-          ],
+            )
+          );
+
+          if (i + filasPorHoja < extrasLista.length) {
+            widgets.add(pw.NewPage());
+          }
+        }
+
+        // Totales al final
+        widgets.add(pw.SizedBox(height: 5));
+        widgets.add(
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(20),
+              1: const pw.FlexColumnWidth(3),
+              2: const pw.FixedColumnWidth(80),
+              3: const pw.FlexColumnWidth(2),
+              4: const pw.FixedColumnWidth(85),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL INGRESOS EXTRA', style: dataStyleBold)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                ],
+              ),
+            ]
+          )
         );
+        widgets.add(pw.SizedBox(height: 20));
+        return widgets;
       }
 
       // 6. Detalle Apertura (Fondo Base) Widget
-      pw.Widget buildFondoWidget() {
+      List<pw.Widget> buildFondoWidgets() {
         double totalMonto = 0;
         for (var row in fondoLista) {
           totalMonto += double.tryParse(row['monto']?.toString() ?? '0') ?? 0.0;
         }
 
+        List<pw.Widget> widgets = [];
+        widgets.add(pw.Text('Fondo Inicial de Apertura', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))));
+        widgets.add(pw.SizedBox(height: 8));
+
+        const int filasPorHoja = 20;
         int index = 1;
 
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Fondo Inicial de Apertura', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))),
-            pw.SizedBox(height: 8),
+        for (var i = 0; i < fondoLista.length; i += filasPorHoja) {
+          final chunk = fondoLista.sublist(i, i + filasPorHoja > fondoLista.length ? fondoLista.length : i + filasPorHoja);
+
+          widgets.add(
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               columnWidths: {
@@ -538,7 +649,7 @@ class ServicioPdf {
                     pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Fecha Apertura', style: headerStyle, textAlign: pw.TextAlign.center)),
                   ],
                 ),
-                ...fondoLista.map((row) {
+                ...chunk.map((row) {
                   final isCebra = index % 2 == 0;
                   final cellDecor = pw.BoxDecoration(color: isCebra ? PdfColor.fromHex('#F8F9FA') : PdfColors.white);
 
@@ -551,21 +662,42 @@ class ServicioPdf {
                       pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(row['fecha_apertura']?.toString() ?? '', style: dataStyle, textAlign: pw.TextAlign.center)),
                     ],
                   );
-                }), // Totales
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL FONDOS BASE', style: dataStyleBold)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
-                  ],
-                ),
+                }),
               ],
-            ),
-            pw.SizedBox(height: 20),
-          ],
+            )
+          );
+
+          if (i + filasPorHoja < fondoLista.length) {
+            widgets.add(pw.NewPage());
+          }
+        }
+
+        // Totales al final
+        widgets.add(pw.SizedBox(height: 5));
+        widgets.add(
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(25),
+              1: const pw.FixedColumnWidth(100),
+              2: const pw.FlexColumnWidth(3),
+              3: const pw.FixedColumnWidth(100),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECEFF1')),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(fmtMoney(totalMonto), style: dataStyleBold, textAlign: pw.TextAlign.right)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('TOTAL FONDOS BASE', style: dataStyleBold)),
+                  pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('')),
+                ],
+              ),
+            ]
+          )
         );
+        widgets.add(pw.SizedBox(height: 20));
+        return widgets;
       }
 
       // ------------------------------------------------------------------------
@@ -573,57 +705,124 @@ class ServicioPdf {
       // ------------------------------------------------------------------------
 
       if (opcion == 0) {
-        // CIERRE CONTABLE COMPLETO (MULTIpágINA CONSOLIDADO)
+        // CIERRE CONTABLE COMPLETO (PÁGINAS INDEPENDIENTES PARA CADA SECCIÓN)
+        
+        // Página 1: Resumen General
         pdf.addPage(
           pw.MultiPage(
             pageFormat: PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(20),
-            header: (context) => buildHeader('Cierre Contable Consolidado Completo'),
+            header: (context) => buildHeader('Cierre Contable Consolidado Completo - Resumen'),
             footer: (context) => buildFooter(context),
             build: (context) => [
-              buildResumenWidget(),
-              pw.SizedBox(height: 10),
-              buildAlumnosWidget(),
-              pw.SizedBox(height: 10),
-              buildPagosWidget(),
-              pw.SizedBox(height: 10),
-              buildGastosWidget(),
-              pw.SizedBox(height: 10),
-              buildExtrasWidget(),
-              pw.SizedBox(height: 10),
-              buildFondoWidget(),
+              ...buildResumenWidgets(),
             ],
           ),
         );
+
+        // Página 2: Estado de Alumnos (Deudores)
+        if (deudoresLista.isNotEmpty) {
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(20),
+              header: (context) => buildHeader('Cierre Contable Completo - Estado de Alumnos'),
+              footer: (context) => buildFooter(context),
+              build: (context) => [
+                ...buildAlumnosWidgets(),
+              ],
+            ),
+          );
+        }
+
+        // Página 3: Historial de Pagos
+        if (pagosLista.isNotEmpty) {
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(20),
+              header: (context) => buildHeader('Cierre Contable Completo - Historial de Pagos'),
+              footer: (context) => buildFooter(context),
+              build: (context) => [
+                ...buildPagosWidgets(),
+              ],
+            ),
+          );
+        }
+
+        // Página 4: Historial de Gastos
+        if (gastosLista.isNotEmpty) {
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(20),
+              header: (context) => buildHeader('Cierre Contable Completo - Historial de Gastos'),
+              footer: (context) => buildFooter(context),
+              build: (context) => [
+                ...buildGastosWidgets(),
+              ],
+            ),
+          );
+        }
+
+        // Página 5: Ingresos Extra
+        if (extrasLista.isNotEmpty) {
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(20),
+              header: (context) => buildHeader('Cierre Contable Completo - Ingresos Extras'),
+              footer: (context) => buildFooter(context),
+              build: (context) => [
+                ...buildExtrasWidgets(),
+              ],
+            ),
+          );
+        }
+
+        // Página 6: Fondo Inicial de Apertura
+        if (fondoLista.isNotEmpty) {
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(20),
+              header: (context) => buildHeader('Cierre Contable Completo - Fondo Inicial de Apertura'),
+              footer: (context) => buildFooter(context),
+              build: (context) => [
+                ...buildFondoWidgets(),
+              ],
+            ),
+          );
+        }
       } else {
         // REPORTES INDIVIDUALES
         String label = 'Reporte Financiero';
-        pw.Widget Function() widgetBuilder;
+        List<pw.Widget> Function() widgetBuilder;
 
         switch (opcion) {
           case 1:
             label = 'Resumen de Caja General';
-            widgetBuilder = () => buildResumenWidget();
+            widgetBuilder = () => buildResumenWidgets();
             break;
           case 2:
             label = 'Estado General de Alumnos';
-            widgetBuilder = () => buildAlumnosWidget();
+            widgetBuilder = () => buildAlumnosWidgets();
             break;
           case 3:
             label = 'Historial General de Pagos';
-            widgetBuilder = () => buildPagosWidget();
+            widgetBuilder = () => buildPagosWidgets();
             break;
           case 4:
             label = 'Historial General de Gastos (Egresos)';
-            widgetBuilder = () => buildGastosWidget();
+            widgetBuilder = () => buildGastosWidgets();
             break;
           case 5:
             label = 'Detalle de Ingresos Extras y Donaciones';
-            widgetBuilder = () => buildExtrasWidget();
+            widgetBuilder = () => buildExtrasWidgets();
             break;
           case 6:
             label = 'Historial de Fondo Inicial de Apertura';
-            widgetBuilder = () => buildFondoWidget();
+            widgetBuilder = () => buildFondoWidgets();
             break;
           default:
             throw Exception('Opción no configurada para PDF');
@@ -636,7 +835,7 @@ class ServicioPdf {
             header: (context) => buildHeader(label),
             footer: (context) => buildFooter(context),
             build: (context) => [
-              widgetBuilder(),
+              ...widgetBuilder(),
             ],
           ),
         );
@@ -644,20 +843,23 @@ class ServicioPdf {
 
       // Convertir el documento a bytes
       final Uint8List pdfBytes = await pdf.save();
-
-      // Definir nombre de archivo
-      String nomArchivo = 'Reporte_Insoft_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf';
-
-      // Mostrar vista previa interactiva e impresión/compartición en el dispositivo
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => pdfBytes,
-        name: nomArchivo,
-      );
-
-      return true;
+      return pdfBytes;
     } catch (e) {
       debugPrint('Error exportando reporte a PDF: $e');
-      return false;
+      return null;
     }
+  }
+
+  /// Mantiene compatibilidad con el código anterior de descarga directa
+  static Future<bool> exportarYCompartir(int opcion) async {
+    final pdfBytes = await generarPdfBytes(opcion);
+    if (pdfBytes == null) return false;
+
+    String nomArchivo = 'Reporte_Insoft_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf';
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdfBytes,
+      name: nomArchivo,
+    );
+    return true;
   }
 }
