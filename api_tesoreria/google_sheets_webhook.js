@@ -62,6 +62,15 @@ function doPost(e) {
     
     // Ejecutar lógica según la acción recibida
     switch (action) {
+      case 'GET_CODE':
+        responseData.ok = true;
+        responseData.code = {
+          sincronizarTodoSheets: typeof sincronizarTodoSheets !== 'undefined' ? sincronizarTodoSheets.toString() : 'undefined',
+          sincronizarDetalleApertura: typeof sincronizarDetalleApertura !== 'undefined' ? sincronizarDetalleApertura.toString() : 'undefined',
+          obtenerOInsertarHoja: typeof obtenerOInsertarHoja !== 'undefined' ? obtenerOInsertarHoja.toString() : 'undefined'
+        };
+        return ContentService.createTextOutput(JSON.stringify(responseData))
+                             .setMimeType(ContentService.MimeType.JSON);
       case 'DIAGNOSTICO':
         var info = {};
         info.spreadsheetId = ss.getId();
@@ -92,8 +101,36 @@ function doPost(e) {
         return ContentService.createTextOutput(JSON.stringify(responseData))
                              .setMimeType(ContentService.MimeType.JSON);
       case 'SINCRONIZAR_TODO':
-        sincronizarTodoSheets(ss, payload);
+        // Log payload sizes for diagnosis
+        debugLog.push("payload keys: " + (payload ? Object.keys(payload).join(',') : 'NULL'));
+        debugLog.push("fondo_base.length: " + (payload && payload.fondo_base ? payload.fondo_base.length : 'NULL'));
+        debugLog.push("pagos.length: " + (payload && payload.pagos ? payload.pagos.length : 'NULL'));
+        debugLog.push("gastos.length: " + (payload && payload.gastos ? payload.gastos.length : 'NULL'));
+        debugLog.push("extras.length: " + (payload && payload.extras ? payload.extras.length : 'NULL'));
+        debugLog.push("deudores.length: " + (payload && payload.deudores ? payload.deudores.length : 'NULL'));
+        sincronizarTodoSheets(ss, payload, debugLog);
+        // Verify row counts after sync
+        var sheetNames = ['Detalle Apertura','Historial Pagos','Historial Gastos','Ingresos Extra','Estado Alumnos','Cuadro General Pagos','Resumen General'];
+        for (var si = 0; si < sheetNames.length; si++) {
+          var sh = ss.getSheetByName(sheetNames[si]);
+          debugLog.push(sheetNames[si] + " rows after sync: " + (sh ? sh.getLastRow() : 'NOT FOUND'));
+        }
         break;
+      case 'TEST_SETVALUES':
+        // Test: can doPost context write with setValues?
+        var testSheet = ss.getSheetByName('TestSetValues') || ss.insertSheet('TestSetValues');
+        testSheet.clear();
+        SpreadsheetApp.flush();
+        var testData = [["Col A","Col B"],["Row1A","Row1B"],["Row2A","Row2B"]];
+        testSheet.getRange(1, 1, testData.length, 2).setValues(testData);
+        SpreadsheetApp.flush();
+        var readBack = testSheet.getRange(1, 1, 3, 2).getValues();
+        responseData.ok = true;
+        responseData.wrote = testData.length + " rows";
+        responseData.readBack = readBack;
+        responseData.lastRow = testSheet.getLastRow();
+        return ContentService.createTextOutput(JSON.stringify(responseData))
+                             .setMimeType(ContentService.MimeType.JSON);
       case 'APERTURA_CAJA':
         actualizarFondoBase(ss, payload);
         break;
@@ -139,15 +176,16 @@ function doPost(e) {
     }
     
     responseData.ok = true;
+    responseData.debugLog = debugLog;
     return ContentService.createTextOutput(JSON.stringify(responseData))
                          .setMimeType(ContentService.MimeType.JSON);
-                           
+                            
   } catch (err) {
     var userEmail = "desconocido";
     try {
       userEmail = Session.getEffectiveUser().getEmail();
     } catch(e) {}
-    var errResponse = { ok: false, error: err.toString() + " | Stack: " + (err.stack || "no-stack") + " (Ejecutando como: " + userEmail + ")" };
+    var errResponse = { ok: false, error: err.toString() + " | Stack: " + (err.stack || "no-stack") + " (Ejecutando como: " + userEmail + ")", debugLog: debugLog };
     return ContentService.createTextOutput(JSON.stringify(errResponse))
                          .setMimeType(ContentService.MimeType.JSON);
   }
@@ -177,43 +215,89 @@ function eliminarHojaPorDefecto(ss) {
 // LÓGICA DE SINCRONIZACIÓN COMPLETA (BULK SYNC)
 // ------------------------------------------------------------------------
 
-function sincronizarTodoSheets(ss, payload) {
+function sincronizarTodoSheets(ss, payload, debugLog) {
+  if (!debugLog) debugLog = [];
+  debugLog.push("Iniciando sincronizarTodoSheets...");
+  
   // 1. Detalle Apertura
-  sincronizarDetalleApertura(ss, payload.fondo_base);
+  try {
+    debugLog.push("1. Iniciando Detalle Apertura");
+    sincronizarDetalleApertura(ss, payload.fondo_base);
+    debugLog.push("1. Detalle Apertura completado");
+  } catch(e) {
+    debugLog.push("1. ERROR Detalle Apertura: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   Utilities.sleep(200);
   
   // 2. Historial Pagos
-  sincronizarHistorialPagos(ss, payload.pagos);
+  try {
+    debugLog.push("2. Iniciando Historial Pagos");
+    sincronizarHistorialPagos(ss, payload.pagos);
+    debugLog.push("2. Historial Pagos completado");
+  } catch(e) {
+    debugLog.push("2. ERROR Historial Pagos: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   Utilities.sleep(200);
   
   // 3. Historial Gastos
-  sincronizarHistorialGastos(ss, payload.gastos);
+  try {
+    debugLog.push("3. Iniciando Historial Gastos");
+    sincronizarHistorialGastos(ss, payload.gastos);
+    debugLog.push("3. Historial Gastos completado");
+  } catch(e) {
+    debugLog.push("3. ERROR Historial Gastos: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   Utilities.sleep(200);
   
   // 4. Ingresos Extra
-  sincronizarIngresosExtra(ss, payload.extras);
+  try {
+    debugLog.push("4. Iniciando Ingresos Extra");
+    sincronizarIngresosExtra(ss, payload.extras);
+    debugLog.push("4. Ingresos Extra completado");
+  } catch(e) {
+    debugLog.push("4. ERROR Ingresos Extra: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   Utilities.sleep(200);
   
   // 5. Estado Alumnos
-  sincronizarEstadoAlumnos(ss, payload.deudores);
+  try {
+    debugLog.push("5. Iniciando Estado Alumnos");
+    sincronizarEstadoAlumnos(ss, payload.deudores);
+    debugLog.push("5. Estado Alumnos completado");
+  } catch(e) {
+    debugLog.push("5. ERROR Estado Alumnos: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   Utilities.sleep(200);
   
   // 6. Cuadro General Pagos (Matriz por actividad)
-  sincronizarCuadroGeneralPagos(ss, payload.actividades, payload.deudores, payload.pagos);
+  try {
+    debugLog.push("6. Iniciando Cuadro General Pagos");
+    sincronizarCuadroGeneralPagos(ss, payload.actividades, payload.deudores, payload.pagos);
+    debugLog.push("6. Cuadro General Pagos completado");
+  } catch(e) {
+    debugLog.push("6. ERROR Cuadro General Pagos: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   Utilities.sleep(200);
   
-  // 7. Resumen General (este lee vía fórmulas los totales)
-  actualizarResumenCaja(ss, payload);
+  // 7. Resumen General
+  try {
+    debugLog.push("7. Iniciando Resumen General");
+    actualizarResumenCaja(ss, payload);
+    debugLog.push("7. Resumen General completado");
+  } catch(e) {
+    debugLog.push("7. ERROR Resumen General: " + e.toString() + " | Stack: " + e.stack);
+  }
   SpreadsheetApp.flush();
   
   // Eliminar la hoja por defecto si existe
   eliminarHojaPorDefecto(ss);
+  debugLog.push("Sincronización total terminada.");
 }
 
 function obtenerOInsertarHoja(ss, nombre) {
@@ -223,6 +307,7 @@ function obtenerOInsertarHoja(ss, nombre) {
   }
   sheet.clear();
   sheet.clearFormats();
+  SpreadsheetApp.flush(); // Commit clear before writing new data
   return sheet;
 }
 
@@ -253,6 +338,7 @@ function sincronizarDetalleApertura(ss, fondoBase) {
   ]);
   
   sheet.getRange(1, 1, rows.length, 3).setValues(rows);
+  SpreadsheetApp.flush(); // Commit data before styling
   aplicarEstilosPestaña(sheet, ["right", "left", "center"], ["S/ #,##0.00", "", ""], true, rows.length, 3);
 }
 
@@ -307,6 +393,7 @@ function sincronizarHistorialPagos(ss, pagos) {
   ]);
   
   sheet.getRange(1, 1, rows.length, 8).setValues(rows);
+  SpreadsheetApp.flush(); // Commit data before styling
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "left", "center", "right", "right", "left", "center"], 
@@ -363,6 +450,7 @@ function sincronizarHistorialGastos(ss, gastos) {
   ]);
   
   sheet.getRange(1, 1, rows.length, 7).setValues(rows);
+  SpreadsheetApp.flush(); // Commit data before styling
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "left", "left", "right", "center", "center"], 
@@ -413,6 +501,7 @@ function sincronizarIngresosExtra(ss, extras) {
   ]);
   
   sheet.getRange(1, 1, rows.length, 5).setValues(rows);
+  SpreadsheetApp.flush(); // Commit data before styling
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "right", "left", "center"], 
@@ -468,6 +557,7 @@ function sincronizarEstadoAlumnos(ss, deudores) {
   ]);
   
   sheet.getRange(1, 1, rows.length, 7).setValues(rows);
+  SpreadsheetApp.flush(); // Commit data before styling
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "center", "center", "right", "right", "center"], 
@@ -561,6 +651,7 @@ function sincronizarCuadroGeneralPagos(ss, actividades, deudores, pagos) {
   rows.push(footerRow);
   
   sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
+  SpreadsheetApp.flush(); // Commit data before styling
   aplicarEstilosPestaña(sheet, alignments, formats, true, rows.length, headers.length);
 }
 
@@ -570,94 +661,69 @@ function aplicarEstilosPestaña(sheet, alignments, formats, hasFooter, lastRow, 
   if (!lastCol) lastCol = sheet.getLastColumn();
   if (lastRow === 0 || lastCol === 0) return;
   
-  // 1. Cabecera (Fila 1)
-  var headerRange = sheet.getRange(1, 1, 1, lastCol);
-  headerRange.setFontFamily("Inter")
-             .setFontSize(10)
-             .setFontWeight("bold")
-             .setFontColor("#FFFFFF")
-             .setBackground("#1D3557") // Azul profundo
-             .setHorizontalAlignment("center")
-             .setVerticalAlignment("middle")
-             .setBorder(true, true, true, true, true, true, "#CCCCCC", SpreadsheetApp.BorderStyle.SOLID);
-  // 2. Filas de datos
+  try {
+    // 1. Cabecera (Fila 1) — azul navy, texto blanco
+    sheet.getRange(1, 1, 1, lastCol)
+         .setBackground("#1D3557")
+         .setFontColor("#FFFFFF")
+         .setFontWeight("bold")
+         .setFontSize(10)
+         .setHorizontalAlignment("center")
+         .setVerticalAlignment("middle");
+    SpreadsheetApp.flush();
+  } catch(e) { Logger.log("Header style error: " + e); }
+  
   var numDataRows = hasFooter ? (lastRow - 2) : (lastRow - 1);
-  if (numDataRows > 0) {
-    var dataRange = sheet.getRange(2, 1, numDataRows, lastCol);
-    dataRange.setFontFamily("Inter")
-             .setFontSize(9)
-             .setVerticalAlignment("middle")
-             .setBorder(true, true, true, true, true, true, "#E0E0E0", SpreadsheetApp.BorderStyle.SOLID);
-             
-    // Formatear columnas
-    for (var col = 1; col <= lastCol; col++) {
-      var colRange = sheet.getRange(2, col, numDataRows, 1);
-      var align = alignments[col - 1] || "left";
-      var format = formats[col - 1] || "";
+  
+  try {
+    // 2. Filas de datos
+    if (numDataRows > 0) {
+      sheet.getRange(2, 1, numDataRows, lastCol)
+           .setFontSize(9)
+           .setVerticalAlignment("middle");
       
-      colRange.setHorizontalAlignment(align);
-      if (format) {
-        colRange.setNumberFormat(format);
+      // Alineación y formato por columna
+      for (var col = 1; col <= lastCol; col++) {
+        var colRange = sheet.getRange(2, col, numDataRows, 1);
+        var align = alignments[col - 1] || "left";
+        var fmt = formats[col - 1] || "";
+        colRange.setHorizontalAlignment(align);
+        if (fmt) colRange.setNumberFormat(fmt);
       }
+      SpreadsheetApp.flush();
     }
-  }
+  } catch(e) { Logger.log("Data style error: " + e); }
   
-  // 3. Fila de Total / Footer (Última Fila)
-  if (hasFooter && lastRow >= 2) {
-    var footerRange = sheet.getRange(lastRow, 1, 1, lastCol);
-    footerRange.setFontFamily("Inter")
-               .setFontSize(9)
-               .setFontWeight("bold")
-               .setBackground("#ECEFF1") // Gris claro contable
-               .setVerticalAlignment("middle");
-               
-    for (var col = 1; col <= lastCol; col++) {
-      var cell = sheet.getRange(lastRow, col);
-      var align = alignments[col - 1] || "left";
-      var format = formats[col - 1] || "";
-      cell.setHorizontalAlignment(align);
-      if (format) {
-        cell.setNumberFormat(format);
+  try {
+    // 3. Footer — gris claro, negrita
+    if (hasFooter && lastRow >= 2) {
+      sheet.getRange(lastRow, 1, 1, lastCol)
+           .setBackground("#ECEFF1")
+           .setFontWeight("bold")
+           .setFontSize(9)
+           .setVerticalAlignment("middle");
+      
+      for (var col = 1; col <= lastCol; col++) {
+        var align = alignments[col - 1] || "left";
+        var fmt = formats[col - 1] || "";
+        var cell = sheet.getRange(lastRow, col);
+        cell.setHorizontalAlignment(align);
+        if (fmt) cell.setNumberFormat(fmt);
       }
+      SpreadsheetApp.flush();
     }
-    
-    // Bordes dobles del footer
-    footerRange.setBorder(true, true, true, true, true, true, "#1D3557", SpreadsheetApp.BorderStyle.DOUBLE);
-  }
+  } catch(e) { Logger.log("Footer style error: " + e); }
   
-  // 4. Establecer anchos de columna y altos de fila de forma segura para Web Apps headless
-  ejecutarLayoutSeguro(function() {
-    sheet.setRowHeight(1, 28);
-  });
-  ejecutarLayoutSeguro(function() {
-    sheet.setFrozenRows(1);
-  });
-  
-  if (numDataRows > 0) {
-    ejecutarLayoutSeguro(function() {
-      for (var r = 2; r < 2 + numDataRows; r++) {
-        sheet.setRowHeight(r, 20);
-      }
-    });
-  }
-  
+  // 4. Layout (ancho columnas, alto filas, congelar) — tolerante a fallos
+  ejecutarLayoutSeguro(function() { sheet.setFrozenRows(1); });
+  ejecutarLayoutSeguro(function() { sheet.setRowHeight(1, 28); });
   if (hasFooter && lastRow >= 2) {
-    ejecutarLayoutSeguro(function() {
-      sheet.setRowHeight(lastRow, 22);
-    });
+    ejecutarLayoutSeguro(function() { sheet.setRowHeight(lastRow, 22); });
   }
-  
   ejecutarLayoutSeguro(function() {
     for (var col = 1; col <= lastCol; col++) {
-      var width = 110;
-      if (col === 2 || col === 3) {
-        width = 190; // Nombres de alumnos o conceptos
-      } else if (col === 1) {
-        width = 70;  // IDs cortos o N°
-      } else if (col === lastCol) {
-        width = 140; // Fechas completas o Cajero
-      }
-      sheet.setColumnWidth(col, width);
+      var w = (col === 1) ? 70 : (col === 2 || col === 3) ? 190 : (col === lastCol) ? 140 : 110;
+      sheet.setColumnWidth(col, w);
     }
   });
 }
