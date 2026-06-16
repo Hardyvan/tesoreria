@@ -316,12 +316,10 @@ function sincronizarDetalleApertura(ss, fondoBase) {
   var headers = ["Monto Base (S/)", "Motivo / Notas", "Fecha Apertura"];
   var rows = [headers];
   
-  var totalFondo = 0;
   if (fondoBase && fondoBase.length > 0) {
     for (var i = 0; i < fondoBase.length; i++) {
       var row = fondoBase[i];
       var monto = parseFloat(row.monto || 0);
-      totalFondo += monto;
       rows.push([
         monto,
         row.motivo || "",
@@ -330,15 +328,20 @@ function sincronizarDetalleApertura(ss, fondoBase) {
     }
   }
   
-  // Fila de Total
+  // Fila de Total (Fórmula dinámica)
   rows.push([
-    totalFondo,
+    "",
     "TOTAL BASE DE APERTURA",
     ""
   ]);
   
   sheet.getRange(1, 1, rows.length, 3).setValues(rows);
   SpreadsheetApp.flush(); // Commit data before styling
+  
+  // Escribir fórmula de total usando setFormula para traducción automática de idioma
+  sheet.getRange(rows.length, 1).setFormula("=SUM(INDIRECT(\"A2:A\" & (ROW()-1)))");
+  SpreadsheetApp.flush();
+  
   aplicarEstilosPestaña(sheet, ["right", "left", "center"], ["S/ #,##0.00", "", ""], true, rows.length, 3);
 }
 
@@ -346,9 +349,6 @@ function sincronizarHistorialPagos(ss, pagos) {
   var sheet = obtenerOInsertarHoja(ss, "Historial Pagos");
   var headers = ["ID Pago", "Alumno", "Actividad o Concepto", "Método", "Monto (S/)", "Mora (S/)", "Cajero", "Fecha de Pago"];
   var rows = [headers];
-  
-  var totalMonto = 0;
-  var totalMora = 0;
   
   if (pagos && pagos.length > 0) {
     // Ordenar cronológicamente por ID de pago
@@ -360,8 +360,6 @@ function sincronizarHistorialPagos(ss, pagos) {
       var p = pagos[i];
       var monto = parseFloat(p.monto || 0);
       var mora = parseFloat(p.monto_multa || 0);
-      totalMonto += monto;
-      totalMora += mora;
       
       var cajero = p.recaudador || "Sistema";
       if (!isNaN(cajero) && String(cajero).trim().length > 0) {
@@ -381,19 +379,26 @@ function sincronizarHistorialPagos(ss, pagos) {
     }
   }
   
+  // Fila de Total (Fórmula dinámica)
   rows.push([
     "",
     "TOTAL RECAUDADO",
     "",
     "",
-    totalMonto,
-    totalMora,
+    "",
+    "",
     "",
     ""
   ]);
   
   sheet.getRange(1, 1, rows.length, 8).setValues(rows);
   SpreadsheetApp.flush(); // Commit data before styling
+  
+  // Escribir fórmulas de total usando setFormula para traducción automática de idioma
+  sheet.getRange(rows.length, 5).setFormula("=SUM(INDIRECT(\"E2:E\" & (ROW()-1)))");
+  sheet.getRange(rows.length, 6).setFormula("=SUM(INDIRECT(\"F2:F\" & (ROW()-1)))");
+  SpreadsheetApp.flush();
+  
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "left", "center", "right", "right", "left", "center"], 
@@ -409,7 +414,6 @@ function sincronizarHistorialGastos(ss, gastos) {
   var headers = ["ID Gasto", "Descripción", "Actividad Imputada", "Responsable", "Monto Gastado (S/)", "Comprobante?", "Fecha de Gasto"];
   var rows = [headers];
   
-  var totalMonto = 0;
   if (gastos && gastos.length > 0) {
     gastos.sort(function(a, b) {
       return parseInt(a.id || 0) - parseInt(b.id || 0);
@@ -418,7 +422,6 @@ function sincronizarHistorialGastos(ss, gastos) {
     for (var i = 0; i < gastos.length; i++) {
       var g = gastos[i];
       var monto = parseFloat(g.monto || 0);
-      totalMonto += monto;
       
       var responsable = g.responsable || "Sistema";
       if (!isNaN(responsable) && String(responsable).trim().length > 0) {
@@ -439,18 +442,24 @@ function sincronizarHistorialGastos(ss, gastos) {
     }
   }
   
+  // Fila de Total (Fórmula dinámica)
   rows.push([
     "",
     "TOTAL GASTOS",
     "",
     "",
-    totalMonto,
+    "",
     "",
     ""
   ]);
   
   sheet.getRange(1, 1, rows.length, 7).setValues(rows);
   SpreadsheetApp.flush(); // Commit data before styling
+  
+  // Escribir fórmula de total usando setFormula para traducción automática de idioma
+  sheet.getRange(rows.length, 5).setFormula("=SUM(INDIRECT(\"E2:E\" & (ROW()-1)))");
+  SpreadsheetApp.flush();
+  
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "left", "left", "right", "center", "center"], 
@@ -466,7 +475,6 @@ function sincronizarIngresosExtra(ss, extras) {
   var headers = ["ID Registro", "Descripción o Motivo", "Monto Ingreso (S/)", "Responsable", "Fecha Registro"];
   var rows = [headers];
   
-  var totalMonto = 0;
   if (extras && extras.length > 0) {
     extras.sort(function(a, b) {
       return parseInt(a.id || 0) - parseInt(b.id || 0);
@@ -475,7 +483,6 @@ function sincronizarIngresosExtra(ss, extras) {
     for (var i = 0; i < extras.length; i++) {
       var ex = extras[i];
       var monto = parseFloat(ex.monto || 0);
-      totalMonto += monto;
       
       var responsable = ex.responsable || "Sistema";
       if (!isNaN(responsable) && String(responsable).trim().length > 0) {
@@ -492,16 +499,22 @@ function sincronizarIngresosExtra(ss, extras) {
     }
   }
   
+  // Fila de Total (Fórmula dinámica)
   rows.push([
     "",
     "TOTAL INGRESOS EXTRA",
-    totalMonto,
+    "",
     "",
     ""
   ]);
   
   sheet.getRange(1, 1, rows.length, 5).setValues(rows);
   SpreadsheetApp.flush(); // Commit data before styling
+  
+  // Escribir fórmula de total usando setFormula para traducción automática de idioma
+  sheet.getRange(rows.length, 3).setFormula("=SUM(INDIRECT(\"C2:C\" & (ROW()-1)))");
+  SpreadsheetApp.flush();
+  
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "right", "left", "center"], 
@@ -517,9 +530,6 @@ function sincronizarEstadoAlumnos(ss, deudores) {
   var headers = ["ID Alumno", "Nombre", "Rol", "Celular", "Total Pagado (S/)", "Deuda Total (S/)", "Estado"];
   var rows = [headers];
   
-  var totalPagado = 0;
-  var totalDeuda = 0;
-  
   if (deudores && deudores.length > 0) {
     deudores.sort(function(a, b) {
       return String(a.nombre || "").localeCompare(String(b.nombre || ""));
@@ -530,9 +540,6 @@ function sincronizarEstadoAlumnos(ss, deudores) {
       var tPagar = parseFloat(d.total_a_pagar || 0);
       var tPagado = parseFloat(d.total_pagado || 0);
       var deuda = tPagar - tPagado;
-      
-      totalPagado += tPagado;
-      totalDeuda += deuda;
       
       rows.push([
         parseInt(d.id || 0),
@@ -546,18 +553,25 @@ function sincronizarEstadoAlumnos(ss, deudores) {
     }
   }
   
+  // Fila de Total (Fórmula dinámica)
   rows.push([
     "",
     "TOTAL GENERAL",
     "",
     "",
-    totalPagado,
-    totalDeuda,
+    "",
+    "",
     ""
   ]);
   
   sheet.getRange(1, 1, rows.length, 7).setValues(rows);
   SpreadsheetApp.flush(); // Commit data before styling
+  
+  // Escribir fórmulas de total usando setFormula para traducción automática de idioma
+  sheet.getRange(rows.length, 5).setFormula("=SUM(INDIRECT(\"E2:E\" & (ROW()-1)))");
+  sheet.getRange(rows.length, 6).setFormula("=SUM(INDIRECT(\"F2:F\" & (ROW()-1)))");
+  SpreadsheetApp.flush();
+  
   aplicarEstilosPestaña(
     sheet, 
     ["center", "left", "center", "center", "right", "right", "center"], 
@@ -754,7 +768,7 @@ function registrarPagoSheets(ss, payload) {
     cajero = "Admin ID: " + cajero;
   }
 
-  sheet.appendRow([
+  var datos = [
     id,
     alumno,
     actividad,
@@ -763,9 +777,9 @@ function registrarPagoSheets(ss, payload) {
     mora,
     cajero,
     fecha
-  ]);
+  ];
   
-  estilizarUltimaFila(sheet, [
+  var formatos = [
     "center",
     "left",
     "left",
@@ -774,7 +788,9 @@ function registrarPagoSheets(ss, payload) {
     "S/ #,##0.00",
     "left",
     "center"
-  ]);
+  ];
+  
+  insertarRegistroConFooter(sheet, datos, formatos, "TOTAL RECAUDADO");
 }
 
 function registrarGastoSheets(ss, payload) {
@@ -799,7 +815,7 @@ function registrarGastoSheets(ss, payload) {
     responsable = "Admin ID: " + responsable;
   }
 
-  sheet.appendRow([
+  var datos = [
     id,
     descripcion,
     actividad,
@@ -807,9 +823,9 @@ function registrarGastoSheets(ss, payload) {
     monto,
     tieneComprobante,
     fecha
-  ]);
+  ];
   
-  estilizarUltimaFila(sheet, [
+  var formatos = [
     "center",
     "left",
     "left",
@@ -817,7 +833,9 @@ function registrarGastoSheets(ss, payload) {
     "S/ #,##0.00",
     "center",
     "center"
-  ]);
+  ];
+  
+  insertarRegistroConFooter(sheet, datos, formatos, "TOTAL GASTOS");
 }
 
 function registrarIngresoExtraSheets(ss, payload) {
@@ -839,21 +857,23 @@ function registrarIngresoExtraSheets(ss, payload) {
     responsable = "Admin ID: " + responsable;
   }
 
-  sheet.appendRow([
+  var datos = [
     id,
     descripcion,
     monto,
     responsable,
     fecha
-  ]);
+  ];
   
-  estilizarUltimaFila(sheet, [
+  var formatos = [
     "center",
     "left",
     "S/ #,##0.00",
     "left",
     "center"
-  ]);
+  ];
+  
+  insertarRegistroConFooter(sheet, datos, formatos, "TOTAL INGRESOS EXTRA");
 }
 
 function actualizarFondoBase(ss, payload) {
@@ -865,17 +885,19 @@ function actualizarFondoBase(ss, payload) {
     estilizarCabecera(sheet);
   }
   
-  sheet.appendRow([
+  var datos = [
     parseFloat(payload.monto || 0),
     payload.motivo || "Apertura de Caja",
     payload.fecha_apertura || Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd HH:mm:ss")
-  ]);
+  ];
   
-  estilizarUltimaFila(sheet, [
+  var formatos = [
     "S/ #,##0.00",
     "left",
     "center"
-  ]);
+  ];
+  
+  insertarRegistroConFooter(sheet, datos, formatos, "TOTAL BASE DE APERTURA");
 }
 
 function limpiarCajaSheets(ss) {
@@ -916,25 +938,25 @@ function actualizarResumenCaja(ss, payload) {
   var headRow = 4;
   sheet.getRange("A" + headRow + ":B" + headRow).setFontWeight("bold").setFontColor("#FFFFFF").setBackground("#457B9D").setBorder(true, true, true, true, true, true, "#CCCCCC", SpreadsheetApp.BorderStyle.SOLID);
   
-  // Fórmulas dinámicas basadas en los historiales de las otras pestañas
+  // Fórmulas dinámicas basadas en los historiales de las otras pestañas (excluyendo filas de totales)
   sheet.appendRow(["(+) Fondo de Apertura (Caja Fuerte)", ""]);
-  sheet.getRange("B5").setFormula("=IFERROR(SUM('Detalle Apertura'!A2:A), 0)");
+  sheet.getRange("B5").setFormula("=IFERROR(SUMIF('Detalle Apertura'!B2:B, \"<>TOTAL BASE DE APERTURA\", 'Detalle Apertura'!A2:A), 0)");
   
   sheet.appendRow(["(+) Ingresos por Cobros (Pagos)", ""]);
-  sheet.getRange("B6").setFormula("=IFERROR(SUM('Historial Pagos'!E2:E) + SUM('Historial Pagos'!F2:F), 0)");
+  sheet.getRange("B6").setFormula("=IFERROR(SUMIF('Historial Pagos'!B2:B, \"<>TOTAL RECAUDADO\", 'Historial Pagos'!E2:E) + SUMIF('Historial Pagos'!B2:B, \"<>TOTAL RECAUDADO\", 'Historial Pagos'!F2:F), 0)");
   
   sheet.appendRow(["(+) Ingresos Extra y Donaciones", ""]);
-  sheet.getRange("B7").setFormula("=IFERROR(SUM('Ingresos Extra'!C2:C), 0)");
+  sheet.getRange("B7").setFormula("=IFERROR(SUMIF('Ingresos Extra'!B2:B, \"<>TOTAL INGRESOS EXTRA\", 'Ingresos Extra'!C2:C), 0)");
   
   sheet.appendRow(["(-) Gastos Totales (Egresos)", ""]);
-  sheet.getRange("B8").setFormula("=IFERROR(SUM('Historial Gastos'!E2:E), 0)");
+  sheet.getRange("B8").setFormula("=IFERROR(SUMIF('Historial Gastos'!B2:B, \"<>TOTAL GASTOS\", 'Historial Gastos'!E2:E), 0)");
   
   sheet.appendRow(["(=) SALDO NETO ACTUAL EN CAJA", ""]);
   sheet.getRange("B9").setFormula("=B5+B6+B7-B8");
   
   sheet.appendRow(["", ""]); // Espaciador
   sheet.appendRow(["(*) Deuda Pendiente (Por cobrar)", ""]);
-  sheet.getRange("B11").setFormula("=IFERROR(SUM('Estado Alumnos'!F2:F), 0)");
+  sheet.getRange("B11").setFormula("=IFERROR(SUMIF('Estado Alumnos'!B2:B, \"<>TOTAL GENERAL\", 'Estado Alumnos'!F2:F), 0)");
   
   // Formatear filas de datos
   var startRow = 5;
@@ -992,21 +1014,38 @@ function estilizarCabecera(sheet) {
   });
 }
 
-function estilizarUltimaFila(sheet, formatos) {
-  var row = sheet.getLastRow();
-  var cols = sheet.getLastColumn();
-  
-  // Formatear bordes y celdas
-  for (var c = 1; c <= cols; c++) {
-    var cell = sheet.getRange(row, c);
-    cell.setFontFamily("Inter").setFontSize(9).setBorder(true, true, true, true, true, true, "#E0E0E0", SpreadsheetApp.BorderStyle.SOLID);
-    
-    var formato = formatsMapping(formatos[c - 1]);
-    if (formato.isNumberFormat) {
-      cell.setNumberFormat(formato.val).setHorizontalAlignment("right");
-    } else {
-      cell.setHorizontalAlignment(formato.val);
+function findFooterRow(sheet, keyword) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  var values = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // Column B
+  for (var i = 0; i < values.length; i++) {
+    var valStr = String(values[i][0]).toUpperCase();
+    if (valStr.indexOf(keyword.toUpperCase()) !== -1) {
+      return i + 2; // Row is 2-indexed
     }
+  }
+  return -1;
+}
+
+function estilizarFilaEspecifica(sheet, row, formatos) {
+  var cols = sheet.getLastColumn();
+  if (row <= 0 || cols <= 0) return;
+  
+  try {
+    var range = sheet.getRange(row, 1, 1, cols);
+    range.setFontFamily("Inter").setFontSize(9).setBorder(true, true, true, true, true, true, "#E0E0E0", SpreadsheetApp.BorderStyle.SOLID);
+    
+    for (var c = 1; c <= cols; c++) {
+      var cell = sheet.getRange(row, c);
+      var formato = formatsMapping(formatos[c - 1]);
+      if (formato.isNumberFormat) {
+        cell.setNumberFormat(formato.val).setHorizontalAlignment("right");
+      } else {
+        cell.setHorizontalAlignment(formato.val);
+      }
+    }
+  } catch(e) {
+    Logger.log("Error en estilizarFilaEspecifica: " + e.toString());
   }
   
   // Establecer anchos de columna y altos de fila de forma segura
@@ -1026,6 +1065,29 @@ function estilizarUltimaFila(sheet, formatos) {
       sheet.setColumnWidth(col, width);
     }
   });
+}
+
+function estilizarUltimaFila(sheet, formatos) {
+  estilizarFilaEspecifica(sheet, sheet.getLastRow(), formatos);
+}
+
+function insertarRegistroConFooter(sheet, datos, formatos, keywordFooter) {
+  var footerRow = findFooterRow(sheet, keywordFooter);
+  var targetRow;
+  if (footerRow !== -1) {
+    sheet.insertRowBefore(footerRow);
+    targetRow = footerRow;
+  } else {
+    sheet.appendRow(datos);
+    targetRow = sheet.getLastRow();
+    estilizarFilaEspecifica(sheet, targetRow, formatos);
+    return;
+  }
+  
+  // Escribir datos en la fila insertada
+  var range = sheet.getRange(targetRow, 1, 1, datos.length);
+  range.setValues([datos]);
+  estilizarFilaEspecifica(sheet, targetRow, formatos);
 }
 
 function formatsMapping(formatInput) {
