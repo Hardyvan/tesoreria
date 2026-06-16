@@ -93,10 +93,13 @@ function enviarPeticionConRedireccionManualGet($url, $maxRedirecciones = 5) {
     return ($httpCode === 200);
 }
 
+// Cola para sincronizaciones diferidas (caso fallback)
+$GLOBALS['sheets_sync_queue'] = [];
+
 function sincronizarConGoogleSheets($action, $payload) {
     $webhookUrl = getenv('GOOGLE_SHEET_WEBHOOK_URL');
     if (empty($webhookUrl)) {
-        return true; // Sincronización desactivada silenciosamente
+        return true; 
     }
 
     // Estructurar el cuerpo de la petición
@@ -107,8 +110,39 @@ function sincronizarConGoogleSheets($action, $payload) {
     ];
 
     $jsonData = json_encode($data);
-    return enviarPeticionConRedireccionManual($webhookUrl, $jsonData);
+
+    // 1. Intentar ejecución asíncrona mediante comando cURL CLI en segundo plano (rápido y no-bloqueante)
+    if (function_exists('exec') && strncasecmp(PHP_OS, 'WIN', 3) !== 0) {
+        $escapedUrl = escapeshellarg($webhookUrl);
+        $escapedJson = escapeshellarg($jsonData);
+        // El caracter '&' al final corre el comando en segundo plano en Linux/Unix
+        $command = "curl -L -k -H 'Content-Type: application/json' -d $escapedJson $escapedUrl > /dev/null 2>&1 &";
+        exec($command);
+        return true;
+    }
+
+    // 2. Fallback: Guardar en cola para procesarlo al final del script tras liberar al cliente
+    $GLOBALS['sheets_sync_queue'][] = [
+        'url' => $webhookUrl,
+        'json' => $jsonData
+    ];
+    return true;
 }
+
+// Registrar función de apagado para liberar al cliente y procesar el fallback de Sheets en segundo plano
+register_shutdown_function(function() {
+    if (!empty($GLOBALS['sheets_sync_queue'])) {
+        // Enviar respuesta al cliente y cerrar la conexión HTTP de inmediato
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+        
+        // Procesar las peticiones encoladas
+        foreach ($GLOBALS['sheets_sync_queue'] as $item) {
+            enviarPeticionConRedireccionManual($item['url'], $item['json']);
+        }
+    }
+});
 
 // 3. Verificar seguridad (API Key)
 verificarSeguridadAPI();

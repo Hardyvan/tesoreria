@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dsi/myPagesBack/b_logica_estado_financiero.dart';
 import 'package:dsi/myPagesBack/a_logica_inicio_sesion.dart';
+import 'package:dsi/myPagesBack/h_servicio_conectividad.dart';
 import 'package:dsi/myPagesTema/b_ui_kit.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../myPagesTema/c_formatos.dart';
 
 class HistorialPagos extends StatelessWidget {
@@ -357,8 +359,44 @@ class VistaDetalleHistorialUsuarioState extends State<VistaDetalleHistorialUsuar
                                           ),
                                         ],
                                       ),
-                                      Text(currencyFormat.format(p['monto']),
-                                          style: const TextStyle(fontWeight: FontWeight.w500)),
+                                      Row(
+                                        children: [
+                                          if (p['comprobante_url'] != null && p['comprobante_url'].toString().trim().isNotEmpty) ...[
+                                            InkWell(
+                                              onTap: () => _mostrarComprobanteDialog(context, p['comprobante_url'].toString()),
+                                              borderRadius: BorderRadius.circular(6),
+                                              child: Container(
+                                                width: 32,
+                                                height: 32,
+                                                margin: const EdgeInsets.only(right: 12),
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: Colors.grey.shade300),
+                                                ),
+                                                clipBehavior: Clip.antiAlias,
+                                                child: CachedNetworkImage(
+                                                  imageUrl: p['comprobante_url'].toString(),
+                                                  fit: BoxFit.cover,
+                                                  placeholder: (context, url) => const Center(
+                                                    child: SizedBox(
+                                                      width: 12,
+                                                      height: 12,
+                                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                                    ),
+                                                  ),
+                                                  errorWidget: (context, url, error) => const Icon(
+                                                    Icons.image_not_supported,
+                                                    size: 16,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          Text(currencyFormat.format(p['monto']),
+                                              style: const TextStyle(fontWeight: FontWeight.w500)),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                   if (p['multa'] != null && p['multa'] > 0)
@@ -432,9 +470,126 @@ class VistaDetalleHistorialUsuarioState extends State<VistaDetalleHistorialUsuar
     }
   }
 
+  void _mostrarComprobanteDialog(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.receipt_long, color: Color(0xFF742284)),
+                            SizedBox(width: 8),
+                            Text(
+                              'Comprobante de Pago',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: InteractiveViewer(
+                          maxScale: 4.0,
+                          child: CachedNetworkImage(
+                            imageUrl: url,
+                            placeholder: (context, url) => const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(32.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey.shade100,
+                              padding: const EdgeInsets.all(32.0),
+                              child: const Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'No se pudo cargar la imagen',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            final uri = Uri.parse(url);
+                            if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                              // OK
+                            } else {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(content: Text('No se pudo abrir el enlace del comprobante')),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          label: const Text('Abrir en navegador'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _mostrarModalYape(BuildContext context, String actividad, double monto) {
     const numeroYape = '990292918'; 
+    const titularYape = 'Ivan Velez Cruz';
     final currencyFormat = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
+    final conexion = Provider.of<ServicioConectividad>(context, listen: false);
+    final bool estaOnline = conexion.tieneConexion;
+
+    final String emvcoString = _generarEMVCoYape(
+      celular: numeroYape,
+      nombre: titularYape,
+      monto: monto,
+      concepto: actividad,
+    );
 
     showDialog(
       context: context,
@@ -450,93 +605,109 @@ class VistaDetalleHistorialUsuarioState extends State<VistaDetalleHistorialUsuar
                 child: const FaIcon(FontAwesomeIcons.mobileScreen, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
-              const Expanded(child: Text('Depósito Yape', style: TextStyle(fontWeight: FontWeight.bold))),
+              const Expanded(child: Text('Pago con Yape / Plin', style: TextStyle(fontWeight: FontWeight.bold))),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.esVistaPersonal ? 'Pagar ${currencyFormat.format(monto)}' : 'Deuda de ${currencyFormat.format(monto)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const Text('por concepto de:', style: TextStyle(color: Colors.grey)),
-              Text(actividad, style: const TextStyle(fontWeight: FontWeight.w500), textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16)
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  'assets/images/yape_qr.jpg',
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('Ivan Giovany Velez Cruz', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-              const SizedBox(height: 16),
-              const Text('O deposita al número:', style: TextStyle(fontWeight: FontWeight.w500)),
-              
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF742284).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () async {
-                    await Clipboard.setData(const ClipboardData(text: numeroYape));
-                    if (ctx.mounted) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(
-                          content: Text('Número copiado al portapapeles'), 
-                          backgroundColor: Color(0xFF742284),
-                          duration: Duration(seconds: 2),
-                        )
-                      );
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(numeroYape, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF742284))),
-                        const SizedBox(width: 16),
-                        Icon(Icons.copy, color: const Color(0xFF742284).withValues(alpha: 0.7)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              if (widget.esVistaPersonal)
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Escanea este QR desde otro cel o copia los datos:', style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                
+                // QR Dinámico (con autocompletado de monto)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  width: 200,
+                  height: 200,
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200)
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Una vez realizes el pago, envía la captura pantalla por WhatsApp al administrador.',
-                          style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
-                        ),
-                      ),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
                     ],
                   ),
-                )
-            ],
+                  clipBehavior: Clip.antiAlias,
+                  child: estaOnline
+                      ? Image.network(
+                          'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${Uri.encodeComponent(emvcoString)}',
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(color: Color(0xFF742284)),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) => Image.asset(
+                            'assets/images/yape_qr.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Image.asset(
+                          'assets/images/yape_qr.jpg',
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                const SizedBox(height: 12),
+                const Text(titularYape, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF742284))),
+                const Divider(height: 24),
+                
+                // Celular Destinatario (Con Copia)
+                _construirFilaCopia(
+                  label: 'Celular:',
+                  value: numeroYape,
+                  copyValue: numeroYape,
+                  context: ctx,
+                  color: const Color(0xFF742284),
+                ),
+                
+                // Monto Exacto (Con Copia)
+                _construirFilaCopia(
+                  label: 'Monto a transferir:',
+                  value: currencyFormat.format(monto),
+                  copyValue: monto.toStringAsFixed(2),
+                  context: ctx,
+                  color: Colors.green,
+                ),
+                
+                // Concepto / Actividad (Con Copia)
+                _construirFilaCopia(
+                  label: 'Concepto:',
+                  value: actividad,
+                  copyValue: actividad,
+                  context: ctx,
+                  color: Colors.blueGrey,
+                  largeText: true,
+                ),
+                
+                const SizedBox(height: 16),
+                if (widget.esVistaPersonal)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200)
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Una vez realizes el pago, envía la captura de pantalla por WhatsApp al administrador.',
+                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -558,6 +729,148 @@ class VistaDetalleHistorialUsuarioState extends State<VistaDetalleHistorialUsuar
         );
       }
     );
+  }
+
+  Widget _construirFilaCopia({
+    required String label,
+    required String value,
+    required String copyValue,
+    required BuildContext context,
+    required Color color,
+    bool largeText = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: largeText ? 13 : 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.copy, size: 16, color: color.withValues(alpha: 0.7)),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: copyValue));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Copiado: $copyValue'),
+                          backgroundColor: color,
+                          duration: const Duration(seconds: 1),
+                        )
+                      );
+                    }
+                  },
+                )
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  int _calcularCRC16(String data) {
+    int crc = 0xFFFF;
+    for (int i = 0; i < data.length; i++) {
+      int byte = data.codeUnitAt(i);
+      crc ^= (byte << 8);
+      for (int j = 0; j < 8; j++) {
+        if ((crc & 0x8000) != 0) {
+          crc = (crc << 1) ^ 0x1021;
+        } else {
+          crc = crc << 1;
+        }
+        crc &= 0xFFFF;
+      }
+    }
+    return crc;
+  }
+
+  String _generarEMVCoYape({
+    required String celular,
+    required String nombre,
+    required double monto,
+    required String concepto,
+  }) {
+    String emv = '000201';
+    emv += '010212';
+    
+    String subtag00 = '0009pe.yape.app';
+    String subtag01 = '0109$celular';
+    String merchantInfo = subtag00 + subtag01;
+    emv += '26${merchantInfo.length.toString().padLeft(2, '0')}$merchantInfo';
+    
+    emv += '52040000';
+    emv += '5303604';
+    
+    String montoStr = monto.toStringAsFixed(2);
+    emv += '54${montoStr.length.toString().padLeft(2, '0')}$montoStr';
+    
+    emv += '5802PE';
+    
+    String nombreSanitizado = nombre
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('Á', 'A')
+        .replaceAll('É', 'E')
+        .replaceAll('Í', 'I')
+        .replaceAll('Ó', 'O')
+        .replaceAll('Ú', 'U')
+        .replaceAll('ñ', 'n')
+        .replaceAll('Ñ', 'N');
+    if (nombreSanitizado.length > 25) {
+      nombreSanitizado = nombreSanitizado.substring(0, 25);
+    }
+    emv += '59${nombreSanitizado.length.toString().padLeft(2, '0')}$nombreSanitizado';
+    
+    emv += '6004Lima';
+    
+    String conceptoSanitizado = concepto
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll('Ñ', 'N')
+        .replaceAll(' ', '_');
+    if (conceptoSanitizado.length > 20) {
+      conceptoSanitizado = conceptoSanitizado.substring(0, 20);
+    }
+    String subtag01Concepto = '01${conceptoSanitizado.length.toString().padLeft(2, '0')}$conceptoSanitizado';
+    emv += '62${subtag01Concepto.length.toString().padLeft(2, '0')}$subtag01Concepto';
+
+    emv += '6304';
+    
+    int crcVal = _calcularCRC16(emv);
+    String crcHex = crcVal.toRadixString(16).toUpperCase().padLeft(4, '0');
+    
+    return emv + crcHex;
   }
 }
 

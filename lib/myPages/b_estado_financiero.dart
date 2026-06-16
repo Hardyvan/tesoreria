@@ -8,15 +8,20 @@ import '../myPagesTema/b_ui_kit.dart';
 import '../myPagesTema/e_termometro.dart';
 import '../myPagesTema/c_formatos.dart';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../myPagesBack/f_logica_perfil.dart';
 import '../../myPagesBack/e_logica_actividades.dart';
 import '../../myPagesBack/modelo_usuario.dart';
 import '../../myPagesBack/modelo_actividad.dart';
 import '../../myPagesBack/modelo_pago.dart';
+import '../../myPagesBack/h_servicio_pdf.dart';
+import '../myPagesTema/i_servicio_descargas.dart';
 import '../myMenu/d_historial_pagos.dart';
+import 'package:intl/intl.dart';
 
 class ListaDeudores extends StatefulWidget {
   const ListaDeudores({super.key});
@@ -53,6 +58,49 @@ class _ListaDeudoresState extends State<ListaDeudores> {
   }
 
   // MEJORA: Movido fuera del build para no instanciar la función en cada renderizado
+  Future<void> _descargarPdfDeudores() async {
+    unawaited(HapticFeedback.lightImpact());
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    
+    unawaited(showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    ));
+    
+    try {
+      final bytes = await ServicioPdf.generarPdfBytes(2); // 2 = Estado de Alumnos (Deudores)
+      navigator.pop(); // Ocultar spinner
+      
+      if (bytes != null) {
+        final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+        final nomArchivo = 'Reporte_Estado_Alumnos_$timestamp.pdf';
+        
+        await navigator.push(
+          MaterialPageRoute(
+            builder: (ctx) => VistaPreviaPdfPage(
+              pdfBytes: bytes,
+              titulo: 'Estado de Alumnos',
+              nombreArchivo: nomArchivo,
+            ),
+          ),
+        );
+      } else {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Error al generar el reporte de deudores'), backgroundColor: ColoresApp.error),
+        );
+      }
+    } catch (e) {
+      navigator.pop(); // Cerrar spinner si falla
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Ocurrió un error: $e'), backgroundColor: ColoresApp.error),
+      );
+    }
+  }
+
   String _quitarAcentos(String texto) {
     const conAcento = 'ÀÁÂÃÄÅàáâãäåÒÓÔÕÕÖØòóôõöøÈÉÊËèéêëðÇçÐÌÍÎÏìíîïÙÚÛÜùúûüÑñŠšŸÿýŽž';
     const sinAcento = 'AAAAAAaaaaaaOOOOOOOooooooEEEEeeeeeCcDIIIIiiiiUUUUuuuuNnSsYyyZz';
@@ -137,6 +185,13 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (esAdmin) ...[
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.red),
+                      tooltip: 'Exportar PDF de Deudores',
+                      onPressed: _descargarPdfDeudores,
+                    ),
+                  ],
                   if (tieneFiltro)
                     TextButton.icon(
                       onPressed: () async {
@@ -396,6 +451,90 @@ class _RegistroPagosState extends State<RegistroPagos> {
   final TextEditingController _montoController = TextEditingController();
   String _metodoPagoSeleccionado = 'Efectivo';
   final ValueNotifier<bool> _isLoading = ValueNotifier<bool>(false);
+  List<Map<String, dynamic>> _detallePagosUsuario = [];
+  XFile? _imagenComprobante;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _mostrarSelectorImagen() async {
+    await HapticFeedback.lightImpact();
+    if (!mounted) return;
+    
+    unawaited(showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Seleccionar Comprobante',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildBotonOrigen(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Cámara',
+                  source: ImageSource.camera,
+                ),
+                _buildBotonOrigen(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Galería',
+                  source: ImageSource.gallery,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ));
+  }
+
+  Widget _buildBotonOrigen({
+    required IconData icon,
+    required String label,
+    required ImageSource source,
+  }) {
+    return InkWell(
+      onTap: () async {
+        Navigator.pop(context);
+        try {
+          final XFile? image = await _picker.pickImage(
+            source: source,
+            imageQuality: 70,
+          );
+          if (image != null) {
+            setState(() {
+              _imagenComprobante = image;
+            });
+          }
+        } catch (e) {
+          debugPrint('Error picking image: $e');
+        }
+      },
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Theme.of(context).primaryColor, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -404,7 +543,63 @@ class _RegistroPagosState extends State<RegistroPagos> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ControladorUsuarios>().listarUsuarios();
       context.read<ControladorActividades>().listarActividades();
+      if (_selectedUsuarioId != null) {
+        _cargarDetallePagosUsuario(_selectedUsuarioId!);
+      }
     });
+  }
+
+  Future<void> _cargarDetallePagosUsuario(int usuarioId) async {
+    try {
+      final controlador = context.read<ControladorFinanzas>();
+      final detalle = await controlador.obtenerDetallePagosPorActividad(usuarioId);
+      if (mounted && _selectedUsuarioId == usuarioId) {
+        setState(() {
+          _detallePagosUsuario = detalle;
+          _recalcularMontoSugerido();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando detalle de pagos para sugerencia: $e');
+    }
+  }
+
+  void _recalcularMontoSugerido() {
+    if (_selectedActividadId == null) return;
+    final actividades = context.read<ControladorActividades>().actividades;
+    final act = actividades.firstWhere((a) => a.id == _selectedActividadId, orElse: () => actividades.first);
+    
+    double montoSugerido = act.costo;
+
+    if (_selectedUsuarioId != null && _detallePagosUsuario.isNotEmpty) {
+      final registroActividad = _detallePagosUsuario.firstWhere(
+        (element) => element['actividad_id'] == _selectedActividadId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (registroActividad.isNotEmpty) {
+        final double pagado = (registroActividad['total_pagado'] as num? ?? 0.0).toDouble();
+        final bool exonerado = registroActividad['exonerado'] ?? false;
+        
+        if (exonerado) {
+          montoSugerido = 0.0;
+        } else {
+          montoSugerido = act.costo - pagado;
+          if (montoSugerido < 0) {
+            montoSugerido = 0.0;
+          }
+        }
+      }
+    }
+
+    if (montoSugerido > 0 && act.fechaLimite != null && act.multaPorDia > 0) {
+      final hoy = DateTime.now();
+      final diasAtraso = hoy.difference(act.fechaLimite!).inDays;
+      if (diasAtraso > 0) {
+        montoSugerido += (diasAtraso * act.multaPorDia);
+      }
+    }
+
+    _montoController.text = montoSugerido.toStringAsFixed(2);
   }
 
   @override
@@ -426,7 +621,38 @@ class _RegistroPagosState extends State<RegistroPagos> {
       return;
     }
 
+    final finanzasCtrl = context.read<ControladorFinanzas>();
+    final authCtrl = context.read<ControladorAuth>();
+    final usuariosCtrl = context.read<ControladorUsuarios>();
+
     _isLoading.value = true;
+
+    String? comprobanteUrl;
+    if (_imagenComprobante != null) {
+      try {
+        final bytes = await _imagenComprobante!.readAsBytes();
+        final uploadRes = await finanzasCtrl.uploadImage(bytes, _imagenComprobante!.name);
+        if (uploadRes['ok'] == true) {
+          comprobanteUrl = uploadRes['url'];
+        } else {
+          _isLoading.value = false;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error al subir comprobante: ${uploadRes['msj']}'), backgroundColor: ColoresApp.error),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        _isLoading.value = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error de lectura: $e'), backgroundColor: ColoresApp.error),
+          );
+        }
+        return;
+      }
+    }
 
     final pago = Pago(
         id: 0,
@@ -435,21 +661,20 @@ class _RegistroPagosState extends State<RegistroPagos> {
         montoPagado: monto,
         fechaPago: DateTime.now(),
         confirmado: true,
-        metodoPago: _metodoPagoSeleccionado
+        metodoPago: _metodoPagoSeleccionado,
+        comprobanteUrl: comprobanteUrl,
     );
 
-    final auth = context.read<ControladorAuth>();
-    if (auth.usuarioActual == null) {
+    if (authCtrl.usuarioActual == null) {
       _isLoading.value = false;
       return;
     }
 
-    final usuarios = context.read<ControladorUsuarios>().usuarios;
-    final nombreAlumno = usuarios.firstWhere(
+    final nombreAlumno = usuariosCtrl.usuarios.firstWhere(
           (u) => u.id == _selectedUsuarioId,
       orElse: () => Usuario(id: 0, nombre: 'Alumno', celular: '', email: '', fotoUrl: '', rol: ''),
     ).nombre;
-    final exito = await context.read<ControladorFinanzas>().registrarPago(pago, auth.usuarioActual!, nombreAlumno: nombreAlumno);
+    final exito = await finanzasCtrl.registrarPago(pago, authCtrl.usuarioActual!, nombreAlumno: nombreAlumno);
 
     if (mounted) {
       _isLoading.value = false;
@@ -524,7 +749,13 @@ class _RegistroPagosState extends State<RegistroPagos> {
                     }).toList(),
                     validator: (value) => value == null ? 'Por favor seleccione un alumno' : null,
                     onChanged: (val) {
-                      setState(() => _selectedUsuarioId = val);
+                      setState(() {
+                        _selectedUsuarioId = val;
+                        _detallePagosUsuario = [];
+                      });
+                      if (val != null) {
+                        _cargarDetallePagosUsuario(val);
+                      }
                     },
                   ),
                   const SizedBox(height: 16),
@@ -564,18 +795,7 @@ class _RegistroPagosState extends State<RegistroPagos> {
                       setState(() {
                         _selectedActividadId = val;
                         if (val != null) {
-                          final act = actividades.firstWhere((a) => a.id == val);
-                          double montoSugerido = act.costo;
-
-                          // MEJORA: Sumar automáticamente la mora al campo del monto si aplica
-                          if (act.fechaLimite != null && act.multaPorDia > 0) {
-                            final hoy = DateTime.now();
-                            final diasAtraso = hoy.difference(act.fechaLimite!).inDays;
-                            if (diasAtraso > 0) {
-                              montoSugerido += (diasAtraso * act.multaPorDia);
-                            }
-                          }
-                          _montoController.text = montoSugerido.toStringAsFixed(2);
+                          _recalcularMontoSugerido();
                         }
                       });
                     },
@@ -659,6 +879,74 @@ class _RegistroPagosState extends State<RegistroPagos> {
                       if (val != null) setState(() => _metodoPagoSeleccionado = val);
                     },
                   ),
+
+                  // Selector de Comprobante
+                  const SizedBox(height: 20),
+                  Text(
+                    'Comprobante de Pago (Opcional)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_imagenComprobante == null)
+                    OutlinedButton.icon(
+                      onPressed: _mostrarSelectorImagen,
+                      icon: const Icon(Icons.add_photo_alternate_rounded),
+                      label: const Text('Adjuntar foto del comprobante'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_imagenComprobante!.path),
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Imagen cargada',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                Text(
+                                  _imagenComprobante!.name,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: Colors.red),
+                            onPressed: () {
+                              setState(() {
+                                _imagenComprobante = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
 
                   const SizedBox(height: 32),
 

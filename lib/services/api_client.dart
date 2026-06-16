@@ -65,4 +65,30 @@ class ApiClient {
       return {'ok': false, 'msj': 'Error de conexión con el servidor'};
     }
   }
+
+  Future<Map<String, dynamic>> uploadImage(Uint8List bytes, String filename) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(_gatewayUrl));
+      request.headers['Authorization'] = 'Bearer $_secretKey';
+      
+      final multipartFile = http.MultipartFile.fromBytes(
+        'archivo',
+        bytes,
+        filename: filename,
+      );
+      request.files.add(multipartFile);
+      
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        return {'ok': false, 'msj': 'Error al subir archivo: ${response.statusCode}'};
+      }
+    } catch (e) {
+      debugPrint('Error ApiClient (uploadImage): $e');
+      return {'ok': false, 'msj': 'Error de conexión con el servidor'};
+    }
+  }
 }

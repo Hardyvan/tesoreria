@@ -21,7 +21,7 @@ class ReportesAvanzados extends StatefulWidget {
 class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   DateTimeRange _rangoFechas = DateTimeRange(
-    start: DateTime.now().subtract(const Duration(days: 30)), 
+    start: DateTime(DateTime.now().year, 1, 1), 
     end: DateTime.now()
   );
   
@@ -45,6 +45,10 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
   }
 
   Future<void> _seleccionarFechas() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final accentColor = Theme.of(context).colorScheme.secondary;
+
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2024),
@@ -56,37 +60,82 @@ class _ReportesAvanzadosState extends State<ReportesAvanzados> with SingleTicker
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).primaryColor, // Color de cabecera y selección
-              onPrimary: Colors.white, // Color texto en cabecera
-              onSurface: Theme.of(context).primaryColor, // Color de textos generales
-              surfaceContainer: Colors.white, // Fondo del diálogo (M3)
-            ),
-            datePickerTheme: const DatePickerThemeData(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent, // Evitar tinte rosado/azul en M3
+            brightness: isDark ? Brightness.dark : Brightness.light,
+            colorScheme: isDark
+                ? ColorScheme.dark(
+                    primary: primaryColor,
+                    onPrimary: Colors.white,
+                    secondary: accentColor,
+                    onSecondary: Colors.black,
+                    surface: const Color(0xFF1E293B), // superficieOscura
+                    onSurface: Colors.white,
+                    surfaceContainer: const Color(0xFF0F172A),
+                    surfaceContainerHighest: const Color(0xFF334155),
+                  )
+                : ColorScheme.light(
+                    primary: primaryColor,
+                    onPrimary: Colors.white,
+                    secondary: accentColor,
+                    onSecondary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: primaryColor,
+                    surfaceContainer: const Color(0xFFF1F5F9),
+                    surfaceContainerHighest: primaryColor.withValues(alpha: 0.08),
+                  ),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              headerBackgroundColor: primaryColor,
+              headerForegroundColor: Colors.white,
+              headerHeadlineStyle: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                color: Colors.white,
+              ),
+              headerHelpStyle: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Colors.white70,
+              ),
+              dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.white;
+                }
+                return isDark ? Colors.white70 : Colors.black87;
+              }),
+              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return primaryColor;
+                }
+                return null;
+              }),
+              rangeSelectionBackgroundColor: primaryColor.withValues(alpha: 0.15),
+              rangeSelectionOverlayColor: WidgetStateProperty.all(primaryColor.withValues(alpha: 0.1)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).primaryColor, 
-                textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                foregroundColor: isDark ? Colors.white : primaryColor, 
+                textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
             textTheme: TextTheme(
-              headlineMedium: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 24, color: Theme.of(context).primaryColor),
-              titleMedium: GoogleFonts.inter(fontWeight: FontWeight.w500, color: Theme.of(context).primaryColor),
-              bodyLarge: GoogleFonts.inter(color: Theme.of(context).primaryColor), // Días de la semana
-              bodyMedium: GoogleFonts.inter(color: Theme.of(context).primaryColor), // Días del mes
-              bodySmall: GoogleFonts.inter(color: Theme.of(context).primaryColor), // Otros textos
+              headlineMedium: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 24, color: isDark ? Colors.white : primaryColor),
+              titleMedium: GoogleFonts.inter(fontWeight: FontWeight.w500, color: isDark ? Colors.white70 : primaryColor),
+              bodyLarge: GoogleFonts.inter(color: isDark ? Colors.white60 : Colors.black54), // Días de la semana
+              bodyMedium: GoogleFonts.inter(color: isDark ? Colors.white : Colors.black87), // Días del mes
+              bodySmall: GoogleFonts.inter(color: isDark ? Colors.white54 : Colors.black54), // Otros textos
             ),
           ),
           child: Dialog(
             insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), // Bordes redondeados
             clipBehavior: Clip.antiAlias, // Recorta el contenido a los bordes
+            elevation: 8,
             child: SizedBox(
-              width: 400, // Ancho máximo controlado
-              height: 550, // Altura controlada (menos invasivo)
+              width: 440, // Más ancho para evitar que se vea apretado
+              height: 580, // Más alto para que respire mejor
               child: child,
             ),
           ),

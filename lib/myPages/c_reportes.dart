@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../myPagesTema/c_formatos.dart';
 import '../../myPagesBack/b_logica_estado_financiero.dart';
+import '../../myPagesBack/g_servicio_excel.dart';
+import '../../myPagesBack/h_servicio_pdf.dart';
 import '../../myPagesBack/a_logica_inicio_sesion.dart';
 import '../../myPagesTema/a_tema.dart';
 import '../myPagesTema/b_ui_kit.dart';
@@ -26,6 +28,8 @@ class ReporteFinanciero extends StatefulWidget {
 class _ReporteFinancieroState extends State<ReporteFinanciero> {
   Future<void>? _futureCarga;
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
   int _seccionTocada = -1;
   String _filtroSeleccionado = 'todos'; // 'todos', 'pagos', 'gastos', 'extras'
 
@@ -53,6 +57,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -67,6 +72,16 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
     ]);
   }
 
+  String _quitarAcentos(String texto) {
+    const conAcento = 'ÀÁÂÃÄÅàáâãäåÒÓÔÕÕÖØòóôõöøÈÉÊËèéêëðÇçÐÌÍÎÏìíîïÙÚÛÜùúûüÑñŠšŸÿýŽž';
+    const sinAcento = 'AAAAAAaaaaaaOOOOOOOooooooEEEEeeeeeCcDIIIIiiiiUUUUuuuuNnSsYyyZz';
+    String res = texto;
+    for (int i = 0; i < conAcento.length; i++) {
+      res = res.replaceAll(conAcento[i], sinAcento[i]);
+    }
+    return res;
+  }
+
   @override
   Widget build(BuildContext context) {
     final finanzas = context.watch<ControladorFinanzas>();
@@ -76,11 +91,32 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final queryLimpio = _quitarAcentos(_searchQuery.toLowerCase().trim());
+    final palabrasBusqueda = queryLimpio.isEmpty ? <String>[] : queryLimpio.split(RegExp(r'\s+'));
+
     final listaFiltrada = finanzas.kardex.where((mov) {
-      if (_filtroSeleccionado == 'todos') return true;
-      if (_filtroSeleccionado == 'pagos') return mov['tipo'] == 'I';
-      if (_filtroSeleccionado == 'gastos') return mov['tipo'] == 'E';
-      if (_filtroSeleccionado == 'extras') return mov['tipo'] == 'X';
+      // 1. Filtro por tipo
+      bool cumpleTipo = true;
+      if (_filtroSeleccionado == 'todos') {
+        cumpleTipo = true;
+      } else if (_filtroSeleccionado == 'pagos') {
+        cumpleTipo = mov['tipo'] == 'I';
+      } else if (_filtroSeleccionado == 'gastos') {
+        cumpleTipo = mov['tipo'] == 'E';
+      } else if (_filtroSeleccionado == 'extras') {
+        cumpleTipo = mov['tipo'] == 'X';
+      }
+      
+      if (!cumpleTipo) return false;
+
+      // 2. Filtro por texto
+      if (palabrasBusqueda.isNotEmpty) {
+        final descripcion = _quitarAcentos(mov['descripcion'].toString().toLowerCase());
+        final montoText = mov['monto']?.toString() ?? '';
+        return palabrasBusqueda.every((palabra) => 
+          descripcion.contains(palabra) || montoText.contains(palabra)
+        );
+      }
       return true;
     }).toList();
 
@@ -96,8 +132,8 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
 
     final mostrarCargandoMas = finanzas.hayMasKardex && _filtroSeleccionado == 'todos';
     final itemCount = listaFiltrada.isEmpty 
-      ? 5 
-      : listaFiltrada.length + 4 + (mostrarCargandoMas ? 1 : 0);
+      ? 6 
+      : listaFiltrada.length + 5 + (mostrarCargandoMas ? 1 : 0);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -110,7 +146,65 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
         elevation: 2,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (esAdmin)
+          if (esAdmin) ...[
+            IconButton(
+              icon: const Icon(Icons.grid_on_rounded, color: Colors.white),
+              tooltip: 'Exportar Excel Contable',
+              onPressed: () async {
+                unawaited(HapticFeedback.lightImpact());
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final exito = await ServicioExcel.exportarYCompartir();
+                if (exito) {
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(content: Text('¡Libro de Excel exportado con éxito!'), backgroundColor: ColoresApp.exito),
+                  );
+                } else {
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(content: Text('Error al generar el libro de Excel'), backgroundColor: ColoresApp.error),
+                  );
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+              tooltip: 'Exportar PDF Consolidado',
+              onPressed: () async {
+                unawaited(HapticFeedback.lightImpact());
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(context);
+                unawaited(showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                ));
+                try {
+                  final bytes = await ServicioPdf.generarPdfBytes(0); // 0 = Cierre Completo
+                  navigator.pop();
+                  if (bytes != null) {
+                    final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+                    final nomArchivo = 'Reporte_Cierre_Completo_$timestamp.pdf';
+                    await navigator.push(
+                      MaterialPageRoute(
+                        builder: (ctx) => VistaPreviaPdfPage(
+                          pdfBytes: bytes,
+                          titulo: 'Cierre Completo',
+                          nombreArchivo: nomArchivo,
+                        ),
+                      ),
+                    );
+                  } else {
+                    scaffoldMessenger.showSnackBar(
+                      const SnackBar(content: Text('Error al generar el PDF consolidado'), backgroundColor: ColoresApp.error),
+                    );
+                  }
+                } catch (e) {
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('Ocurrió un error: $e'), backgroundColor: ColoresApp.error),
+                  );
+                }
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
               tooltip: 'Centro de Descargas Premium (Excel/PDF)',
@@ -118,6 +212,7 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                 ServicioDescargas.mostrarMenuDescargas(context);
               },
             ),
+          ],
           const BannerSinConexion() 
         ],
       ),
@@ -182,15 +277,18 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
                   );
                 }
                 if (index == 3) {
+                  return _buildSearchBar();
+                }
+                if (index == 4) {
                   return _buildFiltrosFila();
                 }
                 
-                if (listaFiltrada.isEmpty && index == 4) {
+                if (listaFiltrada.isEmpty && index == 5) {
                   return _buildEmptyState();
                 }
 
-                if (index - 4 < listaFiltrada.length) {
-                  final mov = listaFiltrada[index - 4];
+                if (index - 5 < listaFiltrada.length) {
+                  final mov = listaFiltrada[index - 5];
                   return _buildMovimientoItem(mov, esAdmin, dateFormat, currencyFormat);
                 } else {
                   // Elemento de cargando más...
@@ -221,6 +319,36 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
   }
 
   // --- WIDGETS DE APOYO ---
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextField(
+        controller: _searchCtrl,
+        onChanged: (val) => setState(() => _searchQuery = val),
+        decoration: InputDecoration(
+          hintText: 'Buscar por descripción o monto...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchQuery.isNotEmpty 
+            ? IconButton(
+                icon: const Icon(Icons.clear), 
+                onPressed: () {
+                  _searchCtrl.clear();
+                  setState(() => _searchQuery = '');
+                }
+              ) 
+            : null,
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+        ),
+      ),
+    );
+  }
 
   Widget _buildFiltrosFila() {
     final isDark = Theme.of(context).brightness == Brightness.dark;

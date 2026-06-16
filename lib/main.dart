@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // Importante para idioma
 import 'package:provider/provider.dart';
@@ -26,6 +27,19 @@ import 'myPagesTema/b_ui_kit.dart';
 Future<void> main() async {
   // Aseguramos binding para operaciones asíncronas antes de runApp
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Capturador global de errores del framework Flutter
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('⚠️ Error de Flutter capturado: ${details.exception}');
+  };
+
+  // Capturador global de errores asíncronos nativos/plataforma (evita crash nativo con diálogo en inglés)
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('⚠️ Excepción de plataforma o red capturada de forma segura: $error');
+    // Retornar true indica a la plataforma que el error ha sido manejado y previene el crash nativo
+    return true;
+  };
   
   // BLOQUEO DE CAPTURAS DE PANTALLA desactivado por incompatibilidad de build en release.
   // Si se requiere a futuro, usar paquete 'screen_protector'.

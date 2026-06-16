@@ -242,15 +242,25 @@ switch ($accion) {
         }
         
         $sqlAdm = "
-            SELECT COALESCE(u.nombre, 'Sistema/Manual') as admin_nombre, SUM(p.monto) as total
-            FROM DSI_salon_pagos p
-            LEFT JOIN DSI_salon_usuarios u ON p.admin_id = u.id
-            WHERE p.confirmado = 1 AND p.fecha_pago BETWEEN ? AND ?
-            GROUP BY u.id, u.nombre
+            SELECT admin_nombre, SUM(total) as total
+            FROM (
+                SELECT COALESCE(u.nombre, 'Sistema/Manual') as admin_nombre, p.monto as total
+                FROM DSI_salon_pagos p
+                LEFT JOIN DSI_salon_usuarios u ON p.admin_id = u.id
+                WHERE p.confirmado = 1 AND p.fecha_pago BETWEEN ? AND ?
+                
+                UNION ALL
+                
+                SELECT COALESCE(u.nombre, 'Sistema/Manual') as admin_nombre, e.monto as total
+                FROM DSI_salon_ingresos_extra e
+                LEFT JOIN DSI_salon_usuarios u ON e.admin_id = u.id
+                WHERE e.fecha_ingreso BETWEEN ? AND ?
+            ) t
+            GROUP BY admin_nombre
             ORDER BY total DESC
         ";
         $stmtAdm = $pdo->prepare($sqlAdm);
-        $stmtAdm->execute([$inicioFull, $finFull]);
+        $stmtAdm->execute([$inicioFull, $finFull, $inicioFull, $finFull]);
         $recaudacionAdmins = $stmtAdm->fetchAll();
         foreach ($recaudacionAdmins as &$ra) { $ra['total'] = (float)$ra['total']; }
         

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart' as api_ext;
 import 'modelo_pago.dart';
 import 'modelo_gasto.dart';
@@ -8,6 +9,7 @@ import 'modelo_usuario.dart';
 import 'k_gerente_notificaciones.dart';
 import 'k_servicio_auditoria.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../myPagesTema/c_formatos.dart';
 
@@ -27,7 +29,7 @@ class ControladorFinanzas extends ChangeNotifier {
   List<Map<String, dynamic>> _kardex = [];
   bool _hayMasKardex = true;
   int _kardexPage = 0;
-  static const int _kardexItemsPerPage = 20;
+  static const int _kardexItemsPerPage = 100;
 
   List<Map<String, dynamic>> _listaDeudores = [];
   List<Map<String, dynamic>> _misPagos = [];
@@ -47,6 +49,75 @@ class ControladorFinanzas extends ChangeNotifier {
   }
 
   bool _cargando = false;
+
+  ControladorFinanzas() {
+    unawaited(cargarCache());
+  }
+
+  Future<void> cargarCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // 1. Cargar Resumen Financiero
+      final cacheResumen = prefs.getString('cache_resumen_financiero');
+      if (cacheResumen != null) {
+        final Map<String, dynamic> data = jsonDecode(cacheResumen);
+        _totalIngresos = (data['totalIngresos'] as num? ?? 0.0).toDouble();
+        _totalGastos = (data['totalGastos'] as num? ?? 0.0).toDouble();
+        _fondoBase = (data['fondoBase'] as num? ?? 0.0).toDouble();
+        _fondoBaseMotivo = data['fondoBaseMotivo']?.toString() ?? '';
+        _saldoCaja = (data['saldoCaja'] as num? ?? 0.0).toDouble();
+      }
+
+      // 2. Cargar Kardex
+      final cacheKardex = prefs.getString('cache_kardex');
+      if (cacheKardex != null) {
+        final List<dynamic> datos = jsonDecode(cacheKardex);
+        _kardex = datos.map((fila) => {
+          'tipo': fila['tipo'],
+          'id_movimiento': fila['id_movimiento'],
+          'descripcion': fila['descripcion'],
+          'monto': (fila['monto'] as num? ?? 0.0).toDouble(),
+          'fecha': DateTime.tryParse(fila['fecha'].toString()) ?? DateTime.now(),
+          'actividad_id': fila['actividad_id'],
+        }).toList();
+      }
+
+      // 3. Cargar Deudores
+      final cacheDeudores = prefs.getString('cache_deudores');
+      if (cacheDeudores != null) {
+        final List<dynamic> results = jsonDecode(cacheDeudores);
+        _listaDeudores = results.map((fila) => {
+          'id': fila['id'],
+          'nombre': fila['nombre'].toString(),
+          'foto_url': fila['foto_url'].toString(),
+          'celular': fila['celular']?.toString() ?? '',
+          'deuda': (fila['deuda'] as num? ?? 0.0).toDouble(),
+          'estado': fila['estado'].toString()
+        }).toList();
+      }
+
+      // 4. Cargar metas de actividades
+      final cacheMetas = prefs.getString('cache_metas_actividades');
+      if (cacheMetas != null) {
+        final List<dynamic> datos = jsonDecode(cacheMetas);
+        _metasActividades = datos.map((fila) => {
+          'id': fila['id'],
+          'titulo': fila['titulo'].toString(),
+          'costo': (fila['costo'] as num? ?? 0.0).toDouble(),
+          'meta_total': (fila['meta_total'] as num? ?? 0.0).toDouble(),
+          'recaudado': (fila['recaudado'] as num? ?? 0.0).toDouble(),
+          'gastado': (fila['gastado'] as num? ?? 0.0).toDouble(),
+          'saldo_disponible': (fila['saldo_disponible'] as num? ?? 0.0).toDouble(),
+          'porcentaje_recaudacion': (fila['porcentaje_recaudacion'] as num? ?? 0.0).toDouble(),
+        }).toList();
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error cargando cache local: $e');
+    }
+  }
   
   double get deudaTotal => _deudaTotal;
   double get totalPagado => _totalPagado;
@@ -89,6 +160,25 @@ class ControladorFinanzas extends ChangeNotifier {
 
   // Cargar resumen financiero del usuario - MIGRADO A API CON CACHÉ
   Future<void> cargarFinanzasUsuario(int usuarioId) async {
+    // 1. Cargar caché inmediatamente si existe y está vacío
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheData = prefs.getString('cache_finanzas_usuario_$usuarioId');
+      if (cacheData != null && _misPagos.isEmpty) {
+        final Map<String, dynamic> data = jsonDecode(cacheData);
+        _deudaTotal = (data['deudaTotal'] as num? ?? 0.0).toDouble();
+        _totalPagado = (data['totalPagado'] as num? ?? 0.0).toDouble();
+        final listado = data['misPagos'] as List<dynamic>;
+        _misPagos = listado.map((fila) => {
+          'id': fila['id'],
+          'actividad': fila['actividad']?.toString() ?? '',
+          'monto': (fila['monto'] as num).toDouble(),
+          'fecha': DateTime.tryParse(fila['fecha_pago']?.toString() ?? '') ?? DateTime.now(),
+        }).toList();
+        notifyListeners();
+      }
+    } catch (_) {}
+
     // Solo mostramos carga si no hay datos previos
     if (_misPagos.isEmpty) {
       _cargando = true;
@@ -100,20 +190,64 @@ class ControladorFinanzas extends ChangeNotifier {
       final res = await api.post('obtenerDatosFinanzasUsuario', {'usuarioId': usuarioId});
       
       if (res['ok'] == true) {
-        _deudaTotal = (res['deudaTotal'] as num).toDouble();
-        _totalPagado = (res['totalPagado'] as num).toDouble();
+        final nuevaDeuda = (res['deudaTotal'] as num).toDouble();
+        final nuevoPagado = (res['totalPagado'] as num).toDouble();
         
         final listado = res['misPagos'] as List<dynamic>;
-        _misPagos = listado.map((fila) => {
+        final nuevosPagos = listado.map((fila) => {
           'id': fila['id'],
           'actividad': fila['actividad'].toString(),
           'monto': (fila['monto'] as num).toDouble(),
           'fecha': (fila['fecha_pago'] is String) ? DateTime.tryParse(fila['fecha_pago']) ?? DateTime.now() : fila['fecha_pago'],
         }).toList();
 
+        // Comparación inteligente para evitar rebuilds si los datos son idénticos
+        bool hayCambios = false;
+        if (nuevaDeuda != _deudaTotal || nuevoPagado != _totalPagado || _misPagos.length != nuevosPagos.length) {
+          hayCambios = true;
+        } else {
+          try {
+            final strPrevio = jsonEncode(_misPagos.map((p) => {
+              ...p,
+              'fecha': p['fecha'] is DateTime ? (p['fecha'] as DateTime).toIso8601String() : p['fecha'].toString()
+            }).toList());
+            final strNuevo = jsonEncode(nuevosPagos.map((p) => {
+              ...p,
+              'fecha': p['fecha'] is DateTime ? (p['fecha'] as DateTime).toIso8601String() : p['fecha'].toString()
+            }).toList());
+            if (strPrevio != strNuevo) {
+              hayCambios = true;
+            }
+          } catch (_) {
+            hayCambios = true;
+          }
+        }
+
+        if (hayCambios) {
+          _deudaTotal = nuevaDeuda;
+          _totalPagado = nuevoPagado;
+          _misPagos = nuevosPagos;
+          notifyListeners();
+          
+          // Guardar en cache local por usuario ID
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('cache_finanzas_usuario_$usuarioId', jsonEncode({
+              'deudaTotal': nuevaDeuda,
+              'totalPagado': nuevoPagado,
+              'misPagos': listado.map((fila) => {
+                'id': fila['id'],
+                'actividad': fila['actividad']?.toString() ?? '',
+                'monto': fila['monto'],
+                'fecha_pago': fila['fecha_pago']?.toString() ?? '',
+              }).toList()
+            }));
+          } catch (_) {}
+        }
+
         // --- RECORDATORIO DIARIO ---
-        if (_deudaTotal > 0) {
-          unawaited(GerenteNotificaciones().programarRecordatorioDeuda(_deudaTotal));
+        if (nuevaDeuda > 0) {
+          unawaited(GerenteNotificaciones().programarRecordatorioDeuda(nuevaDeuda));
         } else {
           unawaited(GerenteNotificaciones().cancelarRecordatorios());
         }
@@ -121,8 +255,10 @@ class ControladorFinanzas extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error obteniendo finanzas usuario: $e');
     } finally {
-      _cargando = false;
-      notifyListeners();
+      if (_cargando) {
+        _cargando = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -151,6 +287,7 @@ class ControladorFinanzas extends ChangeNotifier {
           int idActividad = row['actividad_id'];
           if (!agrupado.containsKey(idActividad)) {
             agrupado[idActividad] = {
+              'actividad_id': idActividad,
               'titulo': row['titulo'].toString(),
               'costo': (row['costo'] as num? ?? 0.0).toDouble(),
               'pagos': <Map<String, dynamic>>[],
@@ -168,7 +305,8 @@ class ControladorFinanzas extends ChangeNotifier {
                'fecha': row['fecha_pago'],
                'monto': monto,
                'multa': multa,
-               'metodo_pago': row['metodo_pago'] ?? 'Efectivo'
+               'metodo_pago': row['metodo_pago'] ?? 'Efectivo',
+               'comprobante_url': row['comprobante_url']?.toString(),
             });
             agrupado[idActividad]!['total_pagado'] += monto;
           }
@@ -192,8 +330,27 @@ class ControladorFinanzas extends ChangeNotifier {
         });
 
         final listaFinal = agrupado.values.toList();
-        _cacheDetallePagos[usuarioId] = listaFinal;
-        notifyListeners();
+        
+        // Comparación inteligente antes de actualizar caché y notificar rebuilds
+        final tieneCache = _cacheDetallePagos.containsKey(usuarioId);
+        bool cambioDetectado = true;
+        if (tieneCache) {
+          final cachePrevio = _cacheDetallePagos[usuarioId]!;
+          if (cachePrevio.length == listaFinal.length) {
+            try {
+              final jsonPrevio = jsonEncode(cachePrevio);
+              final jsonNuevo = jsonEncode(listaFinal);
+              if (jsonPrevio == jsonNuevo) {
+                cambioDetectado = false;
+              }
+            } catch (_) {}
+          }
+        }
+
+        if (cambioDetectado) {
+          _cacheDetallePagos[usuarioId] = listaFinal;
+          notifyListeners();
+        }
         return listaFinal;
       }
       return [];
@@ -220,7 +377,7 @@ class ControladorFinanzas extends ChangeNotifier {
            'usuarioId': pago.usuarioId,
            'monto': pago.montoPagado,
            'metodoPago': pago.metodoPago,
-           'comprobanteUrl': null
+           'comprobanteUrl': pago.comprobanteUrl
         }
       });
       
@@ -566,17 +723,44 @@ class ControladorFinanzas extends ChangeNotifier {
 
       if (res['ok'] == true && res['resumen'] != null) {
         final resumen = res['resumen'];
-        _totalIngresos = (resumen['totalIngresos'] as num).toDouble();
-        _totalGastos = (resumen['totalGastos'] as num).toDouble();
-        _fondoBase = (resumen['fondoBase'] as num).toDouble();
-        _fondoBaseMotivo = resumen['fondoBaseMotivo']?.toString() ?? '';
-        _saldoCaja = (resumen['saldoCaja'] as num).toDouble();
+        final nuevoIngresos = (resumen['totalIngresos'] as num).toDouble();
+        final nuevoGastos = (resumen['totalGastos'] as num).toDouble();
+        final nuevoFondoBase = (resumen['fondoBase'] as num).toDouble();
+        final nuevoFondoBaseMotivo = resumen['fondoBaseMotivo']?.toString() ?? '';
+        final nuevoSaldoCaja = (resumen['saldoCaja'] as num).toDouble();
+
+        // Comparación inteligente antes de asignar y notificar
+        if (nuevoIngresos != _totalIngresos ||
+            nuevoGastos != _totalGastos ||
+            nuevoFondoBase != _fondoBase ||
+            nuevoFondoBaseMotivo != _fondoBaseMotivo ||
+            nuevoSaldoCaja != _saldoCaja) {
+          _totalIngresos = nuevoIngresos;
+          _totalGastos = nuevoGastos;
+          _fondoBase = nuevoFondoBase;
+          _fondoBaseMotivo = nuevoFondoBaseMotivo;
+          _saldoCaja = nuevoSaldoCaja;
+          notifyListeners();
+
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('cache_resumen_financiero', jsonEncode({
+              'totalIngresos': nuevoIngresos,
+              'totalGastos': nuevoGastos,
+              'fondoBase': nuevoFondoBase,
+              'fondoBaseMotivo': nuevoFondoBaseMotivo,
+              'saldoCaja': nuevoSaldoCaja,
+            }));
+          } catch (_) {}
+        }
       }
     } catch (e) {
       debugPrint('Error obteniendo resumen: $e');
     } finally {
-      _cargando = false;
-      notifyListeners();
+      if (_cargando) {
+        _cargando = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -670,6 +854,20 @@ class ControladorFinanzas extends ChangeNotifier {
           _hayMasKardex = false;
         }
 
+        if (reset) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('cache_kardex', jsonEncode(nuevos.map((fila) => {
+              'tipo': fila['tipo'],
+              'id_movimiento': fila['id_movimiento'],
+              'descripcion': fila['descripcion'],
+              'monto': fila['monto'],
+              'fecha': (fila['fecha'] as DateTime).toIso8601String(),
+              'actividad_id': fila['actividad_id'],
+            }).toList()));
+          } catch (_) {}
+        }
+
         _kardex.addAll(nuevos);
         _kardexPage++;
       }
@@ -705,6 +903,13 @@ class ControladorFinanzas extends ChangeNotifier {
           'deuda': (fila['deuda'] as num).toDouble(),
           'estado': fila['estado'].toString()
         }).toList();
+
+        if (actividadId == null) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('cache_deudores', jsonEncode(results));
+          } catch (_) {}
+        }
       }
     } catch (e) {
       debugPrint('Error obteniendo deudores: $e');
@@ -761,7 +966,7 @@ class ControladorFinanzas extends ChangeNotifier {
       
       if (res['ok'] == true) {
         final results = res['datos'] as List<dynamic>;
-        _metasActividades = results.map((fila) => {
+        final nuevasMetas = results.map((fila) => {
           'id': fila['id'],
           'titulo': fila['titulo'].toString(),
           'costo': (fila['costo'] as num? ?? 0.0).toDouble(),
@@ -771,12 +976,40 @@ class ControladorFinanzas extends ChangeNotifier {
           'saldo_disponible': (fila['saldo_disponible'] as num).toDouble(),
           'porcentaje_recaudacion': (fila['porcentaje_recaudacion'] as num).toDouble(),
         }).toList();
+
+        // Comparar para evitar rebuilds innecesarios
+        bool hayCambios = false;
+        if (nuevasMetas.length != _metasActividades.length) {
+          hayCambios = true;
+        } else {
+          try {
+            final strPrevio = jsonEncode(_metasActividades);
+            final strNuevo = jsonEncode(nuevasMetas);
+            if (strPrevio != strNuevo) {
+              hayCambios = true;
+            }
+          } catch (_) {
+            hayCambios = true;
+          }
+        }
+
+        if (hayCambios) {
+          _metasActividades = nuevasMetas;
+          notifyListeners();
+          
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('cache_metas_actividades', jsonEncode(results));
+          } catch (_) {}
+        }
       }
     } catch (e) {
       debugPrint('Error obteniendo metas: $e');
     } finally {
-      _cargando = false;
-      notifyListeners();
+      if (_cargando) {
+        _cargando = false;
+        notifyListeners();
+      }
     }
   }
   
@@ -808,6 +1041,15 @@ class ControladorFinanzas extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error vaciarFondoBase: $e');
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadImage(Uint8List bytes, String filename) async {
+    try {
+      final api = api_ext.ApiClient();
+      return await api.uploadImage(bytes, filename);
+    } catch (e) {
+      return {'ok': false, 'msj': e.toString()};
     }
   }
 }

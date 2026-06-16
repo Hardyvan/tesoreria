@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'modelo_actividad.dart';
 import 'modelo_usuario.dart';
 import '../myPagesTema/c_formatos.dart';
@@ -13,6 +15,43 @@ class ControladorActividades extends ChangeNotifier {
 
   List<Actividad> get actividades => _actividades;
   bool get cargando => _cargando;
+
+  ControladorActividades() {
+    unawaited(cargarCache());
+  }
+
+  Future<void> cargarCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheData = prefs.getString('cache_actividades');
+      if (cacheData != null) {
+        final List<dynamic> datos = jsonDecode(cacheData);
+        _actividades = datos.map((fila) => Actividad.desdeMapa(Map<String, dynamic>.from(fila))).toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error cargando cache de actividades: $e');
+    }
+  }
+
+  Future<void> _guardarCacheLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listado = _actividades.map((a) => {
+        'id': a.id,
+        'titulo': a.titulo,
+        'costo': a.costo,
+        'fecha_creacion': a.fechaCreada.toIso8601String(),
+        'fecha_limite': a.fechaLimite?.toIso8601String(),
+        'multa_por_dia': a.multaPorDia,
+        'requiere_asistencia': a.requiereAsistencia ? 1 : 0,
+        'multa_inasistencia': a.multaInasistencia,
+      }).toList();
+      await prefs.setString('cache_actividades', jsonEncode(listado));
+    } catch (e) {
+      debugPrint('Error guardando cache actividades: $e');
+    }
+  }
 
   // Crear una nueva actividad (Solo Admin)
   Future<bool> crearActividad(String titulo, double costo, Usuario usuario, {
@@ -50,6 +89,7 @@ class ControladorActividades extends ChangeNotifier {
           requiereAsistencia: requiereAsistencia,
           multaInasistencia: multaInasistencia,
         ));
+        unawaited(_guardarCacheLocal());
         
         // Push notification masiva a todos los usuarios del aula
         try {
@@ -86,22 +126,51 @@ class ControladorActividades extends ChangeNotifier {
       
       if (res['ok'] == true) {
         final datos = res['datos'] as List<dynamic>;
-        _actividades = datos.map((fila) => Actividad.desdeMapa({
+        final nuevasActividades = datos.map((fila) => Actividad.desdeMapa({
           'id': fila['id'],
           'titulo': fila['titulo'].toString(),
           'costo': fila['costo'],
-          'fecha_creada': fila['fecha_creacion'],
+          'fecha_creacion': fila['fecha_creacion'],
           'fecha_limite': fila['fecha_limite'],
           'multa_por_dia': fila['multa_por_dia'],
           'requiere_asistencia': fila['requiere_asistencia'],
           'multa_inasistencia': fila['multa_inasistencia'],
         })).toList();
+
+        // Comparar para evitar rebuilds innecesarios
+        bool hayCambios = false;
+        if (_actividades.length != nuevasActividades.length) {
+          hayCambios = true;
+        } else {
+          for (int i = 0; i < _actividades.length; i++) {
+            final a = _actividades[i];
+            final b = nuevasActividades[i];
+            if (a.id != b.id ||
+                a.titulo != b.titulo ||
+                a.costo != b.costo ||
+                a.fechaLimite != b.fechaLimite ||
+                a.multaPorDia != b.multaPorDia ||
+                a.requiereAsistencia != b.requiereAsistencia ||
+                a.multaInasistencia != b.multaInasistencia) {
+              hayCambios = true;
+              break;
+            }
+          }
+        }
+
+        if (hayCambios) {
+          _actividades = nuevasActividades;
+          unawaited(_guardarCacheLocal());
+          notifyListeners();
+        }
       }
     } catch (e) {
       debugPrint('Error listando actividades: $e');
     } finally {
-      _cargando = false;
-      notifyListeners();
+      if (_cargando) {
+        _cargando = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -145,6 +214,7 @@ class ControladorActividades extends ChangeNotifier {
               multaInasistencia: multaInasistencia,
           );
         }
+        unawaited(_guardarCacheLocal());
         return true;
       }
       return false;
@@ -173,6 +243,7 @@ class ControladorActividades extends ChangeNotifier {
       
       if (res['ok'] == true) {
         _actividades.removeWhere((a) => a.id == id);
+        unawaited(_guardarCacheLocal());
         return null;
       } else {
         return res['msj'] ?? 'Error al eliminar.';

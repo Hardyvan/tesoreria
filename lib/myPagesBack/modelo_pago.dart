@@ -9,6 +9,7 @@ class Pago {
   final String metodoPago;
   final int? adminId;
   final String? adminNombre;
+  final String? comprobanteUrl;
 
   Pago({
     required this.id,
@@ -21,6 +22,7 @@ class Pago {
     this.metodoPago = 'Efectivo',
     this.adminId,
     this.adminNombre,
+    this.comprobanteUrl,
   });
 
   // Factory para crear desde BD
@@ -36,6 +38,7 @@ class Pago {
       metodoPago: mapa['metodo_pago'] ?? 'Efectivo',
       adminId: mapa['admin_id'],
       adminNombre: mapa['admin_nombre']?.toString(),
+      comprobanteUrl: mapa['comprobante_url']?.toString(),
     );
   }
 
@@ -51,6 +54,7 @@ class Pago {
       'confirmado': confirmado ? 1 : 0,
       'metodo_pago': metodoPago,
       'admin_id': adminId,
+      'comprobante_url': comprobanteUrl,
     };
   }
 }

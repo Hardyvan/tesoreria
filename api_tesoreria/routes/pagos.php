@@ -179,7 +179,7 @@ switch ($accion) {
     case 'obtenerDetallePagosPorActividad':
         $usuarioId = isset($data['usuarioId']) ? (int)$data['usuarioId'] : 0;
         $stmt = $pdo->prepare("
-            SELECT a.id as actividad_id, a.titulo, a.costo, p.id as pago_id, p.monto, p.monto_multa, p.fecha_pago,
+            SELECT a.id as actividad_id, a.titulo, a.costo, p.id as pago_id, p.monto, p.monto_multa, p.fecha_pago, p.metodo_pago, p.comprobante_url,
                    (SELECT COUNT(1) FROM DSI_salon_exoneraciones WHERE usuario_id = :uid1 AND actividad_id = a.id) as exonerado
             FROM DSI_salon_actividades a
             LEFT JOIN DSI_salon_pagos p ON a.id = p.actividad_id AND p.usuario_id = :uid2 AND p.confirmado = 1
