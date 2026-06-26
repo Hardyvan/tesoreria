@@ -212,6 +212,12 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
                     colorBase: Colors.orange,
                     onTap: () => Navigator.pushNamed(context, '/gestion_usuarios'),
                   ),
+                  _TarjetaOpcionAdmin(
+                    titulo: 'Ajustes de\nAdministrador',
+                    icono: Icons.admin_panel_settings_rounded,
+                    colorBase: Colors.indigo,
+                    onTap: () => Navigator.pushNamed(context, '/ajustes_admin'),
+                  ),
                   if (auth.usuarioActual?.rol == 'SuperAdmin')
                     _TarjetaOpcionAdmin(
                       titulo: 'Auditoría\ndel Sistema',
@@ -342,6 +348,8 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
             TextField(
               controller: ctrlMotivo,
               textCapitalization: TextCapitalization.sentences,
+              enableSuggestions: false,
+              autocorrect: false,
               decoration: const InputDecoration(labelText: 'Motivo (Ej. Donación voluntaria)', prefixIcon: Icon(Icons.description)),
             ),
           ],
@@ -539,11 +547,12 @@ class _PortalFinancieroState extends State<PortalFinanciero> {
              ),
              const SizedBox(height: 16),
              // LEYENDA
-             Row(
-               mainAxisAlignment: MainAxisAlignment.center,
+             Wrap(
+               alignment: WrapAlignment.center,
+               spacing: 24,
+               runSpacing: 8,
                children: [
                  _indicador(ColoresApp.exito, 'Al día ($alDia)'),
-                 const SizedBox(width: 24),
                  _indicador(ColoresApp.error, 'Con Deuda ($conDeuda)'),
                ],
              )

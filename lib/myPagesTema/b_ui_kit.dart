@@ -157,6 +157,8 @@ class CampoTextoPersonalizado extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final String? prefixText;
   final TextCapitalization textCapitalization;
+  final bool enableSuggestions;
+  final bool autocorrect;
 
   const CampoTextoPersonalizado({
     super.key,
@@ -181,6 +183,8 @@ class CampoTextoPersonalizado extends StatefulWidget {
     this.onChanged,
     this.prefixText,
     this.textCapitalization = TextCapitalization.none,
+    this.enableSuggestions = false,
+    this.autocorrect = false,
   });
 
   @override
@@ -219,8 +223,8 @@ class _CampoTextoPersonalizadoState extends State<CampoTextoPersonalizado> {
       textAlign: widget.textAlign,
       onChanged: widget.onChanged,
       enableInteractiveSelection: true, // Habilita copiado, pegado y selección interactiva
-      enableSuggestions: true, // Muestra sugerencias en teclados de Android/iOS
-      autocorrect: true, // Permite autocorrección sin saltos de cursor
+      enableSuggestions: widget.enableSuggestions, // Muestra sugerencias en teclados de Android/iOS
+      autocorrect: widget.autocorrect, // Permite autocorrección sin saltos de cursor
       buildCounter: (widget.maxLength != null)
           ? (_, {required currentLength, maxLength, required isFocused}) => null
           : null,
@@ -344,11 +348,12 @@ class _TarjetaPremiumState extends State<TarjetaPremium> with SingleTickerProvid
         ? theme.primaryColor.withValues(alpha: 0.5)
         : (isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.05));
 
+    final cardColor = widget.usaGradientePrimario
+        ? colorScheme.primary
+        : (widget.backgroundColor ?? theme.cardTheme.color);
+
     final cardContent = Container(
       decoration: BoxDecoration(
-        // 🔥 Simplificación: Eliminamos degradados para usar colores sólidos puros (Máxima legibilidad)
-        gradient: null,
-        color: widget.usaGradientePrimario ? colorScheme.primary : (widget.backgroundColor ?? theme.cardTheme.color),
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         border: Border.all(
           color: widget.usaGradientePrimario ? Colors.transparent : borderColor,
@@ -357,7 +362,7 @@ class _TarjetaPremiumState extends State<TarjetaPremium> with SingleTickerProvid
         boxShadow: isDark ? [] : ColoresApp.sombraSuave,
       ),
       child: Material(
-        type: MaterialType.transparency,
+        color: cardColor,
         borderRadius: BorderRadius.circular(DimensionesApp.radioGrande),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

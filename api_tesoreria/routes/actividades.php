@@ -65,10 +65,14 @@ switch ($accion) {
             echo json_encode(['ok' => false, 'msj' => 'No se puede eliminar porque hay pagos registrados.']);
             exit;
         }
+        $stmtTitle = $pdo->prepare("SELECT titulo FROM DSI_salon_actividades WHERE id = ?");
+        $stmtTitle->execute([$id]);
+        $tituloAct = $stmtTitle->fetchColumn() ?: "ID: $id";
+
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_actividades WHERE id = ?");
         if ($stmt->execute([$id])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Actividad', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Eliminó Actividad #$id"]);
+            $stmtAud->execute([$adminId, "Eliminó la actividad: $tituloAct"]);
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false]);
@@ -115,8 +119,12 @@ switch ($accion) {
                 $stmt->execute([$actividadId, $uid, $estado, $montoMulta]);
             }
             $pdo->commit();
+            $stmtTitle = $pdo->prepare("SELECT titulo FROM DSI_salon_actividades WHERE id = ?");
+            $stmtTitle->execute([$actividadId]);
+            $tituloAct = $stmtTitle->fetchColumn() ?: "ID: $actividadId";
+
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Guardar Asistencia', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Guardó asistencia para la Actividad #$actividadId"]);
+            $stmtAud->execute([$adminId, "Guardó asistencia para la actividad: $tituloAct"]);
             echo json_encode(['ok' => true]);
         } catch (Exception $e) {
             $pdo->rollBack();

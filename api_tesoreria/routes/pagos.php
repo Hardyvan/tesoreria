@@ -41,10 +41,7 @@ switch ($accion) {
         $pagoIdInsertado = $pdo->lastInsertId();
 
         if ($exito) {
-            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Cobro S/ $monto al usuario_id $usuarioId"]);
-
-            // Obtener el nombre del alumno, de la actividad y del cajero para enviar al webhook
+            // Obtener el nombre del alumno, de la actividad y del cajero para enviar al webhook y auditoría
             $stmtInfo = $pdo->prepare("
                 SELECT 
                     (SELECT nombre FROM DSI_salon_usuarios WHERE id = ?) as alumno_nombre, 
@@ -56,6 +53,9 @@ switch ($accion) {
             $alumnoNombre = $info ? $info['alumno_nombre'] : "ID: $usuarioId";
             $actividadTitulo = $info ? $info['actividad_titulo'] : "Actividad ID: $actividadId";
             $adminNombre = $info ? $info['admin_nombre'] : "Admin ID: $adminId";
+
+            $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Registrar Pago', ?, '{$dispositivoGlobal}', NOW())");
+            $stmtAud->execute([$adminId, "Cobro de S/ $monto a $alumnoNombre ($actividadTitulo)"]);
             
             // Enviar datos de sincronización al webhook (enviamos ambos formatos de llaves para compatibilidad 100%)
             sincronizarConGoogleSheets('PAGO_NUEVO', [
@@ -91,10 +91,24 @@ switch ($accion) {
         }
         $pagoId = (int)$data['pagoId'];
         $nuevoMonto = (float)$data['nuevoMonto'];
+
+        // Obtener info del pago para auditoría
+        $stmtInfo = $pdo->prepare("
+            SELECT u.nombre as alumno_nombre, a.titulo as actividad_titulo
+            FROM DSI_salon_pagos p
+            JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
+            JOIN DSI_salon_actividades a ON p.actividad_id = a.id
+            WHERE p.id = ?
+        ");
+        $stmtInfo->execute([$pagoId]);
+        $info = $stmtInfo->fetch();
+        $alumnoNombre = $info ? $info['alumno_nombre'] : "Desconocido";
+        $actividadTitulo = $info ? $info['actividad_titulo'] : "Actividad Desconocida";
+
         $stmt = $pdo->prepare("UPDATE DSI_salon_pagos SET monto = ? WHERE id = ?");
         if ($stmt->execute([$nuevoMonto, $pagoId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Pago', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Cambió monto a S/ $nuevoMonto en Pago #$pagoId"]);
+            $stmtAud->execute([$adminId, "Cambió monto a S/ $nuevoMonto del pago de $alumnoNombre ($actividadTitulo)"]);
 
             // Webhook Sync
             sincronizarConGoogleSheets('PAGO_EDITADO', [
@@ -114,14 +128,25 @@ switch ($accion) {
              echo json_encode(['ok' => false, 'msj' => 'Seguridad bloqueada']); exit;
         }
         $pagoId = (int)$data['pagoId'];
-        $stmtUser = $pdo->prepare("SELECT usuario_id, monto FROM DSI_salon_pagos WHERE id = ?");
+        
+        // Obtener info completa del pago antes de eliminar para auditoría
+        $stmtUser = $pdo->prepare("
+            SELECT p.usuario_id, p.monto, u.nombre as alumno_nombre, a.titulo as actividad_titulo
+            FROM DSI_salon_pagos p
+            JOIN DSI_salon_usuarios u ON p.usuario_id = u.id
+            JOIN DSI_salon_actividades a ON p.actividad_id = a.id
+            WHERE p.id = ?
+        ");
         $stmtUser->execute([$pagoId]);
         $pago = $stmtUser->fetch();
+        $alumnoNombre = $pago ? $pago['alumno_nombre'] : "Desconocido";
+        $actividadTitulo = $pago ? $pago['actividad_titulo'] : "Actividad Desconocida";
+        $monto = $pago ? $pago['monto'] : "0.00";
         
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_pagos WHERE id = ?");
         if ($stmt->execute([$pagoId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Pago', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Anuló Pago #$pagoId"]);
+            $stmtAud->execute([$adminId, "Anuló pago de S/ $monto de $alumnoNombre ($actividadTitulo)"]);
 
             if ($pago) {
                 sincronizarConGoogleSheets('PAGO_ELIMINADO', [

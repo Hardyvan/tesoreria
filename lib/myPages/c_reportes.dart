@@ -606,6 +606,8 @@ class _ReporteFinancieroState extends State<ReporteFinanciero> {
              TextField(
                controller: ctrlMotivo,
                maxLines: 2,
+               enableSuggestions: false,
+               autocorrect: false,
                decoration: const InputDecoration(labelText: 'Detalle (ej. "Tesorera anterior")', prefixIcon: Icon(Icons.info_outline)),
              ),
            ],

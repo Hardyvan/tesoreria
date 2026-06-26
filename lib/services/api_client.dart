@@ -50,6 +50,9 @@ class ApiClient {
           'Authorization': 'Bearer $_secretKey',
         },
         body: jsonEncode(body),
+      ).timeout(
+        const Duration(seconds: 12),
+        onTimeout: () => http.Response('{"ok":false,"msj":"Tiempo de espera agotado"}', 408),
       );
 
       if (response.statusCode == 200 || response.statusCode == 400 || response.statusCode == 500) {

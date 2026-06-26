@@ -169,8 +169,15 @@ class ServicioExcel {
               if (cell.value is DoubleCellValue) {
                 valStr = 'S/ ${(cell.value as DoubleCellValue).value.toStringAsFixed(2)}';
               }
-              if (valStr.length > maxLen) {
-                maxLen = valStr.length.toDouble();
+              // Medir la línea más larga en caso de textos multilínea (como cabeceras apiladas)
+              double longestLine = 0.0;
+              for (var line in valStr.split('\n')) {
+                if (line.length > longestLine) {
+                  longestLine = line.length.toDouble();
+                }
+              }
+              if (longestLine > maxLen) {
+                maxLen = longestLine;
               }
             }
           }
@@ -210,15 +217,18 @@ class ServicioExcel {
       
       final actividadesLista = List<Map<String, dynamic>>.from(res['actividades'] ?? []);
       
-      // Crear cabecera de columnas
+      // Crear cabecera de columnas apiladas verticalmente
       List<CellValue> headersMatriz = [
         TextCellValue('N°'),
         TextCellValue('NOMBRES Y APELLIDOS'),
       ];
       for (var act in actividadesLista) {
-        headersMatriz.add(TextCellValue(act['titulo']?.toString() ?? ''));
+        // Romper el título de la actividad por palabras para que se apile verticalmente
+        String titulo = act['titulo']?.toString() ?? '';
+        titulo = titulo.trim().replaceAll(RegExp(r'\s+'), '\n');
+        headersMatriz.add(TextCellValue(titulo));
       }
-      headersMatriz.add(TextCellValue('Total General (S/)'));
+      headersMatriz.add(TextCellValue('Total\nGeneral\n(S/)'));
       sheetMatriz.appendRow(headersMatriz);
 
       // Agrupar los pagos por alumno y actividad
@@ -551,6 +561,97 @@ class ServicioExcel {
         HorizontalAlign.Center
       ]);
       autoAjustarColumnas(sheetFondo);
+
+      // -----------------------------------------------------
+      // 6. PESTAÑA: RESUMEN DE ACTIVIDADES
+      // -----------------------------------------------------
+      Sheet sheetActividades = excel['Resumen de Actividades'];
+
+
+      // Calcular ingresos y gastos por actividad
+      Map<String, double> ingresosPorActividad = {};
+      Map<String, double> gastosPorActividad = {};
+
+      for (var p in pagosLista) {
+        String act = p['actividad'] ?? 'Sin Actividad';
+        double monto = double.tryParse(p['monto']?.toString() ?? '0') ?? 0.0;
+        ingresosPorActividad[act] = (ingresosPorActividad[act] ?? 0.0) + monto;
+      }
+
+      for (var g in gastosLista) {
+        String act = g['actividad'] ?? 'Sin Actividad';
+        double monto = double.tryParse(g['monto']?.toString() ?? '0') ?? 0.0;
+        gastosPorActividad[act] = (gastosPorActividad[act] ?? 0.0) + monto;
+      }
+
+      double totalExtras = 0.0;
+      for (var e in extrasLista) {
+        double monto = double.tryParse(e['monto']?.toString() ?? '0') ?? 0.0;
+        totalExtras += monto;
+      }
+
+      // Obtener lista única de actividades que tienen movimientos
+      Set<String> todasLasActividades = {};
+      todasLasActividades.addAll(ingresosPorActividad.keys);
+      todasLasActividades.addAll(gastosPorActividad.keys);
+
+      sheetActividades.appendRow([
+        TextCellValue('ACTIVIDAD / CONCEPTO'),
+        TextCellValue('INGRESOS (S/)'),
+        TextCellValue('GASTOS (S/)'),
+        TextCellValue('UTILIDAD / PÉRDIDA (S/)'),
+      ]);
+
+      double totalIngAct = 0.0;
+      double totalGasAct = 0.0;
+      double totalUtilAct = 0.0;
+
+      // Si hay extras (donaciones), agregarlas primero
+      if (totalExtras > 0) {
+        sheetActividades.appendRow([
+          TextCellValue('DONACIONES / EXTRAS'),
+          DoubleCellValue(totalExtras),
+          const DoubleCellValue(0.0),
+          DoubleCellValue(totalExtras),
+        ]);
+        totalIngAct += totalExtras;
+        totalUtilAct += totalExtras;
+      }
+
+      for (var act in todasLasActividades) {
+        if (act == 'DONACIONES / EXTRAS') continue;
+        
+        double ing = ingresosPorActividad[act] ?? 0.0;
+        double gas = gastosPorActividad[act] ?? 0.0;
+        double util = ing - gas;
+
+        sheetActividades.appendRow([
+          TextCellValue(act),
+          DoubleCellValue(ing),
+          DoubleCellValue(gas),
+          DoubleCellValue(util),
+        ]);
+
+        totalIngAct += ing;
+        totalGasAct += gas;
+        totalUtilAct += util;
+      }
+
+      // Fila de total
+      sheetActividades.appendRow([
+        TextCellValue('TOTAL GENERAL'),
+        DoubleCellValue(totalIngAct),
+        DoubleCellValue(totalGasAct),
+        DoubleCellValue(totalUtilAct),
+      ]);
+
+      estilizarTabular(sheetActividades, [
+        HorizontalAlign.Left,
+        HorizontalAlign.Right,
+        HorizontalAlign.Right,
+        HorizontalAlign.Right,
+      ]);
+      autoAjustarColumnas(sheetActividades);
 
       // -----------------------------------------------------
       // GUARDAR Y COMPARTIR

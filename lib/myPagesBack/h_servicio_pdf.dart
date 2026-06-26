@@ -32,9 +32,19 @@ class ServicioPdf {
       final gastosLista = List<Map<String, dynamic>>.from(res['gastos'] ?? []);
       final extrasLista = List<Map<String, dynamic>>.from(res['extras'] ?? []);
       final fondoLista = List<Map<String, dynamic>>.from(res['fondo_base'] ?? []);
+      final actividadesLista = List<Map<String, dynamic>>.from(res['actividades'] ?? []);
 
-      // Crear el documento PDF
-      final pdf = pw.Document();
+      // Cargar fuentes compatibles con Unicode para evitar errores de acentos/ñ
+      final pw.Font unicodeFont = await PdfGoogleFonts.openSansRegular();
+      final pw.Font unicodeFontBold = await PdfGoogleFonts.openSansBold();
+
+      // Crear el documento PDF con el tema de fuente configurado
+      final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(
+          base: unicodeFont,
+          bold: unicodeFontBold,
+        ),
+      );
       final String timestamp = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
 
       // Estilos de texto reutilizables
@@ -700,6 +710,122 @@ class ServicioPdf {
         return widgets;
       }
 
+      // 7. Cuadro General de Pagos (Matriz) Widget
+      List<pw.Widget> buildCuadroGeneralWidgets() {
+        // Agrupar los pagos por alumno y actividad
+        Map<String, double> mapaPagos = {};
+        for (var pago in pagosLista) {
+          String alumno = pago['alumno']?.toString() ?? '';
+          String actividad = pago['actividad']?.toString() ?? '';
+          double monto = double.tryParse(pago['monto']?.toString() ?? '0') ?? 0.0;
+          
+          String key = '${alumno}_$actividad';
+          mapaPagos[key] = (mapaPagos[key] ?? 0.0) + monto;
+        }
+
+        List<pw.Widget> widgets = [];
+        widgets.add(pw.Text('Cuadro General de Pagos (Matriz de Actividades)', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1D3557'))));
+        widgets.add(pw.SizedBox(height: 8));
+
+        List<List<String>> rows = [];
+        
+        // Cabecera
+        List<String> headers = ['N°', 'Nombres y Apellidos'];
+        for (var act in actividadesLista) {
+          String titulo = act['titulo']?.toString() ?? '';
+          // Reemplazar espacios por saltos de línea para apilar verticalmente
+          titulo = titulo.trim().replaceAll(RegExp(r'\s+'), '\n');
+          headers.add(titulo);
+        }
+        headers.add('Total\nGeneral');
+        rows.add(headers);
+
+        int correlativo = 1;
+        List<double> totalesColumnasActividades = List.filled(actividadesLista.length, 0.0);
+        double totalGeneralTodosAlumnos = 0.0;
+
+        for (var user in deudoresLista) {
+          String nombreAlumno = user['nombre']?.toString() ?? '';
+          List<String> row = [
+            (correlativo++).toString(),
+            nombreAlumno,
+          ];
+          
+          double totalPagadoPorAlumno = 0.0;
+          
+          for (int i = 0; i < actividadesLista.length; i++) {
+            var act = actividadesLista[i];
+            String tituloAct = act['titulo']?.toString() ?? '';
+            
+            String key = '${nombreAlumno}_$tituloAct';
+            double montoPagado = mapaPagos[key] ?? 0.0;
+            
+            totalPagadoPorAlumno += montoPagado;
+            totalesColumnasActividades[i] += montoPagado;
+            
+            row.add(montoPagado > 0 ? montoPagado.toStringAsFixed(0) : '-');
+          }
+          
+          totalGeneralTodosAlumnos += totalPagadoPorAlumno;
+          row.add(totalPagadoPorAlumno.toStringAsFixed(0));
+          rows.add(row);
+        }
+
+        // Fila de Totales de Columnas al final
+        List<String> footer = [
+          '',
+          'Total',
+        ];
+        for (double totAct in totalesColumnasActividades) {
+          footer.add(totAct.toStringAsFixed(0));
+        }
+        footer.add(totalGeneralTodosAlumnos.toStringAsFixed(0));
+        rows.add(footer);
+
+        // Configurar anchos de columna dinámicos fijos para que la tabla sea compacta y se "pegue" a la izquierda
+        Map<int, pw.TableColumnWidth> colWidths = {
+          0: const pw.FixedColumnWidth(18), // N°
+          1: const pw.FixedColumnWidth(160), // Nombres y Apellidos (ancho fijo y suficiente)
+        };
+        for (int i = 0; i < actividadesLista.length; i++) {
+          colWidths[i + 2] = const pw.FixedColumnWidth(38); // Columnas estrechas para actividades
+        }
+        colWidths[actividadesLista.length + 2] = const pw.FixedColumnWidth(38); // Total
+
+        widgets.add(
+          pw.Align(
+            alignment: pw.Alignment.centerLeft,
+            child: pw.TableHelper.fromTextArray(
+              headers: rows[0],
+              data: rows.sublist(1),
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              columnWidths: colWidths,
+              headerStyle: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: tableHeaderDecoration,
+              cellStyle: const pw.TextStyle(fontSize: 6.5, color: PdfColors.black),
+              cellAlignment: pw.Alignment.centerRight,
+              cellAlignments: {
+                0: pw.Alignment.center,
+                1: pw.Alignment.centerLeft,
+              },
+              rowDecoration: const pw.BoxDecoration(
+                color: PdfColors.white,
+              ),
+              oddRowDecoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('#F8F9FA'),
+              ),
+              headerAlignment: pw.Alignment.center,
+              headerAlignments: {
+                0: pw.Alignment.center,
+                1: pw.Alignment.centerLeft,
+              },
+            ),
+          ),
+        );
+
+        return widgets;
+      }
+
       // ------------------------------------------------------------------------
       // ASOCIACIÓN DE COMPONENTES A PÁGINAS DEL PDF SEGÚN OPCIÓN
       // ------------------------------------------------------------------------
@@ -730,6 +856,21 @@ class ServicioPdf {
               footer: (context) => buildFooter(context),
               build: (context) => [
                 ...buildAlumnosWidgets(),
+              ],
+            ),
+          );
+        }
+
+        // Página: Cuadro General de Pagos (Landscape)
+        if (deudoresLista.isNotEmpty) {
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: PdfPageFormat.a4.landscape,
+              margin: const pw.EdgeInsets.all(20),
+              header: (context) => buildHeader('Cierre Contable Completo - Cuadro General de Pagos'),
+              footer: (context) => buildFooter(context),
+              build: (context) => [
+                ...buildCuadroGeneralWidgets(),
               ],
             ),
           );
@@ -824,13 +965,17 @@ class ServicioPdf {
             label = 'Historial de Fondo Inicial de Apertura';
             widgetBuilder = () => buildFondoWidgets();
             break;
+          case 7:
+            label = 'Cuadro General de Pagos';
+            widgetBuilder = () => buildCuadroGeneralWidgets();
+            break;
           default:
             throw Exception('Opción no configurada para PDF');
         }
 
         pdf.addPage(
           pw.MultiPage(
-            pageFormat: PdfPageFormat.a4,
+            pageFormat: opcion == 7 ? PdfPageFormat.a4.landscape : PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(20),
             header: (context) => buildHeader(label),
             footer: (context) => buildFooter(context),

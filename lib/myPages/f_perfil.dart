@@ -133,7 +133,6 @@ class PerfilUsuario extends StatelessWidget {
                 return Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: cardColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: borderColor),
                     boxShadow: [
@@ -144,14 +143,18 @@ class PerfilUsuario extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. SWITCH MODO OSCURO
-                        _themeSwitchTile(ref: ref),
-                        const SizedBox(height: 10),
+                  child: Material(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 1. SWITCH MODO OSCURO
+                          _themeSwitchTile(ref: ref),
+                          const SizedBox(height: 10),
 
                         // 2. PALETA DE COLORES
                         Text(
@@ -178,7 +181,8 @@ class PerfilUsuario extends StatelessWidget {
                       ],
                     ),
                   ),
-                );
+                ),
+              );
               },
             ),
 
@@ -748,71 +752,101 @@ class _TarjetaUsuario extends StatelessWidget {
             // ACCIONES
             PopupMenuButton<String>(
               onSelected: (accion) => _manejarAccion(context, accion, usuario),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'ver',
-                  child: ListTile(
-                    leading: Icon(Icons.visibility),
-                    title: Text('Ver Perfil'),
+              itemBuilder: (context) {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return [
+                  PopupMenuItem(
+                    value: 'ver',
+                    child: Row(
+                      children: [
+                        Icon(Icons.visibility, color: isDark ? Colors.white70 : Colors.black54),
+                        const SizedBox(width: 12),
+                        Text('Ver Perfil', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                      ],
+                    ),
                   ),
-                ),
-                if (usuario.rol == 'Alumno')
+                  if (usuario.rol == 'Alumno')
+                    PopupMenuItem(
+                      value: 'exonerar',
+                      child: Row(
+                        children: [
+                          Icon(Icons.verified_user_outlined, color: isDark ? Colors.white70 : Colors.black54),
+                          const SizedBox(width: 12),
+                          Text('Exoneraciones', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                        ],
+                      ),
+                    ),
+                  PopupMenuItem(
+                    value: 'edit_name',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, color: isDark ? Colors.white70 : Colors.black54),
+                        const SizedBox(width: 12),
+                        Text('Editar Nombre', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'rol',
+                    child: Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings, color: isDark ? Colors.white70 : Colors.black54),
+                        const SizedBox(width: 12),
+                        Text('Cambiar Rol', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'bloqueo',
+                    child: Row(
+                      children: [
+                        Icon(
+                          esActivo ? Icons.block : Icons.check_circle,
+                          color: esActivo ? Colors.red : Colors.green,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          esActivo ? 'Bloquear Cuenta' : 'Desbloquear',
+                          style: TextStyle(color: esActivo ? Colors.red : Colors.green),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'pass',
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_reset, color: isDark ? Colors.white70 : Colors.black54),
+                        const SizedBox(width: 12),
+                        Text('Restablecer Pass', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'fusionar',
+                    child: Row(
+                      children: [
+                        Icon(Icons.merge_type, color: isDark ? Colors.white70 : Colors.black54),
+                        const SizedBox(width: 12),
+                        Text('Fusionar Cuenta', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
-                    value: 'exonerar',
-                    child: ListTile(
-                      leading: Icon(Icons.verified_user_outlined),
-                      title: Text('Exoneraciones'),
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_forever, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text(
+                          'Eliminar Usuario',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ),
-                const PopupMenuItem(
-                  value: 'edit_name',
-                  child: ListTile(
-                    leading: Icon(Icons.edit),
-                    title: Text('Editar Nombre'),
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'rol',
-                  child: ListTile(
-                    leading: Icon(Icons.admin_panel_settings),
-                    title: Text('Cambiar Rol'),
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'bloqueo',
-                  child: ListTile(
-                    leading: Icon(
-                      esActivo ? Icons.block : Icons.check_circle,
-                      color: esActivo ? Colors.red : Colors.green,
-                    ),
-                    title: Text(esActivo ? 'Bloquear Cuenta' : 'Desbloquear'),
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'pass',
-                  child: ListTile(
-                    leading: Icon(Icons.lock_reset),
-                    title: Text('Restablecer Pass'),
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'fusionar',
-                  child: ListTile(
-                    leading: Icon(Icons.merge_type),
-                    title: Text('Fusionar Cuenta'),
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_forever, color: Colors.red),
-                    title: Text(
-                      'Eliminar Usuario',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ),
-              ],
+                ];
+              },
             ),
           ],
         ),
@@ -1092,12 +1126,23 @@ class _TarjetaUsuario extends StatelessWidget {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    Provider.of<ControladorUsuarios>(
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final exito = await Provider.of<ControladorUsuarios>(
                       context,
                       listen: false,
                     ).actualizarRol(usuario.id, nuevoRol);
+                    
+                    if (!context.mounted) return;
                     Navigator.pop(context);
+                    
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(exito ? 'Rol de ${usuario.nombre} actualizado a $nuevoRol' : 'Error al actualizar el rol'),
+                        backgroundColor: exito ? Colors.green : Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   },
                   child: const Text('Guardar'),
                 ),
@@ -1138,7 +1183,7 @@ class _TarjetaUsuario extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Desmarca las actividades de las cuales el alumno queda EXONERADO (no tendrá deuda de las mismas).',
+                    'Marca las actividades en las que el alumno participa y debe pagar. Desmarca las actividades de las cuales está EXONERADO (no tendrá deuda).',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 12),

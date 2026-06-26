@@ -4,6 +4,9 @@
  * Punto de entrada único para la comunicación de la aplicación Flutter.
  */
 
+// Configurar zona horaria de Perú de forma global
+date_default_timezone_set('America/Lima');
+
 header('Content-Type: application/json; charset=utf-8');
 
 // 1. Configuración de CORS Profesional
@@ -298,6 +301,7 @@ try {
         case 'obtenerIdAdminActual':
         case 'verificar_estado_usuarios':
         case 'obtenerControlVersion':
+        case 'sincronizarTodoGoogleSheets':
             require_once __DIR__ . '/routes/mantenimiento.php';
             break;
 

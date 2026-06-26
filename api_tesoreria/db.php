@@ -4,6 +4,9 @@
  * Carga de forma segura el archivo .env y establece conexión mediante PDO.
  */
 
+// Configurar zona horaria de Perú
+date_default_timezone_set('America/Lima');
+
 function cargarEnv($ruta) {
     if (!file_exists($ruta)) return false;
     $lineas = file($ruta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -47,6 +50,9 @@ function getDBConnection(): PDO {
 
     try {
         $pdo = new PDO($dsn, $user, $pass, $options);
+        
+        // Configurar la zona horaria de la sesión de MySQL para Perú
+        $pdo->exec("SET time_zone = '-05:00';");
         
         // Auto-creación de tabla de exoneraciones de actividades
         $pdo->exec("

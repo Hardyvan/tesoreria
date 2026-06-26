@@ -87,6 +87,8 @@ class _VistaListadoUsuariosState extends State<_VistaListadoUsuarios> {
           padding: const EdgeInsets.all(16.0),
           child: TextField(
             controller: _searchCtrl,
+            enableSuggestions: false,
+            autocorrect: false,
             onChanged: (val) => setState(() => _searchQuery = val),
             decoration: InputDecoration(
               hintText: 'Buscar alumno...',

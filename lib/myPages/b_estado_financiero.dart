@@ -221,6 +221,8 @@ class _ListaDeudoresState extends State<ListaDeudores> {
                 child: TextField(
                   key: const ValueKey('buscador_alumnos'), // MEJORA: Mantiene el foco estable durante el setState
                   controller: _searchCtrl,
+                  enableSuggestions: false,
+                  autocorrect: false,
                   onChanged: (val) {
                     setState(() {
                       _searchQuery = val;
@@ -1029,6 +1031,22 @@ class _EditarPagoState extends State<EditarPago> {
     String tipoMov = widget.pago['tipo'] ?? 'I';
     String etiqTipo = tipoMov == 'I' ? 'Pago' : (tipoMov == 'E' ? 'Gasto' : 'Ingreso Extra');
 
+    final auth = Provider.of<ControladorAuth>(context, listen: false);
+    final esSuperAdmin = auth.usuarioActual?.rol == 'SuperAdmin';
+    
+    // Regla de seguridad de 5 minutos
+    final DateTime? fechaCreacion = widget.pago['fecha'] as DateTime?;
+    bool esEditable = true;
+    String? mensajeAlerta;
+    
+    if (fechaCreacion != null) {
+      final diferencia = DateTime.now().difference(fechaCreacion);
+      if (diferencia.inMinutes > 5 && !esSuperAdmin) {
+        esEditable = false;
+        mensajeAlerta = 'Los registros solo pueden ser editados o anulados durante los primeros 5 minutos de su creación por seguridad.';
+      }
+    }
+
     return AlertDialog(
       title: Text('Editar $etiqTipo'),
       content: SingleChildScrollView(
@@ -1036,6 +1054,35 @@ class _EditarPagoState extends State<EditarPago> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (!esEditable && mensajeAlerta != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.security_rounded, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        mensajeAlerta,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (tipoMov == 'I') 
               Text("Concepto: ${widget.pago['descripcion']}", style: const TextStyle(fontSize: 14))
             else
@@ -1043,6 +1090,7 @@ class _EditarPagoState extends State<EditarPago> {
             const SizedBox(height: 10),
             TextField(
               controller: _montoCtrl,
+              readOnly: !esEditable,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
@@ -1057,6 +1105,9 @@ class _EditarPagoState extends State<EditarPago> {
               const SizedBox(height: 12),
               TextField(
                 controller: _descCtrl,
+                readOnly: !esEditable,
+                enableSuggestions: false,
+                autocorrect: false,
                 decoration: const InputDecoration(
                   labelText: 'Descripción / Concepto',
                   border: OutlineInputBorder(),
@@ -1085,7 +1136,7 @@ class _EditarPagoState extends State<EditarPago> {
                         child: Text(act['titulo'].toString()),
                       )),
                     ],
-                    onChanged: (val) {
+                    onChanged: !esEditable ? null : (val) {
                       setState(() {
                         _selectedActividadId = val;
                       });
@@ -1101,7 +1152,7 @@ class _EditarPagoState extends State<EditarPago> {
             valueListenable: _guardando,
             builder: (context, guardando, child) {
               return TextButton.icon(
-                onPressed: guardando ? null : _eliminarPago,
+                onPressed: (guardando || !esEditable) ? null : _eliminarPago,
                 icon: const Icon(Icons.delete, color: Colors.red, size: 18),
                 label: const Text('Anular', style: TextStyle(color: Colors.red)),
               );
@@ -1118,7 +1169,7 @@ class _EditarPagoState extends State<EditarPago> {
                 valueListenable: _guardando,
                 builder: (context, guardando, child) {
                   return ElevatedButton(
-                    onPressed: guardando ? null : _guardarCambios,
+                    onPressed: (guardando || !esEditable) ? null : _guardarCambios,
                     style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
                     child: guardando
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))

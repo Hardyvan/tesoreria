@@ -155,4 +155,16 @@ class ServicioAuditoria {
       return false;
     }
   }
+
+  /// Ejecuta la sincronización masiva y total de la base de datos MySQL con Google Sheets
+  Future<Map<String, dynamic>> sincronizarTodoGoogleSheets() async {
+    try {
+      final api = api_ext.ApiClient();
+      final res = await api.post('sincronizarTodoGoogleSheets');
+      return res;
+    } catch (e) {
+      debugPrint('Error en sincronizarTodoGoogleSheets: $e');
+      return {'ok': false, 'msj': 'Error de conexión al ejecutar sincronización masiva.'};
+    }
+  }
 }

@@ -235,19 +235,18 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
               ),
               if (auth.usuarioActual?.rol == 'SuperAdmin' || auth.usuarioActual?.rol == 'Admin') ...[
                 const Divider(),
-                if (auth.usuarioActual?.rol == 'SuperAdmin')
-                  ListTile(
-                    leading: Icon(Icons.security, color: Theme.of(context).colorScheme.error),
-                    title: Text(
-                      'Auditoría de Sistema', 
-                      style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)
-                    ),
-                    subtitle: Text('Corte de caja y logs de seguridad', style: TextStyle(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7))),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/auditoria');
-                    },
+                ListTile(
+                  leading: const Icon(Icons.settings_suggest_rounded, color: Colors.indigo),
+                  title: const Text(
+                    'Ajustes de Administrador', 
+                    style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)
                   ),
+                  subtitle: const Text('Sincronizar Sheets y mantenimiento', style: TextStyle(color: Colors.grey)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/ajustes_admin');
+                  },
+                ),
               ],
               const Divider(),
               ListTile(

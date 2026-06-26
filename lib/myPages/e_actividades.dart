@@ -53,6 +53,8 @@ class _GestionActividadesState extends State<GestionActividades> {
                 children: [
                   TextFormField(
                     controller: ctrlTitulo,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     decoration: const InputDecoration(labelText: 'Título'),
                     textCapitalization: TextCapitalization.words,
                     validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
@@ -511,6 +513,8 @@ class _RegistroGastosState extends State<RegistroGastos> {
                   // Descripción
                   TextFormField(
                     controller: _descripcionController,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     decoration: const InputDecoration(
                       labelText: 'Descripción del Gasto *',
                       hintText: 'Ej. Compra de suministros',

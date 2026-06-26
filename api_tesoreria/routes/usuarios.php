@@ -255,14 +255,19 @@ switch ($accion) {
             echo json_encode(['ok' => false, 'msj' => 'Operación denegada. El SuperAdministrador Principal (ID = 1) no puede ser modificado.']);
             exit;
         }
+        
+        $stmtName = $pdo->prepare("SELECT nombre FROM DSI_salon_usuarios WHERE id = ?");
+        $stmtName->execute([$targetId]);
+        $targetName = $stmtName->fetchColumn() ?: "ID: $targetId";
+
         $stmt = $pdo->prepare("UPDATE DSI_salon_usuarios SET rol = ? WHERE id = ?");
         if ($stmt->execute([$data['nuevoRol'], $targetId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Cambiar Rol', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Usuario ID: {$targetId} - Nuevo Rol: {$data['nuevoRol']}"]);
+            $stmtAud->execute([$adminId, "Cambió rol de $targetName a {$data['nuevoRol']}"]);
             echo json_encode(['ok' => true]);
         } else { echo json_encode(['ok' => false]); }
         break;
-
+ 
     case 'cambiarEstadoUsuario':
         if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false]); exit; }
         $targetId = (int)$data['targetId'];
@@ -270,19 +275,24 @@ switch ($accion) {
             echo json_encode(['ok' => false, 'msj' => 'Operación denegada. El SuperAdministrador Principal (ID = 1) no puede ser desactivado.']);
             exit;
         }
+
+        $stmtName = $pdo->prepare("SELECT nombre FROM DSI_salon_usuarios WHERE id = ?");
+        $stmtName->execute([$targetId]);
+        $targetName = $stmtName->fetchColumn() ?: "ID: $targetId";
+
         $nuevoEstado = $data['nuevoEstado']; // 'activo', 'inactivo', 'bloqueado'
         $estadoInt = ($nuevoEstado === 'activo') ? 1 : 0;
         $stmt = $pdo->prepare("UPDATE DSI_salon_usuarios SET estado = ? WHERE id = ?");
         if ($stmt->execute([$estadoInt, $targetId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Cambiar Estado Usuario', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Usuario ID: $targetId - Nuevo Estado: $nuevoEstado"]);
+            $stmtAud->execute([$adminId, "Cambió estado de $targetName a $nuevoEstado"]);
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false]);
         }
         break;
-
-
+ 
+ 
     case 'eliminarUsuario':
         if ($adminRol !== 'SuperAdmin' && $adminRol !== 'Admin') { echo json_encode(['ok' => false]); exit; }
         $targetId = (int)$data['targetId'];
@@ -290,10 +300,15 @@ switch ($accion) {
             echo json_encode(['ok' => false, 'msj' => 'Operación denegada. El SuperAdministrador Principal (ID = 1) no puede ser eliminado.']);
             exit;
         }
+
+        $stmtName = $pdo->prepare("SELECT nombre FROM DSI_salon_usuarios WHERE id = ?");
+        $stmtName->execute([$targetId]);
+        $targetName = $stmtName->fetchColumn() ?: "ID: $targetId";
+
         $stmt = $pdo->prepare("DELETE FROM DSI_salon_usuarios WHERE id = ?");
         if ($stmt->execute([$targetId])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Usuario', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Usuario ID: {$targetId} (Eliminado)"]);
+            $stmtAud->execute([$adminId, "Eliminó al usuario $targetName"]);
             echo json_encode(['ok' => true]);
         } else { echo json_encode(['ok' => false]); }
         break;
@@ -318,13 +333,64 @@ switch ($accion) {
         try {
             $pdo->beginTransaction();
 
-            // 1. Obtener nombres para auditoría y sync
-            $stmtN = $pdo->prepare("SELECT nombre FROM DSI_salon_usuarios WHERE id = ?");
-            $stmtN->execute([$idOrigen]);
-            $nombreOrigen = $stmtN->fetchColumn() ?: "ID: $idOrigen";
+            // 1. Obtener datos completos de ambos usuarios para transferencia inteligente
+            $stmtUser = $pdo->prepare("SELECT * FROM DSI_salon_usuarios WHERE id = ?");
+            $stmtUser->execute([$idOrigen]);
+            $uOrigen = $stmtUser->fetch();
+            
+            $stmtUser->execute([$idDestino]);
+            $uDestino = $stmtUser->fetch();
 
-            $stmtN->execute([$idDestino]);
-            $nombreDestino = $stmtN->fetchColumn() ?: "ID: $idDestino";
+            if (!$uOrigen || !$uDestino) {
+                echo json_encode(['ok' => false, 'msj' => 'Uno de los usuarios no existe.']);
+                exit;
+            }
+            
+            $nombreOrigen = $uOrigen['nombre'];
+            $nombreDestino = $uDestino['nombre'];
+
+            // Si el destino no tiene vinculación de Google (uid), pero el origen sí la tiene, la transferimos al destino.
+            // Hacemos lo mismo con otros campos relevantes si están vacíos en el destino.
+            $updates = [];
+            $params = [':idDestino' => $idDestino];
+
+            if (empty($uDestino['uid']) && !empty($uOrigen['uid'])) {
+                $updates[] = "uid = :uid";
+                $params[':uid'] = $uOrigen['uid'];
+            }
+            if (empty($uDestino['email']) && !empty($uOrigen['email'])) {
+                $updates[] = "email = :email";
+                $params[':email'] = $uOrigen['email'];
+            }
+            if (empty($uDestino['celular']) && !empty($uOrigen['celular'])) {
+                $updates[] = "celular = :celular";
+                $params[':celular'] = $uOrigen['celular'];
+            }
+            if (empty($uDestino['foto_url']) && !empty($uOrigen['foto_url'])) {
+                $updates[] = "foto_url = :foto_url";
+                $params[':foto_url'] = $uOrigen['foto_url'];
+            }
+            if (empty($uDestino['direccion']) && !empty($uOrigen['direccion'])) {
+                $updates[] = "direccion = :direccion";
+                $params[':direccion'] = $uOrigen['direccion'];
+            }
+            if (empty($uDestino['edad']) && !empty($uOrigen['edad'])) {
+                $updates[] = "edad = :edad";
+                $params[':edad'] = $uOrigen['edad'];
+            }
+            if (empty($uDestino['sexo']) && !empty($uOrigen['sexo'])) {
+                $updates[] = "sexo = :sexo";
+                $params[':sexo'] = $uOrigen['sexo'];
+            }
+            if (empty($uDestino['terminos_aceptados']) && !empty($uOrigen['terminos_aceptados'])) {
+                $updates[] = "terminos_aceptados = :terminos";
+                $params[':terminos'] = $uOrigen['terminos_aceptados'];
+            }
+
+            if (!empty($updates)) {
+                $sqlUp = "UPDATE DSI_salon_usuarios SET " . implode(", ", $updates) . " WHERE id = :idDestino";
+                $pdo->prepare($sqlUp)->execute($params);
+            }
 
             // 2. Obtener lista de pagos que se van a migrar para sincronizar con Google Sheets después
             $stmtP = $pdo->prepare("SELECT id, monto, actividad_id FROM DSI_salon_pagos WHERE usuario_id = ?");
@@ -494,6 +560,17 @@ switch ($accion) {
             exit;
         }
 
+        // Obtener el nombre del alumno y de la actividad para auditoría
+        $stmtInfo = $pdo->prepare("
+            SELECT 
+                (SELECT nombre FROM DSI_salon_usuarios WHERE id = ?) as alumno_nombre, 
+                (SELECT titulo FROM DSI_salon_actividades WHERE id = ?) as actividad_titulo
+        ");
+        $stmtInfo->execute([$usuarioId, $actividadId]);
+        $info = $stmtInfo->fetch();
+        $alumnoNombre = $info ? $info['alumno_nombre'] : "ID: $usuarioId";
+        $actividadTitulo = $info ? $info['actividad_titulo'] : "Actividad ID: $actividadId";
+
         if ($exonerado) {
             // Insertar exoneración (IGNORE por si ya existe)
             $stmt = $pdo->prepare("INSERT IGNORE INTO DSI_salon_exoneraciones (usuario_id, actividad_id) VALUES (?, ?)");
@@ -501,7 +578,7 @@ switch ($accion) {
             
             // Auditoría
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Exonerar Alumno', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Usuario ID {$usuarioId} exonerado de Actividad ID {$actividadId}"]);
+            $stmtAud->execute([$adminId, "Exoneró a $alumnoNombre de $actividadTitulo"]);
         } else {
             // Eliminar exoneración
             $stmt = $pdo->prepare("DELETE FROM DSI_salon_exoneraciones WHERE usuario_id = ? AND actividad_id = ?");
@@ -509,7 +586,7 @@ switch ($accion) {
 
             // Auditoría
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Quitar Exoneracion', ?, '{$dispositivoGlobal}', NOW())");
-            $stmtAud->execute([$adminId, "Usuario ID {$usuarioId} participa nuevamente en Actividad ID {$actividadId}"]);
+            $stmtAud->execute([$adminId, "Quitó exoneración a $alumnoNombre de $actividadTitulo (participa nuevamente)"]);
         }
 
     case 'aceptarTerminos':

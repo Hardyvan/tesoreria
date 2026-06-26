@@ -188,10 +188,22 @@ class _PantallaBienvenidaState extends State<PantallaBienvenida> with SingleTick
       unawaited(GerenteNotificaciones().inicializar());
       
       // Espera de carga, validación de sesión y control de versión en paralelo
+      // Timeout de seguridad: máximo 15s para que nunca quede colgado el splash
       await Future.wait([
         Future.delayed(const Duration(milliseconds: 3200)),
-        auth.verificarSesion(),
-        _chequearControlVersion(),
+        auth.verificarSesion().timeout(
+          const Duration(seconds: 15),
+          onTimeout: () {
+            debugPrint('⚠️ verificarSesion tardó demasiado, continuando sin sesión.');
+            return false;
+          },
+        ),
+        _chequearControlVersion().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('⚠️ chequearControlVersion tardó demasiado, ignorando.');
+          },
+        ),
       ]);
 
       if (!mounted) return;

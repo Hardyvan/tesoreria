@@ -143,6 +143,7 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
             : contenidoTabs,
         floatingActionButton: _cargando ? null : Column(
           mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             FloatingActionButton(
               heroTag: 'btnExcel',
@@ -658,7 +659,6 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
     await Future.delayed(const Duration(milliseconds: 100));
 
     try {
-      final doc = pw.Document();
       final List usuarios = _datosAnaliticos!['usuarios'] as List;
       const int filasPorPagina = 20;
       final int totalPaginas = (usuarios.length / filasPorPagina).ceil();
@@ -667,6 +667,17 @@ class _InsoftAnalyticsDemoState extends State<InsoftAnalyticsDemo> {
         _mostrarError('No hay usuarios para exportar');
         return;
       }
+
+      // Cargar fuentes compatibles con Unicode
+      final pw.Font unicodeFont = await PdfGoogleFonts.openSansRegular();
+      final pw.Font unicodeFontBold = await PdfGoogleFonts.openSansBold();
+
+      final doc = pw.Document(
+        theme: pw.ThemeData.withFont(
+          base: unicodeFont,
+          bold: unicodeFontBold,
+        ),
+      );
 
       for (int p = 0; p < totalPaginas; p++) {
         final int start = p * filasPorPagina;

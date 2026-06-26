@@ -335,6 +335,14 @@ class _MenuDescargasBottomSheetState extends State<_MenuDescargasBottomSheet> wi
                       ),
                       _buildFilaReporteIndividual(
                         context: context,
+                        opcion: 7,
+                        titulo: 'Cuadro General de Pagos',
+                        subtitulo: 'Matriz de aportes por alumno y actividad',
+                        icono: Icons.grid_on_rounded,
+                        colorIcono: Colors.green,
+                      ),
+                      _buildFilaReporteIndividual(
+                        context: context,
                         opcion: 3,
                         titulo: 'Historial de Pagos',
                         subtitulo: 'Registro de cobros ordinarios y multas',
