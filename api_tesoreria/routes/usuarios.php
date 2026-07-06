@@ -589,6 +589,12 @@ switch ($accion) {
             $stmtAud->execute([$adminId, "Quitó exoneración a $alumnoNombre de $actividadTitulo (participa nuevamente)"]);
         }
 
+        // Sincronizar de forma completa con Google Sheets en segundo plano
+        triggerFullSheetsSync($pdo);
+
+        echo json_encode(['ok' => true]);
+        break;
+
     case 'aceptarTerminos':
         $usuarioId = isset($data['usuarioId']) ? (int)$data['usuarioId'] : $adminId;
         if ($usuarioId === 0) {

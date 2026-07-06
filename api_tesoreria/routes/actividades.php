@@ -30,6 +30,10 @@ switch ($accion) {
             $lastId = (int)$pdo->lastInsertId();
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Crear Actividad', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Actividad: {$data['titulo']}, Costo: {$data['costo']}"]);
+            
+            // Sincronizar de forma completa con Google Sheets en segundo plano
+            triggerFullSheetsSync($pdo);
+
             echo json_encode(['ok' => true, 'id' => $lastId]);
         } else {
             echo json_encode(['ok' => false]);
@@ -50,6 +54,10 @@ switch ($accion) {
         ])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Editar Actividad', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Actividad #{$data['id']}: {$data['titulo']}"]);
+            
+            // Sincronizar de forma completa con Google Sheets en segundo plano
+            triggerFullSheetsSync($pdo);
+
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false]);
@@ -60,7 +68,7 @@ switch ($accion) {
         if ($adminRol !== 'Admin' && $adminRol !== 'SuperAdmin') { echo json_encode(['ok' => false]); exit; }
         $id = (int)$data['id'];
         $stmtP = $pdo->prepare("SELECT COUNT(*) as total FROM DSI_salon_pagos WHERE actividad_id = ?");
-        $stmtP->execute([$id]);
+        $stmtP->execute([id]);
         if ($stmtP->fetch()['total'] > 0) {
             echo json_encode(['ok' => false, 'msj' => 'No se puede eliminar porque hay pagos registrados.']);
             exit;
@@ -73,6 +81,10 @@ switch ($accion) {
         if ($stmt->execute([$id])) {
             $stmtAud = $pdo->prepare("INSERT INTO DSI_salon_auditoria (admin_id, accion, detalle, dispositivo, fecha) VALUES (?, 'Eliminar Actividad', ?, '{$dispositivoGlobal}', NOW())");
             $stmtAud->execute([$adminId, "Eliminó la actividad: $tituloAct"]);
+            
+            // Sincronizar de forma completa con Google Sheets en segundo plano
+            triggerFullSheetsSync($pdo);
+
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false]);

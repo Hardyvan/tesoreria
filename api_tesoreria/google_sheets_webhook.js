@@ -503,10 +503,13 @@ function sincronizarIngresosExtra(ss, extras) {
 
 function sincronizarEstadoAlumnos(ss, deudores) {
   var sheet = obtenerOInsertarHoja(ss, "Estado Alumnos");
-  var headers = ["ID Alumno", "Nombre", "Rol", "Celular", "Total Obligado (S/)", "Total Pagado (S/)", "Deuda Pendiente (S/)", "Estado"];
-  var rows = [headers];
+  sheet.clearContents();
   
-  var sumPagar = 0, sumPagado = 0, sumDeuda = 0;
+  var headers = ["ID Alumno", "Nombre", "Rol", "Celular", "Total Obligado (S/)", "Total Pagado (S/)", "Deuda Pendiente (S/)", "Estado"];
+  sheet.getRange(1, 1, 1, 8).setValues([headers]);
+  
+  var staticRows = [];
+  var formulaRows = [];
   
   if (deudores && deudores.length > 0) {
     deudores.sort(function(a, b) {
@@ -516,32 +519,38 @@ function sincronizarEstadoAlumnos(ss, deudores) {
     for (var i = 0; i < deudores.length; i++) {
       var d = deudores[i];
       var tPagar = parseFloat(d.total_a_pagar || 0);
-      var tPagado = parseFloat(d.total_pagado || 0);
-      var deuda = tPagar - tPagado;
-      sumPagar += tPagar;
-      sumPagado += tPagado;
-      sumDeuda += deuda;
+      var r = i + 2; // Fila de datos (2-indexed)
       
-      rows.push([
+      staticRows.push([
         parseInt(d.id || 0),
         d.nombre || "",
         d.rol || "Alumno",
         d.celular || "",
-        tPagar,
-        tPagado,
-        deuda,
-        deuda > 0 ? "Deudor" : "Al día"
+        tPagar
+      ]);
+      
+      formulaRows.push([
+        "=SUMIF('Historial Pagos'!$B$2:$B; B" + r + "; 'Historial Pagos'!$E$2:$E)",
+        "=E" + r + "-F" + r,
+        '=IF(G' + r + '>0; "Deudor"; "Al día")'
       ]);
     }
   }
   
-  // Fila de Total
-  rows.push(["", "TOTAL GENERAL", "", "", 0, 0, 0, ""]);
+  var lastRow = staticRows.length + 1;
   
-  sheet.getRange(1, 1, rows.length, 8).setValues(rows);
-  sheet.getRange(rows.length, 5).setFormula("=SUM(E2:E" + (rows.length - 1) + ")");
-  sheet.getRange(rows.length, 6).setFormula("=SUM(F2:F" + (rows.length - 1) + ")");
-  sheet.getRange(rows.length, 7).setFormula("=SUM(G2:G" + (rows.length - 1) + ")");
+  if (staticRows.length > 0) {
+    sheet.getRange(2, 1, staticRows.length, 5).setValues(staticRows);
+    sheet.getRange(2, 6, formulaRows.length, 3).setFormulas(formulaRows);
+  }
+  
+  // Fila de Total
+  var totalRowIndex = lastRow + 1;
+  sheet.getRange(totalRowIndex, 1, 1, 8).setValues([["", "TOTAL GENERAL", "", "", 0, 0, 0, ""]]);
+  sheet.getRange(totalRowIndex, 5).setFormula("=SUM(E2:E" + lastRow + ")");
+  sheet.getRange(totalRowIndex, 6).setFormula("=SUM(F2:F" + lastRow + ")");
+  sheet.getRange(totalRowIndex, 7).setFormula("=SUM(G2:G" + lastRow + ")");
+  
   SpreadsheetApp.flush();
   
   aplicarEstilosPestaña(
@@ -549,13 +558,14 @@ function sincronizarEstadoAlumnos(ss, deudores) {
     ["center", "left", "center", "center", "right", "right", "right", "center"], 
     ["", "", "", "", "S/ #,##0.00", "S/ #,##0.00", "S/ #,##0.00", ""], 
     true,
-    rows.length,
+    totalRowIndex,
     8
   );
 }
 
 function sincronizarCuadroGeneralPagos(ss, actividades, deudores, pagos) {
   var sheet = obtenerOInsertarHoja(ss, "Cuadro General Pagos");
+  sheet.clearContents();
   
   if (!actividades) actividades = [];
   if (!deudores) deudores = [];
@@ -584,81 +594,59 @@ function sincronizarCuadroGeneralPagos(ss, actividades, deudores, pagos) {
   formats.push("S/ #,##0.00");
   alignments.push("right");
   
-  var rows = [headers];
+  // Escribir cabecera
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   
-  // Crear mapa de pagos: nombreAlumno + "___" + tituloActividad → suma de montos
-  var mapaPagos = {};
-  if (pagos) {
-    for (var k = 0; k < pagos.length; k++) {
-      var p = pagos[k];
-      var key = (p.alumno || "") + "___" + (p.actividad || "");
-      mapaPagos[key] = (mapaPagos[key] || 0) + parseFloat(p.monto || 0);
-    }
-  }
+  var staticRows = [];
+  var formulaRows = [];
   
-  // Acumuladores de totales por columna
-  var columnTotals = [];
-  for (var a = 0; a < actividades.length; a++) columnTotals.push(0);
-  var grandTotal = 0;
-  
-  // Filas por alumno — valores calculados en JavaScript (sin fórmulas)
+  // Filas por alumno — usando fórmulas dinámicas
   for (var u = 0; u < deudores.length; u++) {
     var user = deudores[u];
     var nombreAlumno = user.nombre || "";
+    var r = u + 2; // Fila de datos (2-indexed)
     
-    var rowCells = [u + 1, nombreAlumno];
-    var rowTotal = 0;
+    staticRows.push([u + 1, nombreAlumno]);
     
+    var formulas = [];
     for (var a = 0; a < actividades.length; a++) {
-      var act = actividades[a];
-      var key = nombreAlumno + "___" + (act.titulo || "");
-      var monto = mapaPagos[key] || 0;
-      rowCells.push(monto);
-      columnTotals[a] += monto;
-      rowTotal += monto;
+      var col = a + 3; // Índice de columna
+      var colLetter = getColumnLetter(col);
+      // Fórmulas SUMIFS para sumar pagos confirmados del alumno para la actividad en la cabecera
+      var formula = "=SUMIFS('Historial Pagos'!$E$2:$E; 'Historial Pagos'!$B$2:$B; $B" + r + "; 'Historial Pagos'!$C$2:$C; " + colLetter + "$1)";
+      formulas.push(formula);
     }
-    rowCells.push(rowTotal);
-    grandTotal += rowTotal;
-    rows.push(rowCells);
+    
+    // Total general por alumno (suma de las columnas de actividades)
+    var colLetterStart = getColumnLetter(3);
+    var colLetterEnd = getColumnLetter(headers.length - 1);
+    formulas.push("=SUM(" + colLetterStart + r + ":" + colLetterEnd + r + ")");
+    
+    formulaRows.push(formulas);
+  }
+  
+  var lastRow = deudores.length + 1;
+  var lastCol = headers.length;
+  
+  // Escribir datos
+  if (deudores.length > 0) {
+    sheet.getRange(2, 1, deudores.length, 2).setValues(staticRows);
+    sheet.getRange(2, 3, deudores.length, lastCol - 2).setFormulas(formulaRows);
   }
   
   // Fila de Total por columna
-  var footerRow = ["", "Total"];
-  for (var a = 0; a < actividades.length; a++) {
-    footerRow.push(0);
-  }
-  footerRow.push(0);
-  rows.push(footerRow);
+  var totalRowIndex = lastRow + 1;
+  sheet.getRange(totalRowIndex, 1, 1, 2).setValues([["", "Total"]]);
   
-  sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
-  
-  var lastRow = rows.length;
-  var lastCol = headers.length;
-  
-  // Reemplazar los totales de fila por fórmulas
-  for (var u = 0; u < deudores.length; u++) {
-    var r = u + 2;
-    var colLetterStart = getColumnLetter(3);
-    var colLetterEnd = getColumnLetter(lastCol - 1);
-    sheet.getRange(r, lastCol).setFormula("=SUM(" + colLetterStart + r + ":" + colLetterEnd + r + ")");
-  }
-  
-  // Reemplazar los totales de columna por fórmulas en la última fila
-  for (var col = 3; col < lastCol; col++) {
+  // Totales de columna por fórmulas en la última fila
+  for (var col = 3; col <= lastCol; col++) {
     var colLetter = getColumnLetter(col);
-    sheet.getRange(lastRow, col).setFormula("=SUM(" + colLetter + "2:" + colLetter + (lastRow - 1) + ")");
+    sheet.getRange(totalRowIndex, col).setFormula("=SUM(" + colLetter + "2:" + colLetter + lastRow + ")");
   }
-  
-  // Reemplazar el gran total final por fórmula
-  var totalColLetter = getColumnLetter(lastCol);
-  sheet.getRange(lastRow, lastCol).setFormula("=SUM(" + totalColLetter + "2:" + totalColLetter + (lastRow - 1) + ")");
   
   SpreadsheetApp.flush();
   
-  var lastRow = rows.length;
-  var lastCol = headers.length;
-  
-  aplicarEstilosPestaña(sheet, alignments, formats, true, lastRow, lastCol);
+  aplicarEstilosPestaña(sheet, alignments, formats, true, totalRowIndex, lastCol);
   
   // Modificaciones de diseño específicas para la matriz (Cuadro General)
   try {

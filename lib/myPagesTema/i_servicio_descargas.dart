@@ -248,7 +248,7 @@ class _MenuDescargasBottomSheetState extends State<_MenuDescargasBottomSheet> wi
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '6 pestañas con recuadro contable',
+                                    '8 pestañas con recuadro contable',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       fontSize: 10,
                                       color: isDark ? Colors.white70 : Colors.green.shade900,
@@ -324,6 +324,14 @@ class _MenuDescargasBottomSheetState extends State<_MenuDescargasBottomSheet> wi
                         subtitulo: 'Saldos totales en caja y deuda general',
                         icono: Icons.pie_chart_rounded,
                         colorIcono: Colors.blue,
+                      ),
+                      _buildFilaReporteIndividual(
+                        context: context,
+                        opcion: 8,
+                        titulo: 'Resumen por Actividades',
+                        subtitulo: 'Ingresos, gastos y utilidades por cada actividad',
+                        icono: Icons.analytics_rounded,
+                        colorIcono: Colors.deepOrange,
                       ),
                       _buildFilaReporteIndividual(
                         context: context,

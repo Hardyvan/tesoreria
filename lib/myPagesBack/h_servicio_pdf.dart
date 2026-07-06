@@ -197,6 +197,175 @@ class ServicioPdf {
         ];
       }
 
+      // 1.2. Resumen por Actividades Widget
+      List<pw.Widget> buildResumenActividadesWidgets() {
+        List<pw.Widget> widgets = [];
+        
+        widgets.add(
+          pw.Text(
+            'Resumen Financiero por Actividad / Concepto',
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColor.fromHex('#1D3557'),
+            ),
+          ),
+        );
+        widgets.add(pw.SizedBox(height: 8));
+        
+        // Calcular datos
+        // 1. Ingresos Extra (Donaciones / Extras)
+        double totalExtras = 0.0;
+        for (var ext in extrasLista) {
+          totalExtras += double.tryParse(ext['monto']?.toString() ?? '0') ?? 0.0;
+        }
+        
+        // 2. Por actividad
+        Map<String, double> ingresosPorActividad = {};
+        for (var p in pagosLista) {
+          String act = p['actividad'] ?? '';
+          double monto = double.tryParse(p['monto']?.toString() ?? '0') ?? 0.0;
+          ingresosPorActividad[act] = (ingresosPorActividad[act] ?? 0.0) + monto;
+        }
+        
+        Map<String, double> gastosPorActividad = {};
+        double gastosGenerales = 0.0;
+        for (var g in gastosLista) {
+          String act = g['actividad'] ?? '';
+          double monto = double.tryParse(g['monto']?.toString() ?? '0') ?? 0.0;
+          if (act.isEmpty || act == 'Gasto General' || act == 'General') {
+            gastosGenerales += monto;
+          } else {
+            gastosPorActividad[act] = (gastosPorActividad[act] ?? 0.0) + monto;
+          }
+        }
+        
+        // Agrupar filas
+        List<List<String>> rows = [];
+        
+        // Fila 1: Donaciones / Extras
+        double utilidadExtras = totalExtras - 0.0;
+        rows.add([
+          'DONACIONES / EXTRAS',
+          fmtMoney(totalExtras),
+          fmtMoney(0.0),
+          fmtMoney(utilidadExtras)
+        ]);
+        
+        double sumaIngresos = totalExtras;
+        double sumaGastos = 0.0;
+        
+        // Filas de actividades
+        for (var act in actividadesLista) {
+          String titulo = act['titulo'] ?? '';
+          double ing = ingresosPorActividad[titulo] ?? 0.0;
+          double gas = gastosPorActividad[titulo] ?? 0.0;
+          double util = ing - gas;
+          
+          rows.add([
+            titulo,
+            fmtMoney(ing),
+            fmtMoney(gas),
+            fmtMoney(util)
+          ]);
+          
+          sumaIngresos += ing;
+          sumaGastos += gas;
+        }
+        
+        // Fila Gasto General
+        if (gastosGenerales > 0) {
+          rows.add([
+            'Gasto General',
+            fmtMoney(0.0),
+            fmtMoney(gastosGenerales),
+            fmtMoney(-gastosGenerales)
+          ]);
+          sumaGastos += gastosGenerales;
+        }
+        
+        // Fila de Total
+        double utilidadTotal = sumaIngresos - sumaGastos;
+        
+        // Convertir a tabla de PDF
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headers: ['Actividad / Concepto', 'Ingresos (S/)', 'Gastos (S/)', 'Utilidad / Pérdida (S/)'],
+            data: rows,
+            headerStyle: headerStyle,
+            headerDecoration: tableHeaderDecoration,
+            cellStyle: dataStyle,
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {
+              0: pw.Alignment.centerLeft,
+              1: pw.Alignment.centerRight,
+              2: pw.Alignment.centerRight,
+              3: pw.Alignment.centerRight,
+            },
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3.2),
+              1: const pw.FlexColumnWidth(1.6),
+              2: const pw.FlexColumnWidth(1.6),
+              3: const pw.FlexColumnWidth(2.0),
+            },
+          ),
+        );
+        
+        widgets.add(pw.SizedBox(height: 12));
+        
+        // Mostrar resumen de totales
+        widgets.add(
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Container(
+              width: 220,
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                color: PdfColor.fromHex('#ECEFF1'),
+              ),
+              child: pw.Column(
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Total Ingresos:', style: dataStyle),
+                      pw.Text(fmtMoney(sumaIngresos), style: dataStyleBold),
+                    ],
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Total Gastos:', style: dataStyle),
+                      pw.Text(fmtMoney(sumaGastos), style: dataStyleBold),
+                    ],
+                  ),
+                  pw.Divider(color: PdfColors.grey400, thickness: 0.5),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Utilidad General:', style: dataStyleBold),
+                      pw.Text(
+                        fmtMoney(utilidadTotal),
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          color: utilidadTotal >= 0 ? PdfColor.fromHex('#2E7D32') : PdfColor.fromHex('#C62828'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        
+        return widgets;
+      }
+
       // 2. Estado de Alumnos (Deudores) Widget
       List<pw.Widget> buildAlumnosWidgets() {
         double totalPagado = 0;
@@ -846,6 +1015,19 @@ class ServicioPdf {
           ),
         );
 
+        // Página 1.2: Resumen por Actividades
+        pdf.addPage(
+          pw.MultiPage(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(20),
+            header: (context) => buildHeader('Cierre Contable Completo - Resumen por Actividades'),
+            footer: (context) => buildFooter(context),
+            build: (context) => [
+              ...buildResumenActividadesWidgets(),
+            ],
+          ),
+        );
+
         // Página 2: Estado de Alumnos (Deudores)
         if (deudoresLista.isNotEmpty) {
           pdf.addPage(
@@ -968,6 +1150,10 @@ class ServicioPdf {
           case 7:
             label = 'Cuadro General de Pagos';
             widgetBuilder = () => buildCuadroGeneralWidgets();
+            break;
+          case 8:
+            label = 'Resumen por Actividades';
+            widgetBuilder = () => buildResumenActividadesWidgets();
             break;
           default:
             throw Exception('Opción no configurada para PDF');
